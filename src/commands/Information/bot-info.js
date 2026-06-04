@@ -1,9 +1,20 @@
+const os = require('node:os');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder, ChatInputCommandInteraction, Client, version } = require('discord.js');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MessageFlags,
+	SectionBuilder,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder,
+	ThumbnailBuilder,
+	version
+} = require('discord.js');
 const { isMysqlConnected } = require('../../lib/database/mysql');
-const os = require("os");
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -13,7 +24,7 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Receive information regarding Cadia"
+			description: 'Receive information regarding Cadia'
 		});
 	}
 
@@ -32,58 +43,85 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		await interaction.deferReply()
-    const databaseStatus = isMysqlConnected() ? 'Connected' : 'Disconnected';
+		await interaction.client.user.fetch();
+		await interaction.client.application.fetch();
 
-       await interaction.client.user.fetch();
-       await interaction.client.application.fetch();
+		const databaseStatus = isMysqlConnected() ? `${emojis.custom.online} Connected` : `${emojis.custom.offline} Disconnected`;
+		const developers = 'Malik, Oreo & Navin';
+		const commandCount = this.container.stores.get('commands').size;
+		const uptime = formatUptime(interaction.client.uptime);
+		const system = os.type().replace('Windows_NT', 'Windows').replace('Darwin', 'macOS');
+		const inviteUrl = interaction.client.generateInvite({
+			scopes: ['bot', 'applications.commands']
+		});
 
-       const getChannelTypeSize = type => interaction.client.channels.cache.filter(channel => type.includes(channel.type)).size;
-       const developers = 'Malik, Oreo & Navin';
-       const commandCount = this.container.stores.get('commands').size;
+		const container = new ContainerBuilder()
+			.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+			.addSectionComponents(
+				new SectionBuilder()
+					.addTextDisplayComponents(
+						new TextDisplayBuilder().setContent(
+							`## ${emojis.custom.info} Cadia Overview\n` + `A compact snapshot of Cadia's runtime, platform, and community reach.`
+						)
+					)
+					.setThumbnailAccessory(new ThumbnailBuilder().setURL(interaction.client.user.displayAvatarURL({ extension: 'png', size: 128 })))
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					[
+						`${emojis.custom.emoji1} **Client**`,
+						`${emojis.custom.arrowright} **Tag:** ${interaction.client.user.tag}`,
+						`${emojis.custom.arrowright} **Created:** 26/01/2024`,
+						`${emojis.custom.arrowright} **Developers:** ${developers}`,
+						'',
+						`${emojis.custom.connected} **Runtime**`,
+						`${emojis.custom.arrowright} **Uptime:** ${uptime}`,
+						`${emojis.custom.arrowright} **Latency:** ${Math.round(interaction.client.ws.ping)}ms`,
+						`${emojis.custom.arrowright} **Database:** ${databaseStatus}`
+					].join('\n')
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					[
+						`${emojis.custom.settings} **Platform**`,
+						`${emojis.custom.arrowright} **System:** ${system}`,
+						`${emojis.custom.arrowright} **Node.js:** ${process.version}`,
+						`${emojis.custom.arrowright} **Discord.js:** v${version}`,
+						'',
+						`${emojis.custom.compass} **Reach**`,
+						`${emojis.custom.arrowright} **Commands:** ${commandCount}`,
+						`${emojis.custom.arrowright} **Servers:** ${interaction.client.guilds.cache.size}`,
+						`${emojis.custom.arrowright} **Users:** ${interaction.client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)}`
+					].join('\n')
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.person} Requested by **${interaction.user.displayName}**`))
+			.addActionRowComponents(
+				new ActionRowBuilder().addComponents(
+					new ButtonBuilder().setLabel('Invite Cadia').setStyle(ButtonStyle.Link).setURL(inviteUrl),
+					new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL('https://discord.gg/2XunevgrHD')
+				)
+			);
 
-       const days = Math.floor(interaction.client.uptime / 86400000)
-       const hours = Math.floor(interaction.client.uptime / 3600000) % 24
-       const minutes = Math.floor(interaction.client.uptime / 60000) % 60
-       const seconds = Math.floor(interaction.client.uptime / 1000) % 60
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
 
-       let uptime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+function formatUptime(uptime) {
+	const days = Math.floor(uptime / 86_400_000);
+	const hours = Math.floor(uptime / 3_600_000) % 24;
+	const minutes = Math.floor(uptime / 60_000) % 60;
+	const seconds = Math.floor(uptime / 1_000) % 60;
 
-      await interaction.editReply({embeds: [
-			new EmbedBuilder()
-               .setColor(color.default)
-               .setDescription(`${emojis.custom.info} \`-\` **Here are some information and statistics of Cadia!**`)
-               .setThumbnail(interaction.client.user.displayAvatarURL({ dynamic: true }))
-               .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-               .setTimestamp()
-               .addFields(
-                   { name: `${emojis.custom.emoji1} \`-\` Client`, value: `\`\`\`${interaction.client.user.tag}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.developer} \`-\` Developer`, value: `\`\`\`${developers || "None"}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.calendar} \`-\` Created`, value: `\`\`\`26/01/2024\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.clock} \`-\` Uptime`, value: `\`\`\`${uptime}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.connected} \`-\` Latency`, value: `\`\`\`${interaction.client.ws.ping}ms\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.lock} \`-\` Database`, value: `\`\`\`${databaseStatus}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.settings} \`-\` System`, value: `\`\`\`${os.type().replace("Windows_NT", "Windows").replace("Darwin", "macOS")}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.nodejs} \`-\` Node.js`, value: `\`\`\`${process.version}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.djs} \`-\` Discord.js`, value: `\`\`\`v${version}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.slash} \`-\` Commands`, value: `\`\`\`${commandCount}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.compass} \`-\` Servers`, value: `\`\`\`${interaction.client.guilds.cache.size}\`\`\``, inline: true },
-
-                   { name: `${emojis.custom.friends} \`-\` Users`, value: `\`\`\`${interaction.client.guilds.cache.reduce((acc, guild) => acc+guild.memberCount, 0)}\`\`\``, inline: true }
-            )
-       ]});
-   	}
-};
+	return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
 
 module.exports = {
 	UserCommand

@@ -1,7 +1,6 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -11,7 +10,7 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Receive information regarding a role within the server"
+			description: 'Receive information regarding a role within the server'
 		});
 	}
 
@@ -23,10 +22,7 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('role-info')
 				.setDescription(this.description)
-				.addRoleOption(option =>
-					option.setName("role")
-						.setDescription("Choose the role to acquire the details of.")
-						.setRequired(true)),
+				.addRoleOption((option) => option.setName('role').setDescription('Choose the role to acquire the details of.').setRequired(true))
 		);
 	}
 
@@ -36,55 +32,80 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		const role = interaction.options.getRole('role');
 
-        if (!role || !role.id) return interaction.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setDescription(`${emojis.custom.warning} \`-\` The specified role does **not** exist!`)
-            ],
-            flags: MessageFlags.Ephemeral
-        })
+		if (!role?.id) {
+			return interaction.reply({
+				components: [buildNoticeContainer(`${emojis.custom.warning} The specified role does **not** exist!`)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-        if (role.name === "@everyone") return interaction.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setDescription(`${emojis.custom.warning} \`-\` ${role.name} role is **not** available. The role **cannot** be \`@everyone\`!`)
-            ],
-            flags: MessageFlags.Ephemeral
-        }) 
+		if (role.name === '@everyone') {
+			return interaction.reply({
+				components: [buildNoticeContainer(`${emojis.custom.warning} The \`@everyone\` role cannot be inspected with this command.`)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-		const serverIcon = interaction.guild.iconURL({ dynamic: true, format: 'png', size: 256 });
-        const createdTime = parseInt(role.createdTimestamp / 1000);
-        const mentionable = role.mentionable ? "true" : "false";
-        const managed = role.managed ? "true" : "false";
-        const hoisted = role.hoisted ? "true" : "false";
-        const position = role.position
-        const botrole = role.botrole ? "true" : "false";
-        const permissions = role.permissions
-            .toArray()
-            .map((P) => `${P}`)
-            .join(", ");
+		const createdTime = Math.floor(role.createdTimestamp / 1000);
+		const permissions = role.permissions.toArray();
+		const visiblePermissions = permissions.slice(0, 12);
+		const hiddenPermissions = Math.max(permissions.length - visiblePermissions.length, 0);
+		const roleColor = role.color || Number.parseInt(color.default.replace('#', ''), 16);
 
-        const embed = new EmbedBuilder()
-            .setColor(role.color)
-            .addFields(
-                { name: `\`👑\` \`-\` Name`, value: `${emojis.custom.arrowright} **${role.name}**`, inline: true },
-                { name: `\`🎨\` \`-\` Color`, value: `${emojis.custom.arrowright} **${role.hexColor}**`, inline: true },
-                { name: `\`👤\` \`-\` Mention`, value: `${emojis.custom.arrowright} **<@&${role.id}>**`, inline: true },
-                { name: `\`🔒\` \`-\` Hoisted`, value: `${emojis.custom.arrowright} **${hoisted}**`, inline: true },
-                { name: `\`🥇\` \`-\` Position`, value: `${emojis.custom.arrowright} **${position}**`, inline: true },
-                { name: `\`🔊\` \`-\` Mentionable`, value: `${emojis.custom.arrowright} **${mentionable}**`, inline: true },
-                { name: `\`🚨\` \`-\` Managed`, value: `${emojis.custom.arrowright} **${managed}**`, inline: true },
-                { name: `\`🤖\` \`-\` Bot Role`, value: `${emojis.custom.arrowright} **${botrole}**`, inline: true },
-                { name: `\`📅\` \`-\` Created`, value: `${emojis.custom.arrowright} <t:${createdTime}:R>`, inline: true },
-                { name: `\`🔑\` \`-\` Key Permissions`, value: `${permissions}`, inline: false },
-            )
-            .setFooter({ text: `Role ID: ${role.id}`, iconURL: interaction.user.displayAvatarURL() })
-			.setThumbnail(serverIcon)
-            .setTimestamp();
+		const container = new ContainerBuilder()
+			.setAccentColor(roleColor)
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(`## ${emojis.custom.crown} ${role.name}\nRole profile, display settings, and permission summary.`)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					[
+						`${emojis.custom.info} **Identity**`,
+						`${emojis.custom.arrowright} **Name:** ${role.name}`,
+						`${emojis.custom.arrowright} **Mention:** ${role}`,
+						`${emojis.custom.arrowright} **Color:** ${role.hexColor}`,
+						`${emojis.custom.arrowright} **Created:** <t:${createdTime}:R>`,
+						'',
+						`${emojis.custom.settings} **Settings**`,
+						`${emojis.custom.arrowright} **Position:** ${role.position}`,
+						`${emojis.custom.arrowright} **Hoisted:** ${formatBoolean(role.hoist)}`,
+						`${emojis.custom.arrowright} **Mentionable:** ${formatBoolean(role.mentionable)}`,
+						`${emojis.custom.arrowright} **Managed:** ${formatBoolean(role.managed)}`
+					].join('\n')
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					`### ${emojis.custom.lock} Key Permissions\n` +
+						(visiblePermissions.length
+							? visiblePermissions.map((permission) => `${emojis.custom.arrowright} \`${permission}\``).join('\n')
+							: `${emojis.custom.arrowright} No elevated permissions.`) +
+						(hiddenPermissions
+							? `\n${emojis.custom.info} ${hiddenPermissions} more permission${hiddenPermissions === 1 ? '' : 's'} hidden.`
+							: '')
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.pencil} Role ID: \`${role.id}\``));
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral })
-    }
-};
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+}
+
+function buildNoticeContainer(message) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.warning.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(message));
+}
+
+function formatBoolean(value) {
+	return value ? `Yes ${emojis.custom.success}` : `No ${emojis.custom.fail}`;
+}
 
 module.exports = {
 	UserCommand
