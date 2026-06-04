@@ -1,8 +1,18 @@
-const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
 const axios = require('axios');
-const { EmbedBuilder , MessageFlags} = require('discord.js');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
+const { color, emojis } = require('../../config');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
+	MessageFlags,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder
+} = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -12,7 +22,7 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Enlarge any emoji and save or steal it :)"
+			description: 'Enlarge any emoji and save or steal it :)'
 		});
 	}
 
@@ -24,10 +34,7 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('enlarge')
 				.setDescription(this.description)
-                .addStringOption((option) => option
-                    .setName('emoji')
-                    .setDescription('The emoji you would like to enlarge')
-                    .setRequired(true))
+				.addStringOption((option) => option.setName('emoji').setDescription('The emoji you would like to enlarge').setRequired(true))
 		);
 	}
 
@@ -35,41 +42,62 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		
-        let emoji = interaction.options.getString('emoji')?.trim();
+		let emoji = interaction.options.getString('emoji')?.trim();
 
-        if (emoji.startsWith("<") && emoji.endsWith(">")) {
-            
-            const id = emoji.match(/\d{15,}/g)[0];
+		if (emoji.startsWith('<') && emoji.endsWith('>')) {
+			const id = emoji.match(/\d{15,}/g)?.[0];
+			if (id) emoji = await getEmojiUrl(id);
+		}
 
-            const type = await axios.get(`https://cdn.discordapp.com/emojis/${id}.gif`)
-            .then(image => {
-                if (image) return "gif"
-                else return "png"
-            }).catch(err => {
-                return "png"
-            })
+		if (!emoji?.startsWith('https')) {
+			return interaction.reply({
+				components: [
+					buildStatusContainer(
+						color.fail,
+						`${emojis.custom.fail} **Emoji Cannot Be Enlarged**`,
+						`${emojis.custom.arrowright} Default Discord emojis do not have an image file I can enlarge.`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-            emoji = `https://cdn.discordapp.com/emojis/${id}.${type}?quality=lossless`
-        }
+		const container = buildStatusContainer(
+			color.default,
+			`${emojis.custom.emoji1} **Emoji Enlarged**`,
+			`${emojis.custom.success} Your emoji is ready to view, save, or reuse.`
+		)
+			.addMediaGalleryComponents(
+				new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(emoji).setDescription('Enlarged emoji preview'))
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.person} Requested by **${interaction.user.displayName}**`))
+			.addActionRowComponents(
+				new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Open Emoji').setStyle(ButtonStyle.Link).setURL(emoji))
+			);
 
-        if (!emoji.startsWith("http")) {
-            return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** enlarge default emojis!`)], flags: MessageFlags.Ephemeral })
-        }
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
 
-        if (!emoji.startsWith("https")) {
-            return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** enlarge default emojis!`)], flags: MessageFlags.Ephemeral })
-        }
+async function getEmojiUrl(id) {
+	const type = await axios
+		.get(`https://cdn.discordapp.com/emojis/${id}.gif`)
+		.then(() => 'gif')
+		.catch(() => 'png');
 
-        const embed = new EmbedBuilder()
-        .setColor(color.default)
-        .setDescription(`${emojis.custom.success} Your emoji has been **successfully** enlarged`)
-        .setImage(emoji)
-        .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-        .setTimestamp();
+	return `https://cdn.discordapp.com/emojis/${id}.${type}?quality=lossless`;
+}
 
-        await interaction.reply({ embeds: [embed] });
-    }
+function buildStatusContainer(accentColor, title, body) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(accentColor.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 
 module.exports = {

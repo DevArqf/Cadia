@@ -1,7 +1,15 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MessageFlags,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder
+} = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -11,7 +19,7 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Check to see if a vanity url is already taken or not"
+			description: 'Check to see if a vanity url is already taken or not'
 		});
 	}
 
@@ -23,10 +31,7 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('vanity-check')
 				.setDescription(this.description)
-                .addStringOption((option) => option
-                    .setName('vanity')
-                    .setDescription('The vanity to check')
-                    .setRequired(true)),
+				.addStringOption((option) => option.setName('vanity').setDescription('The vanity to check').setRequired(true))
 		);
 	}
 
@@ -34,38 +39,65 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const { options } = interaction;
-        const vanity = options.getString('vanity');
+		const vanity = interaction.options.getString('vanity');
+		const invite = await interaction.client.fetchInvite(vanity).catch(() => null);
 
-        async function sendMessage(message, send) {
-            const embed = new EmbedBuilder()
-            .setColor(color.default)
-            .setDescription(message);
+		if (!invite?.guild?.vanityURLCode || invite.guild.vanityURLCode !== vanity) {
+			return interaction.reply({
+				components: [buildAvailableContainer(vanity)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-            if (send) {
-                await interaction.reply({ content: `discord.gg/${vanity}`, embeds: [embed] });
-            } else {
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-        }
+		await interaction.reply({
+			components: [buildTakenContainer(vanity, invite)],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
 
-        var invite = await interaction.client.fetchInvite(vanity).catch(err => {});
+function buildAvailableContainer(vanity) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.success.replace('#', ''), 16))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				`${emojis.custom.success} **Vanity Available**\n${emojis.custom.arrowright} \`discord.gg/${vanity}\` does not appear to be held by a server.`
+			)
+		)
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(`${emojis.custom.info} Availability can change at any time if another server claims it.`)
+		);
+}
 
-        var nInviteMsg = `${emojis.custom.info} \`-\` The vanity invite \`${vanity}\` is **NOT** taken by a server!`;
+function buildTakenContainer(vanity, invite) {
+	const description = invite.guild.description || 'None';
 
-        if (!invite) {
-            await sendMessage(nInviteMsg);
-        } else {
-            if (!invite.guild || !invite.guild.vanityURLCode || invite.guild.vanityURLCode !== vanity)
-            return await sendMessage(nInviteMsg);
-
-            await sendMessage(`${emojis.custom.warning} Looks like the vanity \`${vanity}\` is taken by: \`discord.gg/${vanity}\` \n\n${emojis.custom.compass} \`-\` **${invite.guild.name}'s Features:** \n> \n ${emojis.custom.person} \`-\` **Member Count:**\n ${emojis.custom.arrowright} **${invite.memberCount}** \n${emojis.custom.community} \`-\` **Server ID:**\n ${emojis.custom.arrowright} \`${invite.guild.id}\` \n${emojis.custom.pencil} \`-\` **Server Description:**\n ${emojis.custom.arrowright} **${invite.guild.description??`None`}** \n\nThis server holds the invite \`${vanity}\` meaning it is **NOT** usable by anyone else.`, true);
-        }
-    }
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.warning.replace('#', ''), 16))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				`${emojis.custom.warning} **Vanity Taken**\n${emojis.custom.arrowright} \`discord.gg/${vanity}\` is already attached to a server.`
+			)
+		)
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				[
+					`${emojis.custom.compass} **Server:** ${invite.guild.name}`,
+					`${emojis.custom.person} **Members:** ${invite.memberCount}`,
+					`${emojis.custom.pencil} **Server ID:** \`${invite.guild.id}\``,
+					`${emojis.custom.comment} **Description:** ${description}`
+				].join('\n')
+			)
+		)
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new ButtonBuilder().setLabel('Open Invite').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${vanity}`)
+			)
+		);
 }
 
 module.exports = {
 	UserCommand
 };
-
-

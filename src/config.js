@@ -67,6 +67,7 @@ const emojis = {
 	},
 	custom: {
 		success: '<:check:1511889674736636065>',
+		news: '<:announcement:1512143509082079425>',
 		fail: '<:fail:1511898505457827982>',
 		forbidden: '<:forbidden:1511899053862949026>',
 		warning: '<:warning:1511901601798029443>',
@@ -94,8 +95,8 @@ const emojis = {
 		calendar: '<:calendar:1511904512137236490>',
 		comment: '<:speech:1511891935265165435>',
 		gem: '<:gem:1511950592036307155>',
-		upvote: '<:cl_upvote:1223407882683289700>',
-		downvote: '<:cl_downvote:1223407886508490762>',
+		upvote: '<:upvote:1512147298568638484>',
+		downvote: '<:downvote:1512147304688259214>',
 		info: '<:info:1511900647581286572>',
 		link: '<:link:1511889257659371571>',
 		maintenance: '<:update:1511950597291774064>',
@@ -114,7 +115,7 @@ const emojis = {
 		emoji2: '<:emoji2:1511894458734739566>',
 		openfolder: '<:openfolder:1511894093733564576>',
 		trash: '<:revoke:1511898504392474754>',
-		lock: '<:unlock:1511905628594110464>',
+		lock: '<:lock:1511905627369111562>',
 		chad: '<:chad:1511952062257303612>',
 		globe: '<:globe:1511898113151864864>',
 		reload: '<:refresh:1511913267608686695>'
