@@ -88,7 +88,7 @@ test('renamed brand and emoji keys do not regress', () => {
 test('required package scripts exist for public preflight startup', () => {
 	const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
-	assert.equal(pkg.scripts.test, 'node --test');
+	assert.equal(pkg.scripts.test, 'node scripts/run-tests.js');
 	assert.equal(pkg.scripts.prestart, 'npm test');
 	assert.equal(pkg.scripts.start, 'node src/index.js');
 });

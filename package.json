@@ -45,7 +45,7 @@
 		"watch": "nodemon -L --watch src",
 		"prestart": "npm test",
 		"start": "node src/index.js",
-		"test": "node --test",
+		"test": "node scripts/run-tests.js",
 		"format": "prettier --write \"src/**/*.js\""
 	},
 	"prettier": "@sapphire/prettier-config"
