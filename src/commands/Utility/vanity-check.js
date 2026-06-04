@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -16,7 +16,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -31,7 +31,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const { options } = interaction;
@@ -45,7 +45,7 @@ class UserCommand extends BeemoCommand {
             if (send) {
                 await interaction.reply({ content: `discord.gg/${vanity}`, embeds: [embed] });
             } else {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }
 
@@ -59,7 +59,7 @@ class UserCommand extends BeemoCommand {
             if (!invite.guild || !invite.guild.vanityURLCode || invite.guild.vanityURLCode !== vanity)
             return await sendMessage(nInviteMsg);
 
-            await sendMessage(`${emojis.custom.warning} Looks like the vanity \`${vanity}\` is taken by: \`discord.gg/${vanity}\` \n\n${emojis.custom.compass} \`-\` **${invite.guild.name}'s Features:** \n> \n ${emojis.custom.person} \`-\` **Member Count:**\n ${emojis.custom.replyend} **${invite.memberCount}** \n${emojis.custom.community} \`-\` **Server ID:**\n ${emojis.custom.replyend} \`${invite.guild.id}\` \n${emojis.custom.pencil} \`-\` **Server Description:**\n ${emojis.custom.replyend} **${invite.guild.description??`None`}** \n\nThis server holds the invite \`${vanity}\` meaning it is **NOT** usable by anyone else.`, true);
+            await sendMessage(`${emojis.custom.warning} Looks like the vanity \`${vanity}\` is taken by: \`discord.gg/${vanity}\` \n\n${emojis.custom.compass} \`-\` **${invite.guild.name}'s Features:** \n> \n ${emojis.custom.person} \`-\` **Member Count:**\n ${emojis.custom.arrowright} **${invite.memberCount}** \n${emojis.custom.community} \`-\` **Server ID:**\n ${emojis.custom.arrowright} \`${invite.guild.id}\` \n${emojis.custom.pencil} \`-\` **Server Description:**\n ${emojis.custom.arrowright} **${invite.guild.description??`None`}** \n\nThis server holds the invite \`${vanity}\` meaning it is **NOT** usable by anyone else.`, true);
         }
     }
 }

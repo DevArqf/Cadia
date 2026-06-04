@@ -1,12 +1,5 @@
-const { Schema, mongoose } = require('mongoose');
+const { createModel } = require('../database/model');
 
-let releasenotes = new Schema({
-    Updates: String,
-    Date: String,
-    Developer: String,
-    Version: Number
-});
-
-const ReleaseNotesSchema = mongoose.model('releasenoteSchema', releasenotes);
+const ReleaseNotesSchema = createModel('releasenoteSchema');
 
 module.exports = { ReleaseNotesSchema };

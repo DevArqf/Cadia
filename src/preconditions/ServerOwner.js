@@ -1,9 +1,9 @@
 const { Precondition } = require('@sapphire/framework');
-const BeemoCommand = require('../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../lib/structures/commands/CadiaCommand');
 
 class ServerOwnerPrecondition extends Precondition {
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		interaction.guild.ownerId === interaction.member.id
@@ -12,7 +12,7 @@ class ServerOwnerPrecondition extends Precondition {
 	}
 
 	/**
-	 * @param {BeemoCommand.ContextMenuCommandInteraction} interaction
+	 * @param {CadiaCommand.ContextMenuCommandInteraction} interaction
 	 */
 	async contextMenuRun(interaction) {
 		interaction.guild.ownerId === interaction.member.id

@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -16,7 +16,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -35,7 +35,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const { member } = interaction;
@@ -59,7 +59,7 @@ class UserCommand extends BeemoCommand {
                     .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -74,10 +74,10 @@ class UserCommand extends BeemoCommand {
         .setAuthor({ name: tag, iconURL: userAvatar })
         .setThumbnail(userAvatar)
         .addFields(
-            { name: `${emojis.custom.person} \`-\` **Member:**`, value: `${emojis.custom.replyend} ${userOption}`, inline: false},
+            { name: `${emojis.custom.person} \`-\` **Member:**`, value: `${emojis.custom.arrowright} ${userOption}`, inline: false},
             { name: `${emojis.custom.community} \`-\` **Roles:**`, value: `${member.roles.cache.map(r => r).join(' ')}`, inline: false},
-            { name: `${emojis.custom.clock} \`-\` **Joined Server:**`, value: `${emojis.custom.replyend} <t:${parseInt(member.joinedAt / 1000)}:R>`, inline: true},
-            { name: `${emojis.custom.calendar} \`-\` **Joined Discord:**`, value: `${emojis.custom.replyend} <t:${parseInt(user.createdAt / 1000)}:R>`, inline: true}
+            { name: `${emojis.custom.clock} \`-\` **Joined Server:**`, value: `${emojis.custom.arrowright} <t:${parseInt(member.joinedAt / 1000)}:R>`, inline: true},
+            { name: `${emojis.custom.calendar} \`-\` **Joined Discord:**`, value: `${emojis.custom.arrowright} <t:${parseInt(user.createdAt / 1000)}:R>`, inline: true}
         )
         .setFooter({ text: `User ID: ${userOption.id}` })
         .setTimestamp();

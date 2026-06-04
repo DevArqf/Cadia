@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -16,7 +16,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -31,7 +31,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const role = interaction.options.getRole('role');
@@ -41,7 +41,7 @@ class UserCommand extends BeemoCommand {
                 new EmbedBuilder()
                     .setDescription(`${emojis.custom.warning} \`-\` The specified role does **not** exist!`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         })
 
         if (role.name === "@everyone") return interaction.reply({
@@ -49,7 +49,7 @@ class UserCommand extends BeemoCommand {
                 new EmbedBuilder()
                     .setDescription(`${emojis.custom.warning} \`-\` ${role.name} role is **not** available. The role **cannot** be \`@everyone\`!`)
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         }) 
 
 		const serverIcon = interaction.guild.iconURL({ dynamic: true, format: 'png', size: 256 });
@@ -67,22 +67,22 @@ class UserCommand extends BeemoCommand {
         const embed = new EmbedBuilder()
             .setColor(role.color)
             .addFields(
-                { name: `\`👑\` \`-\` Name`, value: `${emojis.custom.replyend} **${role.name}**`, inline: true },
-                { name: `\`🎨\` \`-\` Color`, value: `${emojis.custom.replyend} **${role.hexColor}**`, inline: true },
-                { name: `\`👤\` \`-\` Mention`, value: `${emojis.custom.replyend} **<@&${role.id}>**`, inline: true },
-                { name: `\`🔒\` \`-\` Hoisted`, value: `${emojis.custom.replyend} **${hoisted}**`, inline: true },
-                { name: `\`🥇\` \`-\` Position`, value: `${emojis.custom.replyend} **${position}**`, inline: true },
-                { name: `\`🔊\` \`-\` Mentionable`, value: `${emojis.custom.replyend} **${mentionable}**`, inline: true },
-                { name: `\`🚨\` \`-\` Managed`, value: `${emojis.custom.replyend} **${managed}**`, inline: true },
-                { name: `\`🤖\` \`-\` Bot Role`, value: `${emojis.custom.replyend} **${botrole}**`, inline: true },
-                { name: `\`📅\` \`-\` Created`, value: `${emojis.custom.replyend} <t:${createdTime}:R>`, inline: true },
+                { name: `\`👑\` \`-\` Name`, value: `${emojis.custom.arrowright} **${role.name}**`, inline: true },
+                { name: `\`🎨\` \`-\` Color`, value: `${emojis.custom.arrowright} **${role.hexColor}**`, inline: true },
+                { name: `\`👤\` \`-\` Mention`, value: `${emojis.custom.arrowright} **<@&${role.id}>**`, inline: true },
+                { name: `\`🔒\` \`-\` Hoisted`, value: `${emojis.custom.arrowright} **${hoisted}**`, inline: true },
+                { name: `\`🥇\` \`-\` Position`, value: `${emojis.custom.arrowright} **${position}**`, inline: true },
+                { name: `\`🔊\` \`-\` Mentionable`, value: `${emojis.custom.arrowright} **${mentionable}**`, inline: true },
+                { name: `\`🚨\` \`-\` Managed`, value: `${emojis.custom.arrowright} **${managed}**`, inline: true },
+                { name: `\`🤖\` \`-\` Bot Role`, value: `${emojis.custom.arrowright} **${botrole}**`, inline: true },
+                { name: `\`📅\` \`-\` Created`, value: `${emojis.custom.arrowright} <t:${createdTime}:R>`, inline: true },
                 { name: `\`🔑\` \`-\` Key Permissions`, value: `${permissions}`, inline: false },
             )
             .setFooter({ text: `Role ID: ${role.id}`, iconURL: interaction.user.displayAvatarURL() })
 			.setThumbnail(serverIcon)
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], ephemeral: true })
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral })
     }
 };
 

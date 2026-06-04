@@ -2,12 +2,15 @@ const { Listener, LogLevel, Command } = require('@sapphire/framework');
 const { cyan } = require('colorette');
 const { Message, EmbedBuilder } = require('discord.js');
 const { channels } = require('../../config');
+const { PermissionLevels } = require('../../lib/types/Enums');
 
 class UserEvent extends Listener {
 	/**
 	 * @param {import('@sapphire/framework').ChatInputCommandSuccessPayload} payload
 	 */
 	async run(payload) {
+		if (isDeveloperCommand(payload.command)) return;
+
 		const guild = payload.interaction.guild;
 		const channel = payload.interaction.channel.name;
 		const time = payload.interaction.createdTimestamp;
@@ -32,3 +35,7 @@ class UserEvent extends Listener {
 module.exports = {
 	UserEvent
 };
+
+function isDeveloperCommand(command) {
+	return command?.permissionLevel >= PermissionLevels.Developer || /commands[\\/]Developer/.test(command?.location?.full ?? '');
+}

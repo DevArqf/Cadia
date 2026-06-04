@@ -28,7 +28,7 @@ Then you can click the 3 dots on the top right of the source control tab and cli
 
 To do local testing, you should use a seperate bot token for your local bot. You should NOT use the bot token for the main bot for local testing (only Malik/arqf is allowed to do so). You can get a bot token from the Discord Developer Portal (<https://discord.com/developers/applications>).
 
-The bot token should be put in a `.env` file in the root of the project. The `.env` file should look the one named `.env.example` in the root of the project. You should replace `TOKEN` and `MONGO_URL` with your bot token and your MongoDB URL. Although you should already have the mongodb url link sent to you by one of the bot owners.
+The bot token should be put in a `.env` file in the root of the project. The `.env` file should look the one named `.env.example` in the root of the project. You should replace `TOKEN` and `DATABASE_URL` with your bot token and your MySQL/MariaDB connection URL.
 
 Make sure to .gitignore the .env file so that it is not uploaded to the github repo.
 

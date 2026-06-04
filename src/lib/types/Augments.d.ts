@@ -1,20 +1,14 @@
-import { PrismaClient } from '@prisma/client';
 import { ArrayString } from '@skyra/env-utilities';
-import mongoose from 'mongoose';
 
 declare module '@skyra/env-utilities' {
 	interface Env {
 		TOKEN: string;
-		MONGO_URL: string;
+		DATABASE_URL: string;
+		MYSQL_URL: string;
+		MYSQL_CONNECTION_LIMIT: string;
 
 		BOT_OWNERS: ArrayString;
 		DEVELOPERS: ArrayString;
-	}
-}
-
-declare module '@sapphire/pieces' {
-	interface Container {
-		db: PrismaClient;
 	}
 }
 

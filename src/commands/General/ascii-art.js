@@ -1,12 +1,15 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { emojis } = require('../../config')
-const ascii = require('ascii-art');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
+const { promisify } = require('util');
+const figlet = require('figlet');
+const { MessageFlags } = require('discord.js');
+const { emojis } = require('../../config');
 
-class UserCommand extends BeemoCommand {
+const renderFiglet = promisify(figlet.text);
+
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -16,7 +19,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -31,26 +34,24 @@ class UserCommand extends BeemoCommand {
 	        }
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const text = interaction.options.getString("text");
 
-        ascii.font(text, 'Doom', (err, rendered) => {
-            if (err) {
-				console.error(err)
+		try {
+			const rendered = await renderFiglet(text, { font: 'Doom' });
+			const response = `\`\`\`${rendered}\`\`\``;
 
-        		const errorEmbed = new EmbedBuilder()
-            		.setColor(color.fail)
-            		.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-            		.setTimestamp();
+			return interaction.reply(response.length > 2000 ? `${response.slice(0, 1990)}\n\`\`\`` : response);
+		} catch (error) {
+			console.error(error);
 
-        		interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-
-            } else {
-                interaction.reply(`\`\`\`${rendered}\`\`\``);
-            }
-        });
+			return interaction.reply({
+				content: `${emojis.custom.fail} Oopsie, I encountered an error while rendering that text.`,
+				flags: MessageFlags.Ephemeral
+			});
+		}
     }
 };
 

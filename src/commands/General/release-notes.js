@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 const { color, emojis } = require('../../config');;
 const { ReleaseNotesSchema } = require('../../lib/schemas/releasenoteSchema');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -38,7 +38,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const { DEVELOPERS } = process.env;
@@ -52,7 +52,7 @@ class UserCommand extends BeemoCommand {
         .setColor(color.default)
         .setDescription(message);
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
             if (sub === 'publish') {
                 if (!authorizedIDs.includes(interaction.user.id)) {
@@ -84,7 +84,7 @@ class UserCommand extends BeemoCommand {
                 } else {
                     await data.forEach(async value => {
                         const updates = value.Updates.split(', ').map(update => `+ ${update}`).join('\n');
-                        string += `\`${value.Version}\` \n\n**Update Information:**\n\`\`\`diff\n${updates}\n\`\`\`\n\n${emojis.custom.developer} \`-\` **Updating Developer:**\n > ${emojis.custom.replyend} \`${value.Developer}\`\n ${emojis.custom.info} \`-\` **Update Data:**\n > ${emojis.custom.replyend} <t:${Math.floor(value.Date / 1000)}:R>`
+                        string += `\`${value.Version}\` \n\n**Update Information:**\n\`\`\`diff\n${updates}\n\`\`\`\n\n${emojis.custom.developer} \`-\` **Updating Developer:**\n > ${emojis.custom.arrowright} \`${value.Developer}\`\n ${emojis.custom.info} \`-\` **Update Data:**\n > ${emojis.custom.arrowright} <t:${Math.floor(value.Date / 1000)}:R>`
                     });
             
                     await sendMessage(`> ${emojis.custom.update} **Release Notes** ${string}`);

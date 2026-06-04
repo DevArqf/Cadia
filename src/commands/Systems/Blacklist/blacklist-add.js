@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 const { color, emojis, channels } = require('../../../config');
 const Guild = require('../../../lib/schemas/blacklistSchema');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -18,7 +18,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -33,7 +33,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction, client) {
 		try {
@@ -45,13 +45,13 @@ class UserCommand extends BeemoCommand {
 			const logChannel = interaction.client.channels.cache.get(logChannelId);
 
 			if (Number.isNaN(guildId)) {
-				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You have **entered** an character that is **not** a number`)], ephemeral: true });
+				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You have **entered** an character that is **not** a number`)], flags: MessageFlags.Ephemeral });
 			}
 
 			const existingGuild = await Guild.findOne({ guildId: targetGuild.id });
 
 			if (existingGuild !== null) {
-				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} This server has **already** been **found** in the database!`)], ephemeral: true });
+				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} This server has **already** been **found** in the database!`)], flags: MessageFlags.Ephemeral });
 			}
 
 			if (!targetGuild) {
@@ -63,27 +63,27 @@ class UserCommand extends BeemoCommand {
 					.addFields(
 						{
 							name: `${emojis.custom.settings} \`-\` **Server Name:**`,
-							value: `${emojis.custom.replyend} **The server name could not be found in the database**`,
+							value: `${emojis.custom.arrowright} **The server name could not be found in the database**`,
 							inline: false
 						},
 						{
 							name: `${emojis.custom.pencil} \`-\` **Server ID:**`,
-							value: `${emojis.custom.replyend} **${guildId}**`,
+							value: `${emojis.custom.arrowright} **${guildId}**`,
 							inline: false
 						},
 						{
 							name: `${emojis.custom.crown} \`-\` **Owner ID:**`,
-							value: `${emojis.custom.replyend} **The owner ID could not be found in the database**`,
+							value: `${emojis.custom.arrowright} **The owner ID could not be found in the database**`,
 							inline: false
 						},
 						{
 							name: `${emojis.custom.mail} \`-\` **Reason:**`,
-							value: `${emojis.custom.replyend} **${reason}, Cadia is not within the server**`,
+							value: `${emojis.custom.arrowright} **${reason}, Cadia is not within the server**`,
 							inline: false
 						},
 						{
 							name: `${emojis.custom.person} \`-\` **Moderator:**`,
-							value: `${emojis.custom.replyend} ${interaction.user.displayName}`,
+							value: `${emojis.custom.arrowright} ${interaction.user.displayName}`,
 							inline: false
 						}
                 	)
@@ -92,7 +92,7 @@ class UserCommand extends BeemoCommand {
 
 				await logChannel.send({ embeds: [logEmbed1] });
 
-				return interaction.reply(`${emojis.custom.warning} The server with the ID \`${guildId}\` has been **blacklisted**!\n\n${emojis.custom.mail} \`-\` **Reason:**\n${emojis.custom.replyend} **${reason}, Cadia is not within the server**`);
+				return interaction.reply(`${emojis.custom.warning} The server with the ID \`${guildId}\` has been **blacklisted**!\n\n${emojis.custom.mail} \`-\` **Reason:**\n${emojis.custom.arrowright} **${reason}, Cadia is not within the server**`);
 
 			}
 
@@ -102,17 +102,17 @@ class UserCommand extends BeemoCommand {
 				.addFields(
 					{
 						name: `${emojis.custom.settings} \`-\` **Server Name:**`,
-						value: `${emojis.custom.replyend} **${targetGuild.name}**`,
+						value: `${emojis.custom.arrowright} **${targetGuild.name}**`,
 						inline: false
 					},
 					{
 						name: `${emojis.custom.mail} \`-\` **Reason:**`,
-						value: `${emojis.custom.replyend} **${reason}**`,
+						value: `${emojis.custom.arrowright} **${reason}**`,
 						inline: false
 					},
 					{
 						name: `${emojis.custom.settings} \`-\` **Blacklisted By:**`,
-						value: `${emojis.custom.replyend} **${interaction.user.displayName}**`,
+						value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
 						inline: false
 					},
 				)
@@ -128,22 +128,22 @@ class UserCommand extends BeemoCommand {
 				.addFields(
 					{
 						name: `${emojis.custom.settings} \`-\` **Server Name:**`,
-						value: `${emojis.custom.replyend} **${guildName}**`,
+						value: `${emojis.custom.arrowright} **${guildName}**`,
 						inline: false
 					},
 					{
 						name: `${emojis.custom.pencil} \`-\` **Server ID**`,
-						value: `${emojis.custom.replyend} **${targetGuild.id}**`,
+						value: `${emojis.custom.arrowright} **${targetGuild.id}**`,
 						inline: false
 					},
 					{
 						name: `${emojis.custom.crown} \`-\` **Owner ID:**`,
-						value: `${emojis.custom.replyend} ${ownerId}`,
+						value: `${emojis.custom.arrowright} ${ownerId}`,
 						inline: false
 					},
 					{
 						name: `${emojis.custom.mail} \`-\` **Reason**`,
-						value: `${emojis.custom.replyend} **${reason}**`,
+						value: `${emojis.custom.arrowright} **${reason}**`,
 						inline: false
 					}
 				)
@@ -156,7 +156,7 @@ class UserCommand extends BeemoCommand {
 
 			await interaction.user.send({ embeds: [embed] });
 
-			await interaction.reply(`${emojis.custom.warning} The server with the ID \`${targetGuild.id}\` has been **blacklisted**!\n\n${emojis.custom.mail} \`-\` **Reason:**\n${emojis.custom.replyend} \`${reason}\``);
+			await interaction.reply(`${emojis.custom.warning} The server with the ID \`${targetGuild.id}\` has been **blacklisted**!\n\n${emojis.custom.mail} \`-\` **Reason:**\n${emojis.custom.arrowright} \`${reason}\``);
 		} catch (error) {
 			console.error(error);
 			const errorEmbed = new EmbedBuilder()
@@ -164,7 +164,7 @@ class UserCommand extends BeemoCommand {
 				.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
 				.setTimestamp();
 
-			await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 			return;
 		}
 	}

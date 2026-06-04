@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config')
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -48,7 +48,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
         try {
@@ -58,7 +58,7 @@ class UserCommand extends BeemoCommand {
 
         // Permission Check //
         // if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator))
-        //    return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command`)], ephemeral: true });
+        //    return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command`)], flags: MessageFlags.Ephemeral });
 
         switch (sub) {
             case 'flagged-words':
@@ -94,7 +94,7 @@ class UserCommand extends BeemoCommand {
 
                     const embed = new EmbedBuilder()
                         .setColor(color.success)
-                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.replyend} All **Swear Words** will be blocked by **${interaction.client.user}**`);
+                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.arrowright} All **Swear Words** will be blocked by **${interaction.client.user}**`);
 
                     await interaction.editReply({ content: '', embeds: [embed] });
                 }, 3000);
@@ -135,7 +135,7 @@ class UserCommand extends BeemoCommand {
 
                     const embed2 = new EmbedBuilder()
                         .setColor(color.success)
-                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.replyend} All messages containing the word **${word}** will be blocked by **${interaction.client.user}**`);
+                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.arrowright} All messages containing the word **${word}** will be blocked by **${interaction.client.user}**`);
 
                     await interaction.editReply({ content: '', embeds: [embed2] });
                 }, 3000);
@@ -175,7 +175,7 @@ class UserCommand extends BeemoCommand {
 
                     const embed3 = new EmbedBuilder()
                         .setColor(color.success)
-                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.replyend} All **Spam Messages** will be blocked by **${interaction.client.user}**`);
+                        .setDescription(`${emojis.custom.success} **Your Automod rule has been successfully created!**\n ${emojis.custom.arrowright} All **Spam Messages** will be blocked by **${interaction.client.user}**`);
 
                     await interaction.editReply({ content: '', embeds: [embed3] });
                 }, 3000);
@@ -216,7 +216,7 @@ class UserCommand extends BeemoCommand {
 
                     const embed4 = new EmbedBuilder()
                         .setColor(color.success)
-                        .setDescription(`${emojis.custom.success} **Your Automod rule has been **successfully** created!**\n ${emojis.custom.replyend} All **Spam Mentions** will be blocked by **${interaction.client.user}**`);
+                        .setDescription(`${emojis.custom.success} **Your Automod rule has been **successfully** created!**\n ${emojis.custom.arrowright} All **Spam Mentions** will be blocked by **${interaction.client.user}**`);
 
                     await interaction.editReply({ content: '', embeds: [embed4] });
                 }, 3000);
@@ -228,7 +228,7 @@ class UserCommand extends BeemoCommand {
             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             .setTimestamp();
 
-        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         return;
     }
     }

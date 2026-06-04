@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config');
 const { AutoPoster } = require('topgg-autoposter');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -28,13 +28,19 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 
 		await interaction.deferReply();
 
-        const ap = AutoPoster('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyMDA0NzUxMTAyMzUxOTc2MzEiLCJib3QiOnRydWUsImlhdCI6MTcxMDk3NDk5OH0.hq1lxyZqvSXf2CUULuX26ni6DuJbyNQFi81FtFZsZc0', interaction.client);
+        const token = process.env.TOPGG_TOKEN;
+
+        if (!token) {
+            return interaction.editReply({ content: `${emojis.custom.fail} Missing \`TOPGG_TOKEN\` in the environment.` });
+        }
+
+        const ap = AutoPoster(token, interaction.client);
 
         ap.on('posted', () => {
             interaction.editReply({ content: `${emojis.custom.success} I have **successfully** posted the stats to **Top.gg**`});

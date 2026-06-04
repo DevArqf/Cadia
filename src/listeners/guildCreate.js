@@ -1,5 +1,5 @@
 const { Listener, Events } = require('@sapphire/framework');
-const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType } = require('discord.js');
+const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType , MessageFlags} = require('discord.js');
 const { color, emojis } = require('../config');
 
 class UserEvent extends Listener {
@@ -26,7 +26,7 @@ class UserEvent extends Listener {
 			const embed = new EmbedBuilder()
 				.setColor(color.default)
 				.setDescription(
-					`${emojis.custom.heart1} **Thank you for adding me to your server!**\n ${emojis.custom.replystart} If you need any help, please feel free to join\n ${emojis.custom.replyend} our support server.\n\n ${emojis.custom.warning} **Important**\n ${emojis.custom.replystart} Make sure the bot's role is at the highest position\n ${emojis.custom.replyend} in the role hierarchy to prevent any bugs or issues.`
+					`${emojis.custom.heart1} **Thank you for adding me to your server!**\n ${emojis.custom.arrowright} If you need any help, please feel free to join\n ${emojis.custom.arrowright} our support server.\n\n ${emojis.custom.warning} **Important**\n ${emojis.custom.arrowright} Make sure the bot's role is at the highest position\n ${emojis.custom.arrowright} in the role hierarchy to prevent any bugs or issues.`
 				)
 				.setThumbnail(avatarURL);
 
@@ -72,7 +72,7 @@ class UserEvent extends Listener {
             	.setColor(color.fail)
             	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             	.setTimestamp();
-			await interaction.reply({ embeds: [errorEmbed], ephemeral: true });	
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });	
 		}
 	}
 }

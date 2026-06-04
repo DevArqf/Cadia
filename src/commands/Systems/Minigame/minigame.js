@@ -1,7 +1,7 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config');
-const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle , MessageFlags} = require('discord.js');
 const { 
     TwoZeroFourEight, 
     FindEmoji, 
@@ -18,10 +18,10 @@ const {
     Wordle 
 } = require('discord-gamecord');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -31,7 +31,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -106,7 +106,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		try {
@@ -143,7 +143,7 @@ class UserCommand extends BeemoCommand {
                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                             .setTimestamp();
             
-                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                         return;
                         }
 
@@ -178,7 +178,7 @@ class UserCommand extends BeemoCommand {
                                 .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                 .setTimestamp();
                 
-                                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                 return;
                             }
 
@@ -188,10 +188,10 @@ class UserCommand extends BeemoCommand {
                             const enemy1 = interaction.options.getUser('opponent');
 
                             if (interaction.user.id === enemy1.id) 
-                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], ephemeral: true });
+                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], flags: MessageFlags.Ephemeral });
 
                             if (enemy1.bot) 
-                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], ephemeral: true });
+                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], flags: MessageFlags.Ephemeral });
 
                             const game3 = new Connect4({
                                 message: interaction,
@@ -230,7 +230,7 @@ class UserCommand extends BeemoCommand {
                                 .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                 .setTimestamp();
 
-                            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 		                    return;
                         }
 
@@ -263,7 +263,7 @@ class UserCommand extends BeemoCommand {
                                     .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                     .setTimestamp();
     
-                                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                 return;
                             }
 
@@ -294,7 +294,7 @@ class UserCommand extends BeemoCommand {
                                         .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                         .setTimestamp();
     
-                                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                 return;
                                 }
 
@@ -318,7 +318,7 @@ class UserCommand extends BeemoCommand {
                                 .setDescription('`⚡` **Are you ready to showcase your typing speed?**')
                                 .addFields({
                                     name: '`📜` Your Challenge:',
-                                    value: `${emojis.custom.replyend} *"${selectedSentence}"*`
+                                    value: `${emojis.custom.arrowright} *"${selectedSentence}"*`
                                 })
                                 .setFooter({
                                     text: 'You have 15 seconds. Ready... Set... Go!',
@@ -541,7 +541,7 @@ class UserCommand extends BeemoCommand {
                                 } else {
                                     resultEmbed
                                         .setColor(color.fail)
-                                        .setDescription(`> ${emojis.custom.fail} ***Sad trombone..*** That was the **incorrect** word!\n\nThe **correct** word was:\n ${emojis.custom.replyend} \`${selectedWord}\``)
+                                        .setDescription(`> ${emojis.custom.fail} ***Sad trombone..*** That was the **incorrect** word!\n\nThe **correct** word was:\n ${emojis.custom.arrowright} \`${selectedWord}\``)
                                         .setTimestamp()
                                         .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
                                 }
@@ -575,11 +575,11 @@ class UserCommand extends BeemoCommand {
                             const player = interaction.options.getUser('player');
 
                             if (player.id === interaction.user.id) {
-                                return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** challenge yourself, are you lonely or something..`)], ephemeral: true });
+                                return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** challenge yourself, are you lonely or something..`)], flags: MessageFlags.Ephemeral });
                             }
 
 			    if (player.bot) 
-                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends...`)], ephemeral: true });
+                                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends...`)], flags: MessageFlags.Ephemeral });
 
                             const acceptButton = new ButtonBuilder()
                                 .setCustomId('accept')
@@ -606,7 +606,7 @@ class UserCommand extends BeemoCommand {
 
                             collector3.on('collect', async i => {
                                 if (i.user.id !== player.id) {
-                                    await i.reply({ embeds: [new EmbedBuilder().setColor(`${color.fail}`).setDescription(`${emojis.custom.forbidden} You **cannot** interact with these buttons. Only ${player} **can** interact with these buttons!`)], ephemeral: true });
+                                    await i.reply({ embeds: [new EmbedBuilder().setColor(`${color.fail}`).setDescription(`${emojis.custom.forbidden} You **cannot** interact with these buttons. Only ${player} **can** interact with these buttons!`)], flags: MessageFlags.Ephemeral });
                                     return;
                                 }
 
@@ -685,7 +685,7 @@ class UserCommand extends BeemoCommand {
                                 .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                 .setTimestamp();
     
-                            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                             return;
                             }
 
@@ -717,7 +717,7 @@ class UserCommand extends BeemoCommand {
                                     .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                     .setTimestamp();
     
-                                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                 return;
                                 }
 
@@ -750,7 +750,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -760,9 +760,9 @@ class UserCommand extends BeemoCommand {
                                     const enemy2 = interaction.options.getUser('opponent');
 
                                     if (interaction.user.id === enemy2.id) 
-                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], ephemeral: true });
+                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], flags: MessageFlags.Ephemeral });
                                     if (enemy2.bot) 
-                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], ephemeral: true });
+                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], flags: MessageFlags.Ephemeral });
 
                                     const game9 = new RockPaperScissors({
                                         message: interaction,
@@ -806,7 +806,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -832,7 +832,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -872,7 +872,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -882,9 +882,9 @@ class UserCommand extends BeemoCommand {
                                     const enemy3 = interaction.options.getUser('opponent');
 
                                     if (interaction.user.id === enemy3.id) 
-                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], ephemeral: true });
+                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with yourself, are you lonely?`)], flags: MessageFlags.Ephemeral });
                                     if (enemy3.bot) 
-                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], ephemeral: true });
+                                        return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** play with a bot, do you not have friends?`)], flags: MessageFlags.Ephemeral });
 
                                     const game12 = new TicTacToe({
                                         message: interaction,
@@ -923,7 +923,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -954,7 +954,7 @@ class UserCommand extends BeemoCommand {
                                             .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                             .setTimestamp();
     
-                                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                         return;
                                     }
 
@@ -966,7 +966,7 @@ class UserCommand extends BeemoCommand {
                                     .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                                     .setTimestamp();
     
-                                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                                 return;
                             }
                         }

@@ -1,14 +1,11 @@
-const mongoose = require('mongoose');
+const { createModel } = require('../database/model');
 
-const userSchema = new mongoose.Schema({
-	id: { type: String, unique: true, required: true },
-	balance: { type: Number, default: 0 },
-	bank: { type: Number, default: 0 },
-	createdAt: { type: Date, default: Date.now },
-	updatedAt: { type: Date, default: Date.now }
+const UserSchema = createModel('CountingUserSchema', {
+	balance: 0,
+	bank: 0,
+	createdAt: () => new Date().toISOString(),
+	updatedAt: () => new Date().toISOString()
 });
-
-const UserSchema = mongoose.model('CountingUserSchema', userSchema);
 
 module.exports = {
 	UserSchema

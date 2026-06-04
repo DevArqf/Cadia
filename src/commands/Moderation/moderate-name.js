@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -30,7 +30,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		// Defining Things
@@ -43,20 +43,20 @@ class UserCommand extends BeemoCommand {
 		// if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageNicknames))
 		// 	return await interaction.reply({
 		// 		content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`,
-		// 		ephemeral: true
+		// 		flags: MessageFlags.Ephemeral
 		// 	});
 
 		if (!ModerateUser)
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} The user **mentioned** is no longer **within** the **server**!`)], ephemeral: true })
+			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} The user **mentioned** is no longer **within** the **server**!`)], flags: MessageFlags.Ephemeral })
 
 		if (!ModerateUser.kickable)
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} I **cannot** moderate this user\'s name because they are either **higher** than me or you!`)], ephemeral: true });
+			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} I **cannot** moderate this user\'s name because they are either **higher** than me or you!`)], flags: MessageFlags.Ephemeral });
 
 		if (interaction.member.id === ModerateUser.id)
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** moderate your own name!`)], ephemeral: true });
+			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** moderate your own name!`)], flags: MessageFlags.Ephemeral });
 
 		if (ModerateUser.permissions.has(PermissionsBitField.Flags.Administrator))
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** moderate **staff members** or people with the **Administrator** permission!`)], ephemeral: true });
+			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** moderate **staff members** or people with the **Administrator** permission!`)], flags: MessageFlags.Ephemeral });
 
 		try {
 			ModerateUser.setNickname(nickname, reason);
@@ -67,24 +67,24 @@ class UserCommand extends BeemoCommand {
                 .addFields(
 					{
                         name: `${emojis.custom.pencil} \`-\` **New Nickname:**`,
-                        value: `${emojis.custom.replyend} **${nickname}**`,
+                        value: `${emojis.custom.arrowright} **${nickname}**`,
                         inline: false
                     },
                     {
                         name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.replyend} **${reason}**`,
+                        value: `${emojis.custom.arrowright} **${reason}**`,
                         inline: false
                     },
                     {
                         name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.replyend} **${interaction.user.displayName}**`,
+                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
                         inline: false
                     }
                 )
                 .setFooter({ text: `User Moderated: ${userToModerate.id}` })
                 .setTimestamp();
 
-			return interaction.reply({ embeds: [completed], ephemeral: false });
+			return interaction.reply({ embeds: [completed] });
 
 		} catch (error) {
 			console.error(error);
@@ -93,7 +93,7 @@ class UserCommand extends BeemoCommand {
             	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             	.setTimestamp();
 
-        	return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        	return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 		}
 	}
 }

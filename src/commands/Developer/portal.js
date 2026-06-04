@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder, ChannelType } = require('discord.js');
+const { EmbedBuilder, ChannelType , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -31,7 +31,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		// Extracting the server ID from the interaction options
@@ -55,13 +55,13 @@ class UserCommand extends BeemoCommand {
 			// Reply to the interaction with a message containing the URL of the source bin
 			const embed = new EmbedBuilder()
 				.setDescription(
-					`${emojis.custom.success} ${interaction.user} The server link has been **successfully** created!\n⠀${emojis.custom.replyend} [Click here to join](https://discord.gg/${invite.code})`
+					`${emojis.custom.success} ${interaction.user} The server link has been **successfully** created!\n⠀${emojis.custom.arrowright} [Click here to join](https://discord.gg/${invite.code})`
 				)
 				.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
 				.setColor(color.success)
 				.setTimestamp();
 
-			interaction.reply({ embeds: [embed], ephemeral: true });
+			interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 		} else {
 			// Sending an error message if the guild could not be found in the cache
 			console.error(error);
@@ -70,7 +70,7 @@ class UserCommand extends BeemoCommand {
 				.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
 				.setTimestamp();
 
-			await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 			return;
 		}
 	}

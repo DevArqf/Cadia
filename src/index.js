@@ -1,16 +1,21 @@
 require('./lib/util/setup');
 const { envParseString } = require('@skyra/env-utilities');
-const { BeemoClient } = require('./lib/BeemoClient');
+const { CadiaClient } = require('./lib/CadiaClient');
 const { EmbedBuilder } = require('discord.js');
+const { isMysqlConnected } = require('./lib/database/mysql');
 const { color, emojis } = require('./config');
 
-const client = new BeemoClient();
+const client = new CadiaClient();
 
 // Reminder System //
 const reminderSchema = require('./lib/schemas/reminderSchema');
 setInterval(async () => {
+    if (!isMysqlConnected()) return;
 
-    const reminders = await reminderSchema.find();
+    const reminders = await reminderSchema.find().catch((error) => {
+        client.logger.error(error);
+        return null;
+    });
 
     if (!reminders) return;
 

@@ -2,6 +2,7 @@ const { Listener, LogLevel, Command } = require('@sapphire/framework');
 const { cyan } = require('colorette');
 const { Message, EmbedBuilder } = require('discord.js');
 const { channels } = require('../../config');
+const { PermissionLevels } = require('../../lib/types/Enums');
 
 class UserEvent extends Listener {
 	/**
@@ -9,6 +10,8 @@ class UserEvent extends Listener {
 	 * @param {{message: Message, command: Command}} param0
 	 */
 	async run({ message, command }) {
+		if (isDeveloperCommand(command)) return;
+
 		const shard = this.shard(message.guild?.shardId ?? 0);
 		const commandName = this.command(command);
 		const author = this.author(message.author);
@@ -60,3 +63,7 @@ class UserEvent extends Listener {
 module.exports = {
 	UserEvent
 };
+
+function isDeveloperCommand(command) {
+	return command?.permissionLevel >= PermissionLevels.Developer || /commands[\\/]Developer/.test(command?.location?.full ?? '');
+}

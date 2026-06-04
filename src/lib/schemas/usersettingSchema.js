@@ -1,10 +1,7 @@
-const mongoose = require('mongoose');
+const { createModel } = require('../database/model');
 
-const userSettingsSchema = new mongoose.Schema({
-	userId: { type: String, required: true, unique: true },
-	receiveDMs: { type: Boolean, required: true, default: true }
+const UserSettingsSchema = createModel('UserSettingSchema', {
+	receiveDMs: true
 });
-
-const UserSettingsSchema = mongoose.model('UserSettingSchema', userSettingsSchema);
 
 module.exports = { UserSettingsSchema };

@@ -1,16 +1,16 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 const profileschema = require('../../lib/schemas/interactionSchema');
 const hug = require('../../lib/data/hug.json');
 const slap = require('../../lib/data/slap.json');
 const kill = require('../../lib/data/kill.json');
 const kiss = require('../../lib/data/kiss.json');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -20,7 +20,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -73,7 +73,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const user = (await interaction.options.getMember('user')) || interaction.member;
@@ -82,7 +82,7 @@ class UserCommand extends BeemoCommand {
 		if (!user)
 			return await interaction.reply({
 				content: `${emojis.custom.fail} The user \`${displayuser}\` **does not** exist within the server!`,
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 
 		const sub = interaction.options.getSubcommand();
@@ -94,7 +94,7 @@ class UserCommand extends BeemoCommand {
 				if (interaction.user.id === displayuser.id) {
 					await interaction.reply({
 						content: `${emojis.custom.fail} You tried **giving yourself** a **hug**, it **didn't** work \`💔\``,
-						ephemeral: true
+						flags: MessageFlags.Ephemeral
 					});
 					await interaction.channel.send({
 						content: `${interaction.user} tried **giving themselves** a **hug**, but they were **too** fat to do so \`💔\``
@@ -126,7 +126,7 @@ class UserCommand extends BeemoCommand {
 						.setTitle('`🤗` Gave a Hug!')
 						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
 						.setImage(hug[randomizer])
-						.addFields({ name: `**• Hug Given**`, value: `${emojis.custom.replystart} ${interaction.user} has given \n${emojis.custom.replyend} ${displayuser} a hug! \`❤️\`` });
+						.addFields({ name: `**• Hug Given**`, value: `${emojis.custom.arrowright} ${interaction.user} has given \n${emojis.custom.arrowright} ${displayuser} a hug! \`❤️\`` });
 
 					await interaction.reply({ embeds: [hugembed], content: `${displayuser}` });
 
@@ -172,7 +172,7 @@ class UserCommand extends BeemoCommand {
 				if (!interactdata)
 					return await interaction.reply({
 						content: `${emojis.custom.fail} That user **has not** been given any **statistics** yet!`,
-						ephemeral: true
+						flags: MessageFlags.Ephemeral
 					});
 				else {
 					const statembed = new EmbedBuilder()
@@ -183,17 +183,17 @@ class UserCommand extends BeemoCommand {
 						.addFields(
 							{
 								name: `**Statistics Received**`,
-								value: `${emojis.custom.replystart} • **Hugs**: \`${interactdata.Hug}\` \n${emojis.custom.replycontinue} **Slaps**: \`${interactdata.Slap}\` \n${emojis.custom.replycontinue} **Kills**: \`${interactdata.Kill}\` \n${emojis.custom.replyend} **Kisses**: \`${interactdata.Kiss}\``,
+								value: `${emojis.custom.arrowright} • **Hugs**: \`${interactdata.Hug}\` \n${emojis.custom.arrowright} **Slaps**: \`${interactdata.Slap}\` \n${emojis.custom.arrowright} **Kills**: \`${interactdata.Kill}\` \n${emojis.custom.arrowright} **Kisses**: \`${interactdata.Kiss}\``,
 								inline: false
 							},
 							{
 								name: `**Statistics Given**`,
-								value: `${emojis.custom.replystart} **Hugs**: \`${interactdata.HugGive}\` \n${emojis.custom.replycontinue} **Slaps**: \`${interactdata.SlapGive}\` \n${emojis.custom.replycontinue} **Kills**: \`${interactdata.KillGive}\` \n${emojis.custom.replyend} **Kisses**: \`${interactdata.KissGive}\``,
+								value: `${emojis.custom.arrowright} **Hugs**: \`${interactdata.HugGive}\` \n${emojis.custom.arrowright} **Slaps**: \`${interactdata.SlapGive}\` \n${emojis.custom.arrowright} **Kills**: \`${interactdata.KillGive}\` \n${emojis.custom.arrowright} **Kisses**: \`${interactdata.KissGive}\``,
 								inline: true
 							},
 							{
 								name: `**Failures**`,
-								value: `${emojis.custom.replystart} **Fails**: \`${interactdata.Fail}\` \n${emojis.custom.replyend} **Real Errors**: \`${interactdata.Err}\``,
+								value: `${emojis.custom.arrowright} **Fails**: \`${interactdata.Fail}\` \n${emojis.custom.arrowright} **Real Errors**: \`${interactdata.Err}\``,
 								inline: false
 							}
 						);
@@ -206,7 +206,7 @@ class UserCommand extends BeemoCommand {
 				if (interaction.user.id === displayuser.id) {
 					await interaction.reply({
 						content: `${emojis.custom.fail} You tried **slapping yourself**, you are weird.. \`👋\``,
-						ephemeral: true
+						flags: MessageFlags.Ephemeral
 					});
 					await interaction.channel.send({ content: `${interaction.user} tried **slapping themselves**, for some reason.. \`👋\`` });
 
@@ -231,29 +231,29 @@ class UserCommand extends BeemoCommand {
 					const results = [
 						{ name: `${interaction.user} **slapped** ${displayuser}!`, result: `s` },
 						{
-							name: `${interaction.user} **slapped** ${displayuser}, \n${emojis.custom.replystart} but ${displayuser} responded with an \n${emojis.custom.replyend} **explosive** punch!`,
+							name: `${interaction.user} **slapped** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** punch!`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.replystart} ${displayuser}'s **attempts** to avoid \n${emojis.custom.replyend} the **slap** went unoticed.`,
+							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **slap** went unoticed.`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **slap** ${displayuser} but \n${emojis.custom.replystart} ${displayuser} dodged the **attack**, \n${emojis.custom.replycontinue} what a fail! (oh yeah, ${displayuser} slapped \n${emojis.custom.replyend} you back)`,
+							name: `${interaction.user} tried to **slap** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged the **attack**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} slapped \n${emojis.custom.arrowright} you back)`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} **couldn't** slap ${displayuser} at \n${emojis.custom.replystart} first, but **Cadia Bot** helped \n${emojis.custom.replyend} them out! **What a save :o**`,
+							name: `${interaction.user} **couldn't** slap ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **What a save :o**`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **slap** ${displayuser}, \n${emojis.custom.replystart} but **Cadia Bot** felt mercy and \n${emojis.custom.replyend} **slapped** ${interaction.user} instead :(`,
+							name: `${interaction.user} tried to **slap** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **slapped** ${interaction.user} instead :(`,
 							result: `f`
 						},
 						{ name: `${interaction.user} **slapped** ${displayuser}, \n> they will **remember** that..`, result: `s` },
 						{ name: `${interaction.user} **slapped** ${displayuser}, \n> how rudeful!`, result: `s` },
 						{
-							name: `Looks like an **error** occured, hm.. \n${emojis.custom.replystart} perhaps the **GIF** generator is in \n${emojis.custom.replyend} another **castle**!`,
+							name: `Looks like an **error** occured, hm.. \n${emojis.custom.arrowright} perhaps the **GIF** generator is in \n${emojis.custom.arrowright} another **castle**!`,
 							result: `e`
 						},
 						{ name: `${interaction.user} **slapped** ${displayuser}, \n> lol.. **W** play \`😎\``, result: `s` },
@@ -387,7 +387,7 @@ class UserCommand extends BeemoCommand {
 				if (interaction.user.id === displayuser.id) {
 					await interaction.reply({
 						content: `${emojis.custom.fail} You tried **killing yourself**, emotional damage? \`🔪\``,
-						ephemeral: true
+						flags: MessageFlags.Ephemeral
 					});
 					await interaction.channel.send({ content: `${interaction.user} tried **killing themselves**, give them some support.. \`🔪\`` });
 
@@ -412,30 +412,30 @@ class UserCommand extends BeemoCommand {
 					const results = [
 						{ name: `${interaction.user} **killed** ${displayuser}!`, result: `s` },
 						{
-							name: `${interaction.user} **tried to kill** ${displayuser}, \n${emojis.custom.replystart} but ${displayuser} responded with an \n${emojis.custom.replyend} **explosive** punch!`,
+							name: `${interaction.user} **tried to kill** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** punch!`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.replystart} ${displayuser}'s **attempts** to avoid \n${emojis.custom.replyend} the **knife** went unoticed.`,
+							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **knife** went unoticed.`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **kill** ${displayuser} but \n${emojis.custom.replystart} ${displayuser} dodged the **attack**, \n${emojis.custom.replycontinue} what a fail! (oh yeah, ${displayuser} killed \n${emojis.custom.replyend} you)`,
+							name: `${interaction.user} tried to **kill** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged the **attack**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} killed \n${emojis.custom.arrowright} you)`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} **couldn't** kill ${displayuser} at \n${emojis.custom.replystart} first, but **Cadia Bot** helped \n${emojis.custom.replyend} them out! **Group murder babbyyy!**`,
+							name: `${interaction.user} **couldn't** kill ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **Group murder babbyyy!**`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **kill** ${displayuser}, \n${emojis.custom.replystart} but **Cadia Bot** felt mercy and \n${emojis.custom.replyend} **killed** ${interaction.user} instead :(`,
+							name: `${interaction.user} tried to **kill** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **killed** ${interaction.user} instead :(`,
 							result: `f`
 						},
 						{ name: `${interaction.user} **killed** ${displayuser}, \n> they will **remember** that..`, result: `s` },
 						{ name: `${interaction.user} **killed** ${displayuser}, \n> how evil!`, result: `s` },
 						{ name: `${interaction.user} **killed** ${displayuser}, \n> lol.. **skill issue** \`😎\``, result: `s` },
 						{
-							name: `${interaction.user} **killed** ${displayuser}, \n${emojis.custom.replystart} will they take their **revenge** (they won't, \n${emojis.custom.replyend} they are dead)`,
+							name: `${interaction.user} **killed** ${displayuser}, \n${emojis.custom.arrowright} will they take their **revenge** (they won't, \n${emojis.custom.arrowright} they are dead)`,
 							result: `s`
 						}
 					];
@@ -541,7 +541,7 @@ class UserCommand extends BeemoCommand {
 				if (interaction.user.id === displayuser.id) {
 					await interaction.reply({
 						content: `${emojis.custom.fail} You tried **kissing yourself**, feel lonely? \`💋\``,
-						ephemeral: true
+						flags: MessageFlags.Ephemeral
 					});
 					await interaction.channel.send({
 						content: `${interaction.user} tried **kissing themselves**, they feel lonely, please befriend them. \`💋\``
@@ -568,23 +568,23 @@ class UserCommand extends BeemoCommand {
 					const results = [
 						{ name: `${interaction.user} **kissed** ${displayuser}!`, result: `s` },
 						{
-							name: `${interaction.user} **tried to kiss** ${displayuser}, \n${emojis.custom.replystart} but ${displayuser} responded with an \n${emojis.custom.replyend} **explosive** slap to the face!`,
+							name: `${interaction.user} **tried to kiss** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** slap to the face!`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.replystart} ${displayuser}'s **attempts** to avoid \n${emojis.custom.replyend} the **kiss** went unnoticed.`,
+							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **kiss** went unnoticed.`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **kiss** ${displayuser} but \n${emojis.custom.replystart} ${displayuser} dodged their **mouth**, \n${emojis.custom.replycontinue} what a fail! (oh yeah, ${displayuser} reported \n${emojis.custom.replyend} you for sexual harassment)`,
+							name: `${interaction.user} tried to **kiss** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged their **mouth**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} reported \n${emojis.custom.arrowright} you for sexual harassment)`,
 							result: `f`
 						},
 						{
-							name: `${interaction.user} **couldn't** kiss ${displayuser} at \n${emojis.custom.replystart} first, but **Cadia Bot** helped \n${emojis.custom.replyend} them out! **We all need a little help!**`,
+							name: `${interaction.user} **couldn't** kiss ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **We all need a little help!**`,
 							result: `s`
 						},
 						{
-							name: `${interaction.user} tried to **kiss** ${displayuser}, \n${emojis.custom.replystart} but **Cadia Bot** felt mercy and \n${emojis.custom.replyend} **kissed** ${interaction.user} instead, what`,
+							name: `${interaction.user} tried to **kiss** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **kissed** ${interaction.user} instead, what`,
 							result: `f`
 						},
 						{ name: `${interaction.user} **kissed** ${displayuser}, \n> they **liked** that..`, result: `s` },
