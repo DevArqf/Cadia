@@ -182,8 +182,9 @@ class UserCommand extends CadiaCommand {
 					
 					await interaction.reply({ embeds: [sentEmbed] });
 					const sendMessage = await BugReportChanel.send({ embeds: [devEmbed], components: [button] });
+					const collector = sendMessage.createMessageComponentCollector({ time: 604800000 });
 					
-					interaction.client.on('interactionCreate', async (interaction) => {
+					collector.on('collect', async (interaction) => {
 						if (!interaction.isButton() || interaction.message.id !== sendMessage.id) return;
 						
 						const { customId } = interaction;

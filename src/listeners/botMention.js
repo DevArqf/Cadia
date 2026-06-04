@@ -51,7 +51,9 @@ class UserEvent extends Listener {
 
 			const reply = await message.reply({ embeds: [pingEmbed], components: [buttons] });
 
-			message.client.on('interactionCreate', async (interaction) => {
+			const collector = reply.createMessageComponentCollector({ time: 300000 });
+
+			collector.on('collect', async (interaction) => {
 				if (!interaction.isButton() || interaction.message.id !== reply.id) return;
 
 				const { customId } = interaction;

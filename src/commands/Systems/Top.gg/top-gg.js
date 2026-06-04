@@ -31,7 +31,6 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-
 		await interaction.deferReply();
 
         const token = process.env.TOPGG_TOKEN;
@@ -40,18 +39,38 @@ class UserCommand extends CadiaCommand {
             return interaction.editReply({ content: `${emojis.custom.fail} Missing \`TOPGG_TOKEN\` in the environment.` });
         }
 
-        const ap = AutoPoster(token, interaction.client);
+        const { created, poster } = getTopggPoster(interaction.client, token);
 
-        ap.on('posted', () => {
-            interaction.editReply({ content: `${emojis.custom.success} I have **successfully** posted the stats to **Top.gg**`});
-        })
+        poster.post();
 
-        ap.on('error', () => {
-            interaction.editReply({ content: `${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`});
-        })
+        return interaction.editReply({
+            content: created
+                ? `${emojis.custom.success} Top.gg autoposter has been **started** and a stats post was queued.`
+                : `${emojis.custom.success} Top.gg autoposter is **already running**. A stats post was queued.`
+        });
 	}
 };
 
+function getTopggPoster(client, token) {
+    if (client.topggPoster) return { created: false, poster: client.topggPoster };
+
+    const poster = AutoPoster(token, client, {
+        postOnStart: false
+    });
+
+    poster.on('posted', () => {
+        client.logger?.info?.('Successfully posted Cadia stats to Top.gg');
+    });
+
+    poster.on('error', (error) => {
+        client.logger?.error?.(error);
+    });
+
+    client.topggPoster = poster;
+    return { created: true, poster };
+}
+
 module.exports = {
-	UserCommand
+	UserCommand,
+	getTopggPoster
 };

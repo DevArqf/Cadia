@@ -6,7 +6,7 @@
 	"license": "UNLICENSE",
 	"type": "commonjs",
 	"dependencies": {
-		"@iamtraction/google-translate": "^2.0.1",
+		"@iamtraction/google-translate": "^1.1.2",
 		"@napi-rs/canvas": "^1.0.0",
 		"@sapphire/discord-utilities": "^3.2.2",
 		"@sapphire/discord.js-utilities": "7.1.6",
@@ -29,7 +29,7 @@
 		"mysql2": "^3.22.4",
 		"os": "^0.1.2",
 		"sourcebin_js": "^0.0.3-ignore",
-		"topgg-autoposter": "^2.0.2",
+		"topgg-autoposter": "^2.0.1",
 		"util": "^0.12.5"
 	},
 	"devDependencies": {
@@ -37,13 +37,15 @@
 		"@sapphire/prettier-config": "^2.0.0",
 		"nodemon": "^3.0.3",
 		"npm-run-all2": "^6.1.1",
-		"prettier": "^3.2.4"
+		"prettier": "^3.8.3"
 	},
 	"scripts": {
 		"sapphire": "sapphire",
 		"generate": "sapphire generate",
 		"watch": "nodemon -L --watch src",
+		"prestart": "npm test",
 		"start": "node src/index.js",
+		"test": "node --test",
 		"format": "prettier --write \"src/**/*.js\""
 	},
 	"prettier": "@sapphire/prettier-config"

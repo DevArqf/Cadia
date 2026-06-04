@@ -293,5 +293,6 @@ class countingCommand extends Command {
 }
 
 module.exports = {
+	UserCommand: countingCommand,
 	countingCommand
 };
