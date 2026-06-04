@@ -1,11 +1,11 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -15,7 +15,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -26,7 +26,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
         let letter = ['0','1','2','3','4','5','6','7','8','9','a','A','b','B','c','C','d','D','e','E','f','F','g','G','h','H','i','I','j','J','f','F','l','L','m','M','n','N','o','O','p','P','q','Q','r','R','s','S','t','T','u','U','v','V','w','W','x','X','y','Y','z','Z'];

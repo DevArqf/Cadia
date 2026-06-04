@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 const sourcebin = require('sourcebin_js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -18,7 +18,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -29,7 +29,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		let list = '';
@@ -48,13 +48,13 @@ class UserCommand extends BeemoCommand {
 			.then((src) => {
 				const embed = new EmbedBuilder()
 					.setDescription(
-						`${emojis.custom.success} The Guild List has been **successfully** generated!\n⠀${emojis.custom.replyend} [Click here to view](${src.url})`
+						`${emojis.custom.success} The Guild List has been **successfully** generated!\n⠀${emojis.custom.arrowright} [Click here to view](${src.url})`
 					)
 					.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
 					.setColor(color.success)
 					.setTimestamp();
 
-				interaction.reply({ embeds: [embed], ephemeral: true });
+				interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 			});
 	}
 }

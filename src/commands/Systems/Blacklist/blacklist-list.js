@@ -1,14 +1,14 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
-const { EmbedBuilder, ButtonBuilder, ComponentType, ActionRowBuilder } = require('discord.js');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
+const { EmbedBuilder, ButtonBuilder, ComponentType, ActionRowBuilder , MessageFlags} = require('discord.js');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config');
 const Guild = require('../../../lib/schemas/blacklistSchema');
 const { PaginatedMessageEmbedFields } = require('@sapphire/discord.js-utilities');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -19,7 +19,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -30,7 +30,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		try {
@@ -48,7 +48,7 @@ class UserCommand extends BeemoCommand {
 			for (const guild of blacklistedGuilds) {
 				fields.push({
 					name: `**__${guild.guildName}__**`,
-					value: `${emojis.custom.mail} \`-\` **Reason:**\n ${emojis.custom.replyend} **${guild.reason}**\n${emojis.custom.pencil} \`-\` **Server ID:**\n ${emojis.custom.replyend} **${guild.guildId}**`
+					value: `${emojis.custom.mail} \`-\` **Reason:**\n ${emojis.custom.arrowright} **${guild.reason}**\n${emojis.custom.pencil} \`-\` **Server ID:**\n ${emojis.custom.arrowright} **${guild.guildId}**`
 				});
 			}
 
@@ -66,7 +66,7 @@ class UserCommand extends BeemoCommand {
 			//         .setDescription(
 			//             blacklistedGuilds
 			//             .slice(currentPage * 5, (currentPage + 1) * 5)
-			//             .map(guild => `**__${guild.guildName}__**\n • Reason: ${emojis.custom.replyend} ${guild.reason}\n\n • Server ID: ${emojis.custom.replyend} ${interaction.guild.id}`)
+			//             .map(guild => `**__${guild.guildName}__**\n • Reason: ${emojis.custom.arrowright} ${guild.reason}\n\n • Server ID: ${emojis.custom.arrowright} ${interaction.guild.id}`)
 			//             .join('\n')
 			//         )
 			//         .setFooter({ text: `Requested by ${interaction.user.displayName} • Page ${currentPage + 1}/${totalPages}`, iconURL: interaction.user.displayAvatarURL() });
@@ -114,7 +114,7 @@ class UserCommand extends BeemoCommand {
             		.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             		.setTimestamp();
  
-            		await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            		await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             		return;
 		}
 	}

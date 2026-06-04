@@ -20,22 +20,19 @@ class UserEvent extends Listener {
 
 		if (identifier === 'PermissionError') {
 			return message.reply({
-				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`,
-				ephemeral: true
+				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`
 			});
 		}
 
 		if (identifier === 'DevOnlyCommand') {
 			return message.reply({
-				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`,
-				ephemeral: true
+				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`
 			});
 		}
 
 		return message.reply({
 			content: `${content ?? 'An error occurred while executing the command.'}`,
-			allowedMentions: { users: [interaction.user.id], roles: [] },
-			ephemeral: true
+			allowedMentions: { users: [message.author.id], roles: [] }
 		});
 	}
 }

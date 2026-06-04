@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
 const { EmbedBuilder } = require('discord.js');
 const translate = require('@iamtraction/google-translate');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -18,7 +18,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -86,7 +86,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
         const msg = interaction.options.getString('text')
@@ -97,8 +97,8 @@ class UserCommand extends BeemoCommand {
         const embed = new EmbedBuilder()
             .setColor(color.default)
             .setFields(
-                { name: `${emojis.custom.pencil} \`-\` Inputted Text`, value: `${emojis.custom.replyend} **${msg}**` },
-                { name: `${emojis.custom.globe} \`-\` Translated Text`, value: `${emojis.custom.replyend} **${translated.text}**` }
+                { name: `${emojis.custom.pencil} \`-\` Inputted Text`, value: `${emojis.custom.arrowright} **${msg}**` },
+                { name: `${emojis.custom.globe} \`-\` Translated Text`, value: `${emojis.custom.arrowright} **${translated.text}**` }
             )
             .setFooter({ text: `Translated for ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
             .setTimestamp();

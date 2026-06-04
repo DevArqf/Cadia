@@ -2,10 +2,9 @@ const { Listener } = require('@sapphire/framework');
 const { green, yellow, magenta, cyan, red, blue, gray, magentaBright, white } = require('colorette');
 const figlet = require('figlet');
 const os = require('os');
-const { default: mongoose } = require('mongoose');
-const { envParseString } = require('@skyra/env-utilities');
+const { connectMysql } = require('../lib/database/mysql');
 const dev = process.env.NODE_ENV !== 'production';
-const { ActivityType } = require('discord.js')
+const { ActivityType } = require('discord.js');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -20,7 +19,7 @@ class UserEvent extends Listener {
 	async run(client) {
 		this.container.client = client;
 
-		const info = this._connectDb();
+		const info = await this._connectDb();
 
 		this._printBanner(info);
 		this._printStoreDebugInformation();
@@ -63,15 +62,15 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		);
 	}
 
-	_connectDb() {
-		try {
-			mongoose.connect(envParseString('MONGO_URL'));
-			return { error: false, message: 'Database Connected' };
-		} catch (error) {
+	async _connectDb() {
+		const result = await connectMysql();
+
+		if (result.error) {
 			this.container.logger.fatal('- Database Not Connected');
-			this.container.logger.error(error);
-			return { error: true, message: error };
+			this.container.logger.error(result.message);
 		}
+
+		return result;
 	}
 
 	_displayAdvancedConsole() {
@@ -88,7 +87,7 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		console.log(magenta(`Command Count: ${commandCount}`));
 		console.log(cyan(`Total Members: ${totalMembers}`));
 		console.log(green(`Total Guilds: ${totalGuilds}`));
-		console.log(red(`Cadia's Launch Time: ${new Date().toLocaleString()}`));
+		console.log(red(`Cadia's Startup Time: ${new Date().toLocaleString()}`));
 		console.log(blue(`Cadia's Version: ${botVersion}`));
 		console.log(magenta(`Storage Used: ${Math.round((os.totalmem() - os.freemem()) / 1024 / 1024)} MB`));
 		console.log(cyan(`Total RAM: ${Math.round(os.totalmem() / 1024 / 1024)} MB`));
@@ -108,27 +107,29 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 	}
 
 	async _setBotActivities(client) {
+		if (client.disableActivityRotation) return;
+
 		const totalServers = client.guilds.cache.size;
 		const totalMembers = client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
 		const totalCommands = this.container.stores.get('commands').size;
-	
+
 		client.user.setActivity({
 			type: ActivityType.Listening,
 			name: `${totalServers} Guilds`
 		});
-	
+
 		setTimeout(() => {
 			client.user.setActivity({
 				type: ActivityType.Listening,
 				name: '/help'
 			});
-	
+
 			setTimeout(() => {
 				client.user.setActivity({
 					type: ActivityType.Playing,
 					name: `with ${totalCommands} Commands`
 				});
-				
+
 				setTimeout(() => {
 					client.user.setActivity({
 						type: ActivityType.Listening,
@@ -136,19 +137,13 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 					});
 
 					setTimeout(() => {
-						client.user.setActivity({
-							type: ActivityType.Watching,
-							name: `Shard 1/5`
-						});
-					
-						setTimeout(() => {
-							this._setBotActivities(client);
-						}, 5000);
+						if (client.disableActivityRotation) return;
+						this._setBotActivities(client);
+					}, 5000);
 				}, 5000);
 			}, 5000);
 		}, 5000);
-	}, 5000);
-};
+	}
 
 	/**
 	 *
@@ -159,7 +154,7 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 	_styleStore(store, last) {
 		return gray(`${last ? '└─' : '├─'} Loaded ${this.style(store.size.toString().padEnd(3, ' '))} ${store.name}.`);
 	}
-};
+}
 
 module.exports = {
 	UserEvent

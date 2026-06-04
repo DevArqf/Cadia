@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
 const axios = require('axios');
-const { EmbedBuilder, OAuth2Scopes } = require('discord.js');
+const { EmbedBuilder, OAuth2Scopes , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -38,7 +38,7 @@ class UserCommand extends BeemoCommand {
 	        }
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		
@@ -58,7 +58,7 @@ class UserCommand extends BeemoCommand {
         if (perms !== '8') embed.setDescription(`${emojis.custom.success} The invite link has been **successfully** generated using your selected choice! To **view** the specific **permissions**, click on the invite and continue with a selected server. \n \n${emojis.custom.warning} This bot **may** require **__Administrator Permissions__** to fully function! By not selecting the highest permissions for your server, you **__risk__** not being able to use all of the features. \n \n> ${link}`)
         else embed.setDescription(`${emojis.custom.success} The invite link has been **successfully** generated using your selected choice! To **view** the specific **permissions**, click on the invite link and continue with a selected server. \n \n> ${link}`)
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 	}
 };
 

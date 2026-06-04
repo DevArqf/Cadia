@@ -1,17 +1,14 @@
-const { model, Schema } = require('mongoose');
- 
-let interactions = new Schema({
-    User: String,
-    Hug: Number,
-    HugGive: Number,
-    Slap: Number,
-    SlapGive: Number,
-    Fail: Number,
-    Kill: Number,
-    KillGive: Number,
-    Err: Number,
-    Kiss: Number,
-    KissGive: Number
+const { createModel } = require('../database/model');
+
+module.exports = createModel('interactionSchema', {
+	Hug: 0,
+	HugGive: 0,
+	Slap: 0,
+	SlapGive: 0,
+	Fail: 0,
+	Kill: 0,
+	KillGive: 0,
+	Err: 0,
+	Kiss: 0,
+	KissGive: 0
 });
- 
-module.exports = model('interactionSchema', interactions);

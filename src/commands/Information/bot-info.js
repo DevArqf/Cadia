@@ -1,14 +1,14 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
 const { EmbedBuilder, ChatInputCommandInteraction, Client, version } = require('discord.js');
-const { connection } = require("mongoose");
+const { isMysqlConnected } = require('../../lib/database/mysql');
 const os = require("os");
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -18,7 +18,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -29,16 +29,11 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		await interaction.deferReply()
-    const status = [
-    "Disconnected",
-    "Connected",
-    "Connecting",
-    "Disconnecting"
-    ];
+    const databaseStatus = isMysqlConnected() ? 'Connected' : 'Disconnected';
 
        await interaction.client.user.fetch();
        await interaction.client.application.fetch();
@@ -72,7 +67,7 @@ class UserCommand extends BeemoCommand {
 
                    { name: `${emojis.custom.connected} \`-\` Latency`, value: `\`\`\`${interaction.client.ws.ping}ms\`\`\``, inline: true },
 
-                   { name: `${emojis.custom.lock} \`-\` Database`, value: `\`\`\`${status[connection.readyState]}\`\`\``, inline: true },
+                   { name: `${emojis.custom.lock} \`-\` Database`, value: `\`\`\`${databaseStatus}\`\`\``, inline: true },
 
                    { name: `${emojis.custom.settings} \`-\` System`, value: `\`\`\`${os.type().replace("Windows_NT", "Windows").replace("Darwin", "macOS")}\`\`\``, inline: true },
 

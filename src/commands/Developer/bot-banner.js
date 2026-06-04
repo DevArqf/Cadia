@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder, REST, Routes, DataResolver } = require('discord.js');
+const { EmbedBuilder, REST, Routes, DataResolver , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -32,7 +32,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction, client) {
             const { TOKEN } = process.env;
@@ -44,7 +44,7 @@ class UserCommand extends BeemoCommand {
                 .setColor(color.warning)
                 .setDescription(message);
         
-              await interaction.reply({ embeds: [embed], ephemeral: true });
+              await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
             
             if (banner.contentType !== "image/gif" && banner.contentType !== "image/png")

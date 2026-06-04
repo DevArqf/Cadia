@@ -1,23 +1,22 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
+const { color, emojis } = require('../../config');
 const axios = require('axios');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Get a random meme to make you giggle"
+			description: 'Get a random meme to make you giggle'
 		});
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -28,40 +27,43 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		try {
-			const response = await axios.get('https://www.reddit.com/r/memes/random.json');
+			const response = await axios.get('https://meme-api.com/gimme/memes', {
+				headers: {
+					'User-Agent': 'Cadia-Bot/1.3.0'
+				},
+				timeout: 10000
+			});
 
-			if (response.data && response.data[0] && response.data[0].data.children[0].data) {
-				const memeData = response.data[0].data.children[0].data;
-				const { url, title, ups, num_comments } = memeData;
-
-				const embed = new EmbedBuilder()
-					.setColor(color.random)
-					.setTitle(title)
-					.setURL(`https://www.reddit.com${memeData.permalink}`)
-					.setImage(url)
-					.setTimestamp()
-					.setFooter({ text: `Requested by ${interaction.user.displayName} • 👍 ${ups}  |  💬 ${num_comments || 0}`, iconURL: interaction.user.displayAvatarURL() });
-
-				await interaction.reply({ embeds: [embed] });
-			} else {
-				await interaction.reply(`${emojis.custom.fail} I **failed** to **fetch** a meme. Please try again later.`);
+			if (!response.data?.url || response.data.nsfw) {
+				return interaction.reply(`${emojis.custom.fail} I **failed** to **fetch** a meme. Please try again later.`);
 			}
-		} catch (error) {
-		console.error(error);
-        const errorEmbed = new EmbedBuilder()
-            .setColor(color.fail)
-            .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-            .setTimestamp();
 
-        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-		return;
+			const { postLink, title, url, ups } = response.data;
+			const embed = new EmbedBuilder()
+				.setColor(color.random)
+				.setTitle(title)
+				.setURL(postLink)
+				.setImage(url)
+				.setTimestamp()
+				.setFooter({ text: `Requested by ${interaction.user.displayName} | Upvotes: ${ups ?? 0}`, iconURL: interaction.user.displayAvatarURL() });
+
+			return interaction.reply({ embeds: [embed] });
+		} catch (error) {
+			console.error(`Failed to fetch meme: ${error.response?.status ?? error.code ?? error.message}`);
+
+			const errorEmbed = new EmbedBuilder()
+				.setColor(color.fail)
+				.setDescription(`${emojis.custom.fail} I **failed** to **fetch** a meme. Please try again later.`)
+				.setTimestamp();
+
+			return interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 		}
 	}
-};
+}
 
 module.exports = {
 	UserCommand

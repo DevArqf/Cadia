@@ -1,19 +1,15 @@
-const mongoose = require('mongoose');
+const { createModel } = require('../database/model');
 
-const guildSchema = new mongoose.Schema({
-	id: { type: String, unique: true, required: true },
-	countChannel: String,
-	countHighscore: { type: Number, default: 0 },
-	countLastScore: { type: Number, default: 0 },
-	countLastUser: String,
-	countLastDate: { type: Date, default: Date.now },
-	countGoal: { type: Number, default: 100 },
-	count: { type: Number, default: 0 },
-	createdAt: { type: Date, default: Date.now },
-	updatedAt: { type: Date, default: Date.now }
+const GuildSchema = createModel('CountingGuildSchema', {
+	countHighscore: 0,
+	countLastScore: 0,
+	countLastUser: null,
+	countLastDate: () => new Date().toISOString(),
+	countGoal: 100,
+	count: 0,
+	createdAt: () => new Date().toISOString(),
+	updatedAt: () => new Date().toISOString()
 });
-
-const GuildSchema = mongoose.model('CountingGuildSchema', guildSchema);
 
 module.exports = {
 	GuildSchema

@@ -1,37 +1,9 @@
-const mongoose = require('mongoose');
+const { createModel } = require('../database/model');
 
-const levelSchema = new mongoose.Schema({
-    guildId: {
-        type: String,
-        required: true,
-    },
-    channelId: {
-        type: String,
-        required: true,
-    },
-    useEmbed: {
-        type: Boolean,
-        default: false,
-    },
-    userId: {
-        type: String,
-    },
-    userXp: {
-        type: Number,
-        default: 0,
-    },
-    userLevel: {
-        type: Number,
-        default: 1,
-    },
-    messges: [
-        {
-            content: {
-                type: String,
-                required: true,
-            },
-        },
-    ],
+module.exports = createModel('levelSchema', {
+	guildId: null,
+	userId: null,
+	userXp: 0,
+	userLevel: 1,
+	totalXp: 0
 });
-
-module.exports = mongoose.model('levelSchema', levelSchema);

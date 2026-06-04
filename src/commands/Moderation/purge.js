@@ -1,9 +1,9 @@
 const { PermissionLevels } = require('../../lib/types/Enums');
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
-const { PermissionsBitField, EmbedBuilder } = require('discord.js');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
+const { PermissionsBitField, EmbedBuilder , MessageFlags} = require('discord.js');
 const { color, emojis } = require('../../config');;
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -13,7 +13,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -39,7 +39,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		// Retrieving parameters from user interaction
@@ -55,7 +55,7 @@ class UserCommand extends BeemoCommand {
 				.setDescription(`${emojis.custom.fail} Please specify a valid number of messages to purge (1-100).`)
 				.setTimestamp();
 
-			return interaction.reply({ embeds: [invalidAmountEmbed], ephemeral: true });
+			return interaction.reply({ embeds: [invalidAmountEmbed], flags: MessageFlags.Ephemeral });
 		}
 
 		let messages;
@@ -97,7 +97,7 @@ class UserCommand extends BeemoCommand {
 					.setDescription(`${emojis.custom.fail} Uh Oh... There are no messages in the channel to purge.`)
 					.setTimestamp();
 
-				return interaction.reply({ embeds: [noMessagesEmbed], ephemeral: true });
+				return interaction.reply({ embeds: [noMessagesEmbed], flags: MessageFlags.Ephemeral });
 			}
 
 			// Purging the messages and sending success message
@@ -107,7 +107,7 @@ class UserCommand extends BeemoCommand {
 				.setDescription(`${emojis.custom.success} Successfully purged **${messages.size}** message(s).`)
 				.setTimestamp();
 
-			interaction.reply({ embeds: [purgeSuccessEmbed], ephemeral: true });
+			interaction.reply({ embeds: [purgeSuccessEmbed], flags: MessageFlags.Ephemeral });
 		} catch (error) {
 			console.error(error);
         	const errorEmbed = new EmbedBuilder()
@@ -115,7 +115,7 @@ class UserCommand extends BeemoCommand {
             	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             	.setTimestamp();
 
-        	await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        	await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 			return;
 		}
 	}

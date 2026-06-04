@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 const reminderSchema = require("../../lib/schemas/reminderSchema");
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -55,7 +55,7 @@ class UserCommand extends BeemoCommand {
         }
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const sub = await interaction.options.getSubcommand();
@@ -114,9 +114,9 @@ class UserCommand extends BeemoCommand {
         const data = await reminderSchema.findOne({ User: interaction.user.id, ID: id });
  
         if (!data) 
-            return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.fail}`).setDescription(`${emojis.custom.fail} No **reminder** found with the **ID:** **${id}**!`)], ephemeral: true});
+            return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.fail}`).setDescription(`${emojis.custom.fail} No **reminder** found with the **ID:** **${id}**!`)], flags: MessageFlags.Ephemeral});
         else {
-            await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} Your **reminder** with the **ID:** **${id}** has been **cancelled**!`)], ephemeral: true});
+            await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} Your **reminder** with the **ID:** **${id}** has been **cancelled**!`)], flags: MessageFlags.Ephemeral});
  
             await reminderSchema.deleteMany({
                 User: interaction.user.id,
@@ -130,10 +130,10 @@ class UserCommand extends BeemoCommand {
         const alldata = await reminderSchema.find({ User: interaction.user.id });
  
         if (!alldata) 
-            return await interaction.reply({ content: `${emojis.custom.fail} You **have not** set up any **reminders** yet!`, ephemeral: true });
+            return await interaction.reply({ content: `${emojis.custom.fail} You **have not** set up any **reminders** yet!`, flags: MessageFlags.Ephemeral });
         else {
  
-            await interaction.reply({ content: `${emojis.custom.success} **All** your **reminders** have been **cancelled**!`, ephemeral: true});
+            await interaction.reply({ content: `${emojis.custom.success} **All** your **reminders** have been **cancelled**!`, flags: MessageFlags.Ephemeral});
  
             await reminderSchema.deleteMany({ User: interaction.user.id });
             }

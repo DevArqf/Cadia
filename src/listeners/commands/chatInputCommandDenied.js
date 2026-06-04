@@ -1,4 +1,5 @@
 const { Listener, UserError, ChatInputCommandDeniedPayload } = require('@sapphire/framework');
+const { MessageFlags } = require('discord.js');
 const { emojis } = require('../../config');
 
 class UserEvent extends Listener {
@@ -20,7 +21,7 @@ class UserEvent extends Listener {
 			if (identifier === 'PermissionError') {
 				return interaction.editReply({
 					content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`,
-					ephemeral: true
+					flags: MessageFlags.Ephemeral
 				});
 			}
 		}
@@ -28,21 +29,21 @@ class UserEvent extends Listener {
 		if (identifier === 'PermissionError') {
 			return interaction.reply({
 				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`,
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 		}
 
 		if (identifier === 'DevOnlyCommand') {
 			return interaction.reply({
 				content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`,
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 		}
 
 		return interaction.reply({
 			content: `${content ?? 'An error occurred while executing the command.'}`,
 			allowedMentions: { users: [interaction.user.id], roles: [] },
-			ephemeral: true
+			flags: MessageFlags.Ephemeral
 		});
 	}
 }

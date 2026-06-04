@@ -1,9 +1,9 @@
 const { Precondition } = require('@sapphire/framework');
-const BeemoCommand = require('../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../lib/structures/commands/CadiaCommand');
 
 class ModeratorPrecondition extends Precondition {
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		interaction.member.permissions.has('ManageGuild')
@@ -12,7 +12,7 @@ class ModeratorPrecondition extends Precondition {
 	}
 
 	/**
-	 * @param {BeemoCommand.ContextMenuCommandInteraction} interaction
+	 * @param {CadiaCommand.ContextMenuCommandInteraction} interaction
 	 */
 	async contextMenuRun(interaction) {
 		interaction.member.permissions.has('ManageGuild')

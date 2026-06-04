@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
 const { default: axios } = require('axios');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -18,7 +18,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -31,13 +31,13 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
         try {
             // Permissions //
             // if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuildExpressions)) 
-            //    return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`)], ephemeral: true});
+            //    return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`)], flags: MessageFlags.Ephemeral});
  
             let emoji = interaction.options.getString('emoji')?.trim();
             const name = interaction.options.getString('name');
@@ -57,11 +57,11 @@ class UserCommand extends BeemoCommand {
             }
      
             if (!emoji.startsWith("http")) {
-                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** steal **default** emojis!`)], ephemeral: true})
+                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** steal **default** emojis!`)], flags: MessageFlags.Ephemeral})
             }
      
             if (!emoji.startsWith("https")) {
-                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** steal **default** emojis!`)], ephemeral: true})
+                return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** steal **default** emojis!`)], flags: MessageFlags.Ephemeral})
             }
      
             interaction.guild.emojis.create({ attachment: `${emoji}`, name: `${name}`})
@@ -81,7 +81,7 @@ class UserCommand extends BeemoCommand {
                 .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                 .setTimestamp();
     
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             return;
         }
     }

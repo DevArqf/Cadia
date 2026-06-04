@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');;
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -43,7 +43,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		const msgid = interaction.options.getString("message-id");
@@ -57,13 +57,13 @@ class UserCommand extends BeemoCommand {
         if (msgid.startsWith("http")) {
             return await interaction.reply({
                content: `${emojis.custom.fail} You can **only** use the **message ID**. To **get** the **message ID**, enable the **Discord Developer Mode** in your **Accessibility** settings!`,
-               ephemeral: true
+               flags: MessageFlags.Ephemeral
             })
         }
 
         await interaction.reply({
             content: `${emojis.custom.success} I have **successfully** answered to https://ptb.discord.com/channels/${interaction.guild.id}/${interaction.channel.id}/${msgid} **|** Content: ${content} **|** Embed: ${boolean}`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         })
 
         if (boolean) {

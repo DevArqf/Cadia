@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder, ChannelType, PermissionsBitField , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -44,7 +44,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 
@@ -59,7 +59,7 @@ class UserCommand extends BeemoCommand {
  
         if (message.includes('@everyone') || message.includes('@here')) return await interaction.reply({ 
             content: `${emojis.custom.forbidden} You **cannot** mention **everyone/here** with this command!`, 
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
  
         await channelx.createWebhook({
@@ -74,7 +74,7 @@ class UserCommand extends BeemoCommand {
  
         await interaction.reply({
             embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} <@${member.id}> has been impersonated in <#${channelx.id}>`)],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 };

@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
-const { EmbedBuilder, Embed } = require('discord.js');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
+const { EmbedBuilder, Embed , MessageFlags} = require('discord.js');
 const { color, emojis } = require('../../../config');
 const { CharacterSchema } = require('../../../lib/schemas/RPG System/characterSchema');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
     /**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
     constructor(context, options) {
         super(context, {
@@ -16,7 +16,7 @@ class UserCommand extends BeemoCommand {
     }
 
     /**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
     registerApplicationCommands(registry) {
         registry.registerChatInputCommand((builder) =>
@@ -60,7 +60,7 @@ class UserCommand extends BeemoCommand {
             }
 
     /**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
     async chatInputRun(interaction) {
         try {
@@ -76,7 +76,7 @@ class UserCommand extends BeemoCommand {
                 if (existCharacter) {
                     return await interaction.reply({
                             embeds: [new EmbedBuilder().setColor(color.invis).setDescription(`You have already created a character named **${characterName}**!`)],
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                     
@@ -112,7 +112,7 @@ class UserCommand extends BeemoCommand {
                             const noValue = new EmbedBuilder()
                                 .setColor(color.fail)
                                 .setDescription('Please enter a valid character **UCID** or **Name** to delete');
-                        return interaction.reply({ embeds: [noValue], ephemeral: true });
+                        return interaction.reply({ embeds: [noValue], flags: MessageFlags.Ephemeral });
                     }
 
                         if (!UCID && name) {
@@ -124,7 +124,7 @@ class UserCommand extends BeemoCommand {
                             const noCharacter = new EmbedBuilder()
                                 .setColor(color.fail)
                                 .setDescription('No character has been **found** with the provided **Name** or **UCID**!');
-                            return await interaction.reply({ embeds: [noCharacter], ephemeral: true });
+                            return await interaction.reply({ embeds: [noCharacter], flags: MessageFlags.Ephemeral });
                         }
                     }
 
@@ -135,7 +135,7 @@ class UserCommand extends BeemoCommand {
                                 .setColor(color.fail)
                                 .setDescription('This character does not exist. Please enter a **valid** UCID code or **Name**!');
 
-                            return await interaction.reply({ embeds: [NoUCID], ephemeral: true });
+                            return await interaction.reply({ embeds: [NoUCID], flags: MessageFlags.Ephemeral });
                         }
 
                         if (NoExistCharacter.UserId === interaction.user.id) {
@@ -156,7 +156,7 @@ class UserCommand extends BeemoCommand {
                             .setColor(color.fail)
                             .setDescription(`You **cannot** delete another user's character!`);
 
-                        return await interaction.reply({ embeds: [CantDelete], ephemeral: true });
+                        return await interaction.reply({ embeds: [CantDelete], flags: MessageFlags.Ephemeral });
                     }
             }
         } catch (error) {
@@ -166,7 +166,7 @@ class UserCommand extends BeemoCommand {
                 .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
                 .setTimestamp();
 
-            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
     }
 }

@@ -1,15 +1,5 @@
-const mongoose = require('mongoose');
+const { createModel } = require('../../database/model');
 
-const characterSchema = new mongoose.Schema({
-    Name: {
-        type: String,
-        required: true,
-        unqiue: true
-    },
-    Age: Number,
-    Gender: String,
-    UserId: String,
-    UCID: String
-});
+const CharacterSchema = createModel('characterSchema');
 
-module.exports = mongoose.model('characterSchema', characterSchema);
+module.exports = { CharacterSchema };

@@ -1,8 +1,8 @@
 const { emojis, color } = require('../../config');
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -12,7 +12,7 @@ class UserCommand extends BeemoCommand {
 	}
 	/**
 	 *
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -25,7 +25,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		// Defining Things
@@ -37,32 +37,32 @@ class UserCommand extends BeemoCommand {
 		// if (!interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
 		// 	return await interaction.reply({
 		// 		content: `${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`,
-		// 		ephemeral: true
+		// 		flags: MessageFlags.Ephemeral
 		// 	});
 		// }
 
 		if (!kickMember) {
 			return await interaction.reply({
 				content: `${emojis.custom.fail} The user **mentioned** is no longer **within** the **server**!`,
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 		}
 
 		if (!kickMember.kickable) {
 			return await interaction.reply({
 				content: `${emojis.custom.fail} I **cannot** kick this user because they are either **higher** than me or you!`,
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 		}
 		
 		if (interaction.member.id === kickMember.id) {
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** kick yourself!`)], ephemeral: true });
+			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** kick yourself!`)], flags: MessageFlags.Ephemeral });
 		}
 
 		if (kickMember.permissions.has(PermissionsBitField.Flags.Administrator)) {
 			return interaction.reply({
 				embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** kick **staff members** or people with the **Administrator** permission!`)],
-				ephemeral: true
+				flags: MessageFlags.Ephemeral
 			});
 		}
 
@@ -74,12 +74,12 @@ class UserCommand extends BeemoCommand {
                 .addFields(
                     {
                         name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.replyend} **${reason}**`,
+                        value: `${emojis.custom.arrowright} **${reason}**`,
                         inline: false
                     },
                     {
                         name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.replyend} **${interaction.user.displayName}**`,
+                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
                         inline: false
                     }
                 )
@@ -96,12 +96,12 @@ class UserCommand extends BeemoCommand {
                 .addFields(
                     {
                         name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.replyend} **${reason}**`,
+                        value: `${emojis.custom.arrowright} **${reason}**`,
                         inline: false
                     },
                     {
                         name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.replyend} **${interaction.user.displayName}**`,
+                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
                         inline: false
                     }
                 )
@@ -119,7 +119,7 @@ class UserCommand extends BeemoCommand {
             	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
             	.setTimestamp();
 
-			await interaction.reply({ embeds: [errorEmbed], ephemeral: true });	
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });	
 		}
 	}
 }

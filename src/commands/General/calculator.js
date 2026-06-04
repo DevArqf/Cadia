@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const math = require('mathjs');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -17,7 +17,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -28,7 +28,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 
@@ -138,7 +138,7 @@ class UserCommand extends BeemoCommand {
                     .setStyle(ButtonStyle.Primary)
             )
  
-        const msg = await interaction.reply({ embeds: [embed], components: [row, row1, row2, row3, row4], ephemeral: false });
+        const msg = await interaction.reply({ embeds: [embed], components: [row, row1, row2, row3, row4] });
  
         let data = "";
         const col = msg.createMessageComponentCollector({
@@ -173,7 +173,7 @@ class UserCommand extends BeemoCommand {
                 ) || data.length === 0 ? "" : " "}` + value;
             }
  
-            i.update({ embeds: [new EmbedBuilder().setColor(color.invis).setDescription(`\`\`\`\n${data || extra}\n\`\`\``)], components: [row, row1, row2, row3, row4], ephemeral: false })
+            i.update({ embeds: [new EmbedBuilder().setColor(color.invis).setDescription(`\`\`\`\n${data || extra}\n\`\`\``)], components: [row, row1, row2, row3, row4] })
         })
     }
 }

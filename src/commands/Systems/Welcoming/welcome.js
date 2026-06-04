@@ -1,13 +1,13 @@
-const BeemoCommand = require('../../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config')
 const { EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js');
 const { WelcomeSchema } = require('../../../lib/schemas/welcomeSchema');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -19,7 +19,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -99,7 +99,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -188,7 +188,7 @@ class UserCommand extends BeemoCommand {
             async function SendMessage(interaction) {
             const CreatedEmbed = new EmbedBuilder()
                 .setColor(`${color.default}`)
-                .setDescription(`${emojis.custom.success} The **Welcome System** has been setup!\n\n ${emojis.custom.pencil} \`-\` **Channel:**\n ${emojis.custom.replyend} <#${channelID}>`)
+                .setDescription(`${emojis.custom.success} The **Welcome System** has been setup!\n\n ${emojis.custom.pencil} \`-\` **Channel:**\n ${emojis.custom.arrowright} <#${channelID}>`)
                 .setTimestamp()
                 .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
 
@@ -219,10 +219,10 @@ class UserCommand extends BeemoCommand {
                 .setColor(color.default)
                 .setTitle('`📜` Welcome System Variables `📜`')
                 .addFields([
-                    { name: '**Title:**', value: `${emojis.custom.replystart} \`{userId}\` Get the users **ID**\n${emojis.custom.replycontinue} \`{serverName}\` Get the servers name\n${emojis.custom.replyend} \`{serverMembers}\` Get the total member count of the server` },
-                    { name: '**Message:**', value: `${emojis.custom.replystart} \`{userId}\` Get the users **ID**\n${emojis.custom.replycontinue} \`{userMention}\` Mention the user who joined\n${emojis.custom.replycontinue} \`{serverName}\` Get the servers name\n${emojis.custom.replycontinue} \`{serverMembers}\` Get the total member count of the server\n${emojis.custom.replyend} \`\\n\` Use this to make a new line in a message` },
-                    { name: '**Footer:**', value: `${emojis.custom.replystart} \`{userId}\` Get the users name\n${emojis.custom.replycontinue} \`{serverName}\` Get the servers name\n${emojis.custom.replyend} \`{serverMembers}\` Get the total member count of the server` },
-                    { name: '**Url\'s:**', value: `${emojis.custom.replyend} \`{serverIcon}\` Get the icon of the server.` }
+                    { name: '**Title:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users **ID**\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server` },
+                    { name: '**Message:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users **ID**\n${emojis.custom.arrowright} \`{userMention}\` Mention the user who joined\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server\n${emojis.custom.arrowright} \`\\n\` Use this to make a new line in a message` },
+                    { name: '**Footer:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users name\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server` },
+                    { name: '**Url\'s:**', value: `${emojis.custom.arrowright} \`{serverIcon}\` Get the icon of the server.` }
                 ])
                 .setTimestamp()
                 .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });

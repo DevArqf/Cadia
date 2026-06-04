@@ -1,12 +1,12 @@
-const BeemoCommand = require('../../lib/structures/commands/BeemoCommand');
+const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder } = require('discord.js');
+const { color, emojis } = require('../../config');
+const { EmbedBuilder , MessageFlags} = require('discord.js');
 
-class UserCommand extends BeemoCommand {
+class UserCommand extends CadiaCommand {
 	/**
-	 * @param {BeemoCommand.Context} context
-	 * @param {BeemoCommand.Options} options
+	 * @param {CadiaCommand.Context} context
+	 * @param {CadiaCommand.Options} options
 	 */
 	constructor(context, options) {
 		super(context, {
@@ -16,7 +16,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.Registry} registry
+	 * @param {CadiaCommand.Registry} registry
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
@@ -27,7 +27,7 @@ class UserCommand extends BeemoCommand {
 	}
 
 	/**
-	 * @param {BeemoCommand.ChatInputCommandInteraction} interaction
+	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
 		try {
@@ -39,39 +39,80 @@ class UserCommand extends BeemoCommand {
 			const boostLevel = interaction.guild.premiumTier;
 			const maxEmojis = 50 + boostLevel * 50;
 
-				const embed = new EmbedBuilder()
-					.setColor(color.default)
-					.addFields(
-						{ name: `${emojis.custom.home} \`-\` **Server Name:**`, value: `${emojis.custom.replyend} **${interaction.guild.name}**`, inline: true },
-						{ name: `${emojis.custom.crown} \`-\` **Founder:**`, value: `${emojis.custom.replyend} ${await interaction.guild.fetchOwner()}`, inline: true },
-						{ name: `${emojis.custom.boost} \`-\` **Boost Tier:**`, value: `${emojis.custom.replyend} **${boostLevel}**`, inline: true },
-						{ name: `${emojis.custom.friends} \`-\` **Members:**`, value: `${emojis.custom.replyend} **${interaction.guild.memberCount}**`, inline: true },
-						{ name: `${emojis.custom.comment} \`-\` **Channels:**`, value: `${emojis.custom.replyend} **${interaction.guild.channels.cache.size}**`, inline: true },
-						{ name: `${emojis.custom.community} \`-\` **Roles:**`, value: `${emojis.custom.replyend} **${interaction.guild.roles.cache.size}**`, inline: true },
-						{ name: `${emojis.custom.link} \`-\` **Server Icon:**`, value: `${emojis.custom.replyend} ${server_icon ? `[Click Here](${server_icon})` : '**None**'}`, inline: true },
-						{ name: `${emojis.custom.clock} \`-\` **Created Date:**`, value: `${emojis.custom.replyend} <t:${server_made}:R>`, inline: true },
-						{ name: `${emojis.custom.openfolder} \`-\` **Emoji Count:**`, value: `${emojis.custom.replyend} **${maxEmojis}**`, inline: true },
-						{ name: `${emojis.custom.emoji1} \`-\` **Regular Emojis:**`, value: `${emojis.custom.replyend} **${emoji_reg}/${maxEmojis}**`, inline: true },
-						{ name: `${emojis.custom.emoji2} \`-\` **Animated Emojis:**`, value: `${emojis.custom.replyend} **${emoji_animated}/${maxEmojis}**`, inline: true }
-					)
-					.setTimestamp()
-					.setThumbnail(server_icon ? server_icon : null)
-					.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
+			const embed = new EmbedBuilder()
+				.setColor(color.default)
+				.addFields(
+					{
+						name: `${emojis.custom.home} \`-\` **Server Name:**`,
+						value: `${emojis.custom.arrowright} **${interaction.guild.name}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.crown} \`-\` **Founder:**`,
+						value: `${emojis.custom.arrowright} ${await interaction.guild.fetchOwner()}`,
+						inline: true
+					},
+					{ name: `${emojis.custom.boost} \`-\` **Boost Tier:**`, value: `${emojis.custom.arrowright} **${boostLevel}**`, inline: true },
+					{
+						name: `${emojis.custom.friends} \`-\` **Members:**`,
+						value: `${emojis.custom.arrowright} **${interaction.guild.memberCount}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.comment} \`-\` **Channels:**`,
+						value: `${emojis.custom.arrowright} **${interaction.guild.channels.cache.size}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.pencil} \`-\` **Roles:**`,
+						value: `${emojis.custom.arrowright} **${interaction.guild.roles.cache.size}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.link} \`-\` **Server Icon:**`,
+						value: `${emojis.custom.arrowright} ${server_icon ? `[Click Here](${server_icon})` : '**None**'}`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.clock} \`-\` **Created Date:**`,
+						value: `${emojis.custom.arrowright} <t:${server_made}:R>`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.openfolder} \`-\` **Emoji Count:**`,
+						value: `${emojis.custom.arrowright} **${maxEmojis}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.emoji1} \`-\` **Regular Emojis:**`,
+						value: `${emojis.custom.arrowright} **${emoji_reg}/${maxEmojis}**`,
+						inline: true
+					},
+					{
+						name: `${emojis.custom.emoji2} \`-\` **Animated Emojis:**`,
+						value: `${emojis.custom.arrowright} **${emoji_animated}/${maxEmojis}**`,
+						inline: true
+					}
+				)
+				.setTimestamp()
+				.setThumbnail(server_icon ? server_icon : null)
+				.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
 
-				await interaction.reply({
-					embeds: [embed]
-				});
+			await interaction.reply({
+				embeds: [embed]
+			});
 		} catch (error) {
-		console.error(error);
-			
-        	const errorEmbed = new EmbedBuilder()
-            	.setColor(color.fail)
-            	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-            	.setTimestamp();
+			console.error(error);
 
-        	await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
-		return;
-			
+			const errorEmbed = new EmbedBuilder()
+				.setColor(color.fail)
+				.setDescription(
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`
+				)
+				.setTimestamp();
+
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+			return;
 		}
 	}
 }
