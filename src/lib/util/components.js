@@ -3,6 +3,8 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	ContainerBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
 	MessageFlags,
 	SeparatorBuilder,
 	SeparatorSpacingSize,
@@ -14,10 +16,16 @@ function accent(hex = color.default) {
 	return Number.parseInt(hex.replace('#', ''), 16);
 }
 
-function panel({ accentColor = color.default, title, subtitle, sections = [], footer, buttons = [] }) {
+function panel({ accentColor = color.default, title, subtitle, image, imageDescription, sections = [], footer, buttons = [] }) {
 	const container = new ContainerBuilder()
 		.setAccentColor(accent(accentColor))
 		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${title}${subtitle ? `\n-# ${subtitle}` : ''}`));
+
+	if (image) {
+		container
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(createMediaGalleryItem(image, imageDescription)));
+	}
 
 	for (const section of sections.filter(Boolean)) {
 		container
@@ -36,6 +44,12 @@ function panel({ accentColor = color.default, title, subtitle, sections = [], fo
 	}
 
 	return container;
+}
+
+function createMediaGalleryItem(image, imageDescription) {
+	const item = new MediaGalleryItemBuilder().setURL(image);
+	if (imageDescription) item.setDescription(imageDescription);
+	return item;
 }
 
 function linkButton(label, url, emoji = emojis.custom.link) {
