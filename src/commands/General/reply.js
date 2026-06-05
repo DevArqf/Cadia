@@ -1,7 +1,6 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -11,8 +10,8 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-            requiredUserPermissions: ['ManageMessages'],
-			description: "Reply to a message from another user"
+			requiredUserPermissions: ['ManageMessages'],
+			description: 'Reply to a message from another user'
 		});
 	}
 
@@ -22,23 +21,11 @@ class UserCommand extends CadiaCommand {
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder //
-            .setName("reply")
-            .setDescription(this.description)
-            .addStringOption(option => option
-                .setName("message-id")
-                .setDescription("The message ID of the user")
-                .setRequired(true)
-            )
-            .addStringOption(option => option
-                .setName("text")
-                .setDescription("Your reply message")
-                .setRequired(true)
-            )
-            .addBooleanOption(option => option
-                .setName("embed")
-                .setDescription("Would you want your reply embedded or not?")
-                .setRequired(true)
-            ),
+				.setName('reply')
+				.setDescription(this.description)
+				.addStringOption((option) => option.setName('message-id').setDescription('The message ID of the user').setRequired(true))
+				.addStringOption((option) => option.setName('text').setDescription('Your reply message').setRequired(true))
+				.addBooleanOption((option) => option.setName('embed').setDescription('Would you want your reply embedded or not?').setRequired(true))
 		);
 	}
 
@@ -46,32 +33,77 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const msgid = interaction.options.getString("message-id");
-        const content = interaction.options.getString("text");
-        const boolean = interaction.options.getBoolean("embed")
+		try {
+			const messageId = interaction.options.getString('message-id');
+			const content = interaction.options.getString('text');
+			const embedded = interaction.options.getBoolean('embed');
 
-        const embed1 = new EmbedBuilder()
-        .setDescription(`${content}`)
-        .setColor(color.default)
+			if (messageId.startsWith('http')) {
+				return interaction.reply({
+					components: [
+						buildPanel(
+							color.fail,
+							`${emojis.custom.fail} **Message ID Required**`,
+							`${emojis.custom.arrowright} Paste only the message ID, not the full message link.`
+						)
+					],
+					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+				});
+			}
 
-        if (msgid.startsWith("http")) {
-            return await interaction.reply({
-               content: `${emojis.custom.fail} You can **only** use the **message ID**. To **get** the **message ID**, enable the **Discord Developer Mode** in your **Accessibility** settings!`,
-               flags: MessageFlags.Ephemeral
-            })
-        }
+			const targetMessage = await interaction.channel.messages.fetch(messageId);
 
-        await interaction.reply({
-            content: `${emojis.custom.success} I have **successfully** answered to https://ptb.discord.com/channels/${interaction.guild.id}/${interaction.channel.id}/${msgid} **|** Content: ${content} **|** Embed: ${boolean}`,
-            flags: MessageFlags.Ephemeral
-        })
+			if (embedded) {
+				await targetMessage.reply({
+					components: [buildPanel(color.default, `${emojis.custom.comment} **Reply**`, content)],
+					flags: MessageFlags.IsComponentsV2
+				});
+			} else {
+				await targetMessage.reply({ content });
+			}
 
-        if (boolean) {
-            await interaction.client.channels.cache.get(interaction.channel.id).messages.fetch(msgid).then(message => message.reply({embeds: [embed1]}))
-        } else {  
-            await interaction.client.channels.cache.get(interaction.channel.id).messages.fetch(msgid).then(message => message.reply({content: `${content}`}))
-        }
-    }
+			await interaction.reply({
+				components: [
+					buildPanel(
+						color.success,
+						`${emojis.custom.success} **Reply Sent**`,
+						[
+							`${emojis.custom.link} **Message:** https://discord.com/channels/${interaction.guild.id}/${interaction.channel.id}/${messageId}`,
+							`${emojis.custom.pencil} **Embedded:** ${embedded ? 'Yes' : 'No'}`,
+							`${emojis.custom.comment} **Preview:** ${truncate(content, 180)}`
+						].join('\n')
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		} catch (error) {
+			console.error(error);
+
+			await interaction.reply({
+				components: [
+					buildPanel(
+						color.fail,
+						`${emojis.custom.fail} **Reply Failed**`,
+						`${emojis.custom.arrowright} I could not find or reply to that message in this channel.`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
+	}
+}
+
+function buildPanel(accentColor, title, body) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(accentColor.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+}
+
+function truncate(value, maxLength) {
+	if (value.length <= maxLength) return value;
+	return `${value.slice(0, maxLength - 3)}...`;
 }
 
 module.exports = {

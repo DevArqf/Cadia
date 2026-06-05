@@ -1,7 +1,6 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { EmbedBuilder , MessageFlags} = require('discord.js');
-const { color, emojis } = require('../../config');;
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
+const { color, emojis } = require('../../config');
 const { ReleaseNotesSchema } = require('../../lib/schemas/releasenoteSchema');
 
 class UserCommand extends CadiaCommand {
@@ -12,7 +11,7 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			description: "Release Note"
+			description: 'Release Note'
 		});
 	}
 
@@ -24,16 +23,13 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('release-notes')
 				.setDescription(this.description)
-                .addSubcommand((command) => command
-                    .setName('publish')
-                    .setDescription('Add new release notes')
-                    .addStringOption((option) => option
-                        .setName('updated-notes')
-                        .setDescription('The notes to publish')
-                        .setRequired(true)))
-                .addSubcommand((command) => command
-                    .setName('view')
-                    .setDescription('View the most recent release notes')),
+				.addSubcommand((command) =>
+					command
+						.setName('publish')
+						.setDescription('Add new release notes')
+						.addStringOption((option) => option.setName('updated-notes').setDescription('The notes to publish').setRequired(true))
+				)
+				.addSubcommand((command) => command.setName('view').setDescription('View the most recent release notes'))
 		);
 	}
 
@@ -41,56 +37,91 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const { DEVELOPERS } = process.env;
-		const authorizedIDs = DEVELOPERS.split(' ');
+		const authorizedIDs = (process.env.DEVELOPERS ?? '').split(' ').filter(Boolean);
+		const sub = interaction.options.getSubcommand();
+		const data = await ReleaseNotesSchema.find();
 
-        const sub = interaction.options.getSubcommand();
-        var data = await ReleaseNotesSchema.find();
+		if (sub === 'publish') {
+			if (!authorizedIDs.includes(interaction.user.id)) {
+				return interaction.reply({
+					components: [
+						buildPanel(
+							color.fail,
+							`${emojis.custom.forbidden} **Not Authorized**`,
+							`${emojis.custom.arrowright} You cannot publish release notes.`
+						)
+					],
+					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+				});
+			}
 
-    async function sendMessage(message) {
-        const embed = new EmbedBuilder()
-        .setColor(color.default)
-        .setDescription(message);
+			const update = interaction.options.getString('updated-notes');
+			const formattedUpdate = update.split(', ').join('\n');
+			const version = data.length ? Math.round((data.reduce((total, value) => total + value.Version, 0) + 0.1) * 10) / 10 : 1.0;
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-    }
-            if (sub === 'publish') {
-                if (!authorizedIDs.includes(interaction.user.id)) {
-                    return await interaction.reply(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`);
-                }
+			if (data.length > 0) await ReleaseNotesSchema.deleteMany();
+			await ReleaseNotesSchema.create({ Updates: formattedUpdate, Date: Date.now(), Developer: interaction.user.username, Version: version });
 
-                const update = interaction.options.getString('updated-notes');
-                const formattedUpdate = update.split(', ').join('\n');
-                    if (data.length > 0) {
-                await ReleaseNotesSchema.deleteMany();
+			return interaction.reply({
+				components: [
+					buildPanel(
+						color.success,
+						`${emojis.custom.success} **Release Notes Published**`,
+						`${emojis.custom.update} **Version:** \`${version}\`\n${emojis.custom.developer} **Developer:** ${interaction.user.username}`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-                var version = 0;
-                await data.forEach(async value => {
-                    version += value.Version + 0.1;
-                });
-                    version = Math.round(version * 10) / 10;
+		if (data.length === 0) {
+			return interaction.reply({
+				components: [
+					buildPanel(
+						color.warning,
+						`${emojis.custom.warning} **No Release Notes**`,
+						`${emojis.custom.arrowright} There are no public release notes yet.`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
 
-                    await ReleaseNotesSchema.create({Updates: formattedUpdate, Date: Date.now(), Developer: interaction.user.username, Version: version});
-                    await interaction.reply(`${emojis.custom.success} I have **successfully** updated your release notes`);
-                    } else {
-                    await ReleaseNotesSchema.create({Updates: formattedUpdate, Date: Date.now(), Developer: interaction.user.username, Version: 1.0});
-                    await interaction.reply(`${emojis.custom.success} I have **successfully** updated your release notes`);
-                };
-            };
-            if (sub === 'view') {
-                let string = '';
-                if (data.length == 0) {
-                    await sendMessage(`${emojis.custom.warning} **There are no public release notes yet...**`);
-                } else {
-                    await data.forEach(async value => {
-                        const updates = value.Updates.split(', ').map(update => `+ ${update}`).join('\n');
-                        string += `\`${value.Version}\` \n\n**Update Information:**\n\`\`\`diff\n${updates}\n\`\`\`\n\n${emojis.custom.developer} \`-\` **Updating Developer:**\n > ${emojis.custom.arrowright} \`${value.Developer}\`\n ${emojis.custom.info} \`-\` **Update Data:**\n > ${emojis.custom.arrowright} <t:${Math.floor(value.Date / 1000)}:R>`
-                    });
-            
-                    await sendMessage(`> ${emojis.custom.update} **Release Notes** ${string}`);
-                }
-            };            
-    }
+		const latest = data.at(-1);
+		const updates = latest.Updates.split('\n').filter(Boolean);
+		const container = new ContainerBuilder()
+			.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					`${emojis.custom.update} **Release Notes**\n${emojis.custom.arrowright} Version \`${latest.Version}\``
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					updates.map((item) => `${emojis.custom.success} ${item}`).join('\n') || `${emojis.custom.info} No notes provided.`
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					`${emojis.custom.developer} **Developer:** \`${latest.Developer}\`\n${emojis.custom.calendar} **Published:** <t:${Math.floor(latest.Date / 1000)}:R>`
+				)
+			);
+
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+}
+
+function buildPanel(accentColor, title, body) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(accentColor.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 
 module.exports = {

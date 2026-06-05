@@ -1,7 +1,15 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MessageFlags,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder
+} = require('discord.js');
 const math = require('mathjs');
 
 class UserCommand extends CadiaCommand {
@@ -31,151 +39,123 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
+		const idPrefix = `calculator:${interaction.id}`;
+		let expression = '';
+		let note = 'Results will be displayed here.';
+		const rows = buildKeypad(idPrefix);
 
-        const idPrefix = 'calulator'
- 
-        const embed = new EmbedBuilder()
-            .setDescription("```\nResults will be displayed here\n```")
-            .setColor(color.invis)
- 
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel('AC')
-                    .setCustomId(idPrefix + "_clear")
-                    .setStyle(ButtonStyle.Danger),
-                new ButtonBuilder()
-                    .setLabel('(')
-                    .setCustomId(idPrefix + "_(")
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setLabel(')')
-                    .setCustomId(idPrefix + "_)")
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setLabel('<=')
-                    .setCustomId(idPrefix + "_backspace")
-                    .setStyle(ButtonStyle.Primary)
-            )
- 
-        const row1 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel('1')
-                    .setCustomId(idPrefix + "_1")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('2')
-                    .setCustomId(idPrefix + "_2")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('3')
-                    .setCustomId(idPrefix + "_3")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('/')
-                    .setCustomId(idPrefix + "_/")
-                    .setStyle(ButtonStyle.Primary)
-            )
- 
-        const row2 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel('4')
-                    .setCustomId(idPrefix + "_4")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('5')
-                    .setCustomId(idPrefix + "_5")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('6')
-                    .setCustomId(idPrefix + "_6")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('*')
-                    .setCustomId(idPrefix + "_*")
-                    .setStyle(ButtonStyle.Primary)
-            )
- 
-        const row3 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel('7')
-                    .setCustomId(idPrefix + "_7")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('8')
-                    .setCustomId(idPrefix + "_8")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('9')
-                    .setCustomId(idPrefix + "_9")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('-')
-                    .setCustomId(idPrefix + "_-")
-                    .setStyle(ButtonStyle.Primary)
-            )
-            
-        const row4 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setLabel('0')
-                    .setCustomId(idPrefix + "_0")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('.')
-                    .setCustomId(idPrefix + "_.")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setLabel('=')
-                    .setCustomId(idPrefix + "_=")
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setLabel('+')
-                    .setCustomId(idPrefix + "_+")
-                    .setStyle(ButtonStyle.Primary)
-            )
- 
-        const msg = await interaction.reply({ embeds: [embed], components: [row, row1, row2, row3, row4] });
- 
-        let data = "";
-        const col = msg.createMessageComponentCollector({
-            filter: i => i.user.id === interaction.user.id,
-            time: 600000
-        });
- 
-        col.on('collect', async (i) => {
-            const id = i.customId
-            const value = id.split('_')[1];
-            let extra = "";
- 
-            if (value === "=") {
-                try {
-                    data = math.evaluate(data).toString();
-                } catch (e) {
-                    data = "";
-                    extra = "An Error Occured, Please click on **AC** for restart";
-                }
-            } else if (value === "clear") {
-                data = "";
-                extra = "Results will be displayed here"
-            } else if (value === "backspace") {
-                data = data.slice(0, -1);
-            } else {
-                const lc = data[data.length - 1];
- 
-                data += `${(
-                    (parseInt(value) == value || value === ".")
-                    &&
-                    (lc == parseInt(lc) || lc === ".")
-                ) || data.length === 0 ? "" : " "}` + value;
-            }
- 
-            i.update({ embeds: [new EmbedBuilder().setColor(color.invis).setDescription(`\`\`\`\n${data || extra}\n\`\`\``)], components: [row, row1, row2, row3, row4] })
-        })
-    }
+		const response = await interaction.reply({
+			components: [buildCalculatorContainer(expression, note, rows)],
+			flags: MessageFlags.IsComponentsV2,
+			withResponse: true
+		});
+		const message = response.resource?.message ?? (await interaction.fetchReply());
+		const collector = message.createMessageComponentCollector({
+			filter: (i) => i.user.id === interaction.user.id,
+			time: 600_000
+		});
+
+		collector.on('collect', async (i) => {
+			const value = i.customId.slice(`${idPrefix}:`.length);
+			note = '';
+
+			if (value === '=') {
+				try {
+					expression = math.evaluate(expression || '0').toString();
+					note = 'Calculated successfully.';
+				} catch {
+					expression = '';
+					note = 'Invalid expression. Press AC and try again.';
+				}
+			} else if (value === 'clear') {
+				expression = '';
+				note = 'Results will be displayed here.';
+			} else if (value === 'backspace') {
+				expression = expression.slice(0, -1);
+				if (!expression) note = 'Results will be displayed here.';
+			} else {
+				expression = appendValue(expression, value);
+			}
+
+			await i.update({
+				components: [buildCalculatorContainer(expression, note, rows)],
+				flags: MessageFlags.IsComponentsV2
+			});
+		});
+
+		collector.on('end', async () => {
+			await interaction
+				.editReply({
+					components: [buildCalculatorContainer(expression, 'Calculator closed.', buildKeypad(idPrefix, true))],
+					flags: MessageFlags.IsComponentsV2
+				})
+				.catch(() => null);
+		});
+	}
+}
+
+function buildCalculatorContainer(expression, note, rows) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.settings} **Calculator**`))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`\`\`\n${expression || note}\n\`\`\``))
+		.addActionRowComponents(...rows);
+}
+
+function buildKeypad(idPrefix, disabled = false) {
+	const layout = [
+		[
+			['AC', 'clear', ButtonStyle.Danger],
+			['(', '(', ButtonStyle.Secondary],
+			[')', ')', ButtonStyle.Secondary],
+			['<=', 'backspace', ButtonStyle.Secondary]
+		],
+		[
+			['1', '1', ButtonStyle.Secondary],
+			['2', '2', ButtonStyle.Secondary],
+			['3', '3', ButtonStyle.Secondary],
+			['/', '/', ButtonStyle.Primary]
+		],
+		[
+			['4', '4', ButtonStyle.Secondary],
+			['5', '5', ButtonStyle.Secondary],
+			['6', '6', ButtonStyle.Secondary],
+			['*', '*', ButtonStyle.Primary]
+		],
+		[
+			['7', '7', ButtonStyle.Secondary],
+			['8', '8', ButtonStyle.Secondary],
+			['9', '9', ButtonStyle.Secondary],
+			['-', '-', ButtonStyle.Primary]
+		],
+		[
+			['0', '0', ButtonStyle.Secondary],
+			['.', '.', ButtonStyle.Secondary],
+			['=', '=', ButtonStyle.Success],
+			['+', '+', ButtonStyle.Primary]
+		]
+	];
+
+	return layout.map((row) =>
+		new ActionRowBuilder().addComponents(
+			row.map(([label, value, style]) =>
+				new ButtonBuilder().setLabel(label).setCustomId(`${idPrefix}:${value}`).setStyle(style).setDisabled(disabled)
+			)
+		)
+	);
+}
+
+function appendValue(expression, value) {
+	const previous = expression.at(-1);
+	const needsSpace = expression.length > 0 && !isNumeric(value) && value !== '.' && previous !== ' ';
+	const previousNeedsSpace = expression.length > 0 && !isNumeric(previous) && previous !== '.' && previous !== ' ';
+
+	return `${expression}${needsSpace || previousNeedsSpace ? ' ' : ''}${value}`;
+}
+
+function isNumeric(value) {
+	return !Number.isNaN(Number.parseInt(value, 10));
 }
 
 module.exports = {

@@ -1,10 +1,7 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { promisify } = require('util');
 const figlet = require('figlet');
-const { MessageFlags } = require('discord.js');
-const { emojis } = require('../../config');
-
-const renderFiglet = promisify(figlet.text);
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
+const { color, emojis } = require('../../config');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -26,34 +23,56 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('ascii')
 				.setDescription(this.description)
-                .addStringOption(option => option
-                    .setName("text")
-                    .setDescription("The text")
-                    .setRequired(true))
-		        );
-	        }
+				.addStringOption((option) => option.setName('text').setDescription('The text').setRequired(true))
+		);
+	}
 
 	/**
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const text = interaction.options.getString("text");
+		const text = interaction.options.getString('text');
 
 		try {
-			const rendered = await renderFiglet(text, { font: 'Doom' });
-			const response = `\`\`\`${rendered}\`\`\``;
+			const rendered = await figlet.text(text, { font: 'Doom' });
+			const artwork = trimCodeBlock(rendered, 3_600);
+			const container = new ContainerBuilder()
+				.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+				.addTextDisplayComponents(
+					new TextDisplayBuilder().setContent(`${emojis.custom.pencil} **ASCII Art**\n${emojis.custom.arrowright} Source text: \`${text}\``)
+				)
+				.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+				.addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`\`\`\n${artwork}\n\`\`\``))
+				.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+				.addTextDisplayComponents(
+					new TextDisplayBuilder().setContent(`${emojis.custom.person} Created for **${interaction.user.displayName}**`)
+				);
 
-			return interaction.reply(response.length > 2000 ? `${response.slice(0, 1990)}\n\`\`\`` : response);
+			return interaction.reply({
+				components: [container],
+				flags: MessageFlags.IsComponentsV2
+			});
 		} catch (error) {
 			console.error(error);
 
 			return interaction.reply({
-				content: `${emojis.custom.fail} Oopsie, I encountered an error while rendering that text.`,
-				flags: MessageFlags.Ephemeral
+				components: [
+					new ContainerBuilder()
+						.setAccentColor(Number.parseInt(color.fail.replace('#', ''), 16))
+						.addTextDisplayComponents(
+							new TextDisplayBuilder().setContent(`${emojis.custom.fail} I could not render that text as ASCII art.`)
+						)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 			});
 		}
-    }
-};
+	}
+}
+
+function trimCodeBlock(value, maxLength) {
+	if (value.length <= maxLength) return value;
+	return `${value.slice(0, maxLength - 3)}...`;
+}
 
 module.exports = {
 	UserCommand
