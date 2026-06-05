@@ -1,13 +1,8 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder } = require('discord.js');
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -15,37 +10,35 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('how-gae')
 				.setDescription(this.description)
-                .addUserOption(option => option.setName('target').setDescription(`Target's gae percentage.`)),
+				.addUserOption((option) => option.setName('target').setDescription("Target's gae percentage."))
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
+		const target = interaction.options.getUser('target') || interaction.user;
+		const percentage = Math.floor(Math.random() * 101);
 
-        let target = interaction.options.getUser('target') || interaction.user;
-        let randomizer = Math.floor(Math.random() * 101);
- 
-        const embed = new EmbedBuilder()
-        .setColor(color.random)
-        .setTitle(`How gae is ${target.username}?`)
-        .setFooter({ text: `Gae Percentage`})
-        .addFields({ name: `Percentage`, value: `${target} is **${randomizer}%** gae. 🍆`})
-        .setTimestamp();
- 
-        await interaction.reply({embeds: [embed] });
- 
-    }
-};
+		await interaction.reply({
+			components: [
+				new ContainerBuilder()
+					.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+					.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.question} **Accuracy Meter**`))
+					.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+					.addTextDisplayComponents(
+						new TextDisplayBuilder().setContent(
+							`${emojis.custom.person} **Target:** ${target}\n${emojis.custom.info} **Result:** **${percentage}%**`
+						)
+					)
+			],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
 
 module.exports = {
 	UserCommand

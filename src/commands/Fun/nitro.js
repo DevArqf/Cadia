@@ -1,12 +1,17 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MessageFlags,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder
+} = require('discord.js');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -14,30 +19,34 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder //
-				.setName('nitro')
-				.setDescription(this.description)
-		);
+		registry.registerChatInputCommand((builder) => builder.setName('nitro').setDescription(this.description));
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-        let letter = ['0','1','2','3','4','5','6','7','8','9','a','A','b','B','c','C','d','D','e','E','f','F','g','G','h','H','i','I','j','J','f','F','l','L','m','M','n','N','o','O','p','P','q','Q','r','R','s','S','t','T','u','U','v','V','w','W','x','X','y','Y','z','Z'];
-        let code = '';
-        for (let i = 0; i < 16; i++) {
-            let result = Math.floor(Math.random() * letter.length);
-            code += letter[result];
-        }
-        interaction.reply({ content: `http://discord.gift/${code}` });
-    }
-};
+		const code = generateCode(16);
+		const url = `https://discord.gift/${code}`;
+
+		await interaction.reply({
+			components: [
+				new ContainerBuilder()
+					.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+					.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.gem} **Definitely Real Nitro**`))
+					.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+					.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.arrowright} Gift code: \`${code}\``))
+					.addActionRowComponents(
+						new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Claim').setStyle(ButtonStyle.Link).setURL(url))
+					)
+			],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
+
+function generateCode(length) {
+	const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+	return Array.from({ length }, () => characters[Math.floor(Math.random() * characters.length)]).join('');
+}
 
 module.exports = {
 	UserCommand

@@ -67,7 +67,7 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		await interaction.deferReply();
+		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
 		try {
 			const msg = interaction.options.getString('text');

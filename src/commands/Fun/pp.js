@@ -1,13 +1,8 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder } = require('discord.js');
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -15,36 +10,30 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder //
-				.setName('pp')
-				.setDescription(this.description)
-		);
+		registry.registerChatInputCommand((builder) => builder.setName('pp').setDescription(this.description));
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-        const ppSize = Math.floor(Math.random() * 10) + 1;
-        let ppMain = '8';
-        for (let i = 0; i < ppSize; i++) {
-            ppMain += '=';
-        }
+		const size = Math.floor(Math.random() * 10) + 1;
+		const result = `8${'='.repeat(size)}D`;
 
-        
-        const ppEmbed = new EmbedBuilder()
-            .setColor(color.random)
-            .setTitle(`${interaction.user.username}'s pp size :0`)
-            .setDescription(`Your pp size is  ${ppMain}D`)
-
-        await interaction.reply({ embeds: [ppEmbed] });
-    }
-};
+		await interaction.reply({
+			components: [
+				new ContainerBuilder()
+					.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+					.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.gem} **Size Check**`))
+					.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+					.addTextDisplayComponents(
+						new TextDisplayBuilder().setContent(
+							`${emojis.custom.person} **User:** ${interaction.user}\n${emojis.custom.arrowright} \`${result}\``
+						)
+					)
+			],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
 
 module.exports = {
 	UserCommand

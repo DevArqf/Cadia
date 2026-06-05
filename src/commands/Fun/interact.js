@@ -1,17 +1,69 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const {
+	ContainerBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
+	MessageFlags,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	TextDisplayBuilder
+} = require('discord.js');
 const profileschema = require('../../lib/schemas/interactionSchema');
 const hug = require('../../lib/data/hug.json');
 const slap = require('../../lib/data/slap.json');
 const kill = require('../../lib/data/kill.json');
 const kiss = require('../../lib/data/kiss.json');
 
+const defaultStats = {
+	HugGive: 0,
+	Hug: 0,
+	Fail: 0,
+	Slap: 0,
+	SlapGive: 0,
+	Kill: 0,
+	KillGive: 0,
+	Err: 0,
+	Kiss: 0,
+	KissGive: 0
+};
+
+const actions = {
+	hug: {
+		label: 'Hug',
+		verb: 'hugged',
+		giveField: 'HugGive',
+		receiveField: 'Hug',
+		images: hug,
+		selfMessage: 'You tried giving yourself a hug. It did not work.'
+	},
+	slap: {
+		label: 'Slap',
+		verb: 'slapped',
+		giveField: 'SlapGive',
+		receiveField: 'Slap',
+		images: slap,
+		selfMessage: 'You tried slapping yourself. That was an unusual choice.'
+	},
+	kill: {
+		label: 'Kill',
+		verb: 'defeated',
+		giveField: 'KillGive',
+		receiveField: 'Kill',
+		images: kill,
+		selfMessage: 'You tried defeating yourself. The mission failed.'
+	},
+	kiss: {
+		label: 'Kiss',
+		verb: 'kissed',
+		giveField: 'KissGive',
+		receiveField: 'Kiss',
+		images: kiss,
+		selfMessage: 'You tried kissing yourself. The mirror declined.'
+	}
+};
+
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -19,641 +71,158 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('interact')
 				.setDMPermission(false)
 				.setDescription(this.description)
-				.addSubcommand((command) => command
-						.setName('hug')
-						.setDescription('Hug specified user.')
-						.addUserOption((option) => option
-							.setName('user')
-							.setDescription('Specified user will be hugged.')
-							.setRequired(true))
-				)
-				.addSubcommand((command) => command
-						.setName('slap')
-						.setDescription('Slap specified user.')
-						.addUserOption((option) => option
-							.setName('user')
-							.setDescription('Specified user will be slapped.')
-							.setRequired(true))
-				)
-				.addSubcommand((command) => command
-						.setName('kill')
-						.setDescription('Kill specified user.')
-						.addUserOption((option) => option
-							.setName('user')
-							.setDescription('Specified user will be killed.')
-							.setRequired(true))
-				)
-				.addSubcommand((command) => command
-						.setName('kiss')
-						.setDescription('Kiss specified user.')
-						.addUserOption((option) => option
-							.setName('user')
-							.setDescription('Specified user will be kissed.')
-							.setRequired(true))
-				)
-				.addSubcommand((command) => command
+				.addSubcommand((command) => addUserAction(command, 'hug', 'Hug specified user.'))
+				.addSubcommand((command) => addUserAction(command, 'slap', 'Slap specified user.'))
+				.addSubcommand((command) => addUserAction(command, 'kill', 'Kill specified user.'))
+				.addSubcommand((command) => addUserAction(command, 'kiss', 'Kiss specified user.'))
+				.addSubcommand((command) =>
+					command
 						.setName('profile')
-						.setDescription(`Lists specified user's profile.`)
-						.addUserOption((option) => option
-							.setName('user')
-							.setDescription('Specified user will have their profile listed.')
-							.setRequired(false)
+						.setDescription("Lists specified user's profile.")
+						.addUserOption((option) =>
+							option.setName('user').setDescription('Specified user will have their profile listed.').setRequired(false)
 						)
 				)
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-		const user = (await interaction.options.getMember('user')) || interaction.member;
-		const displayuser = (await interaction.options.getUser('user')) || interaction.user;
-
-		if (!user)
-			return await interaction.reply({
-				content: `${emojis.custom.fail} The user \`${displayuser}\` **does not** exist within the server!`,
-				flags: MessageFlags.Ephemeral
-			});
-
 		const sub = interaction.options.getSubcommand();
-		let data = await profileschema.findOne({ User: interaction.user.id });
-		let interactdata = await profileschema.findOne({ User: displayuser.id });
+		const displayUser = interaction.options.getUser('user') || interaction.user;
+		const member = interaction.options.getMember('user') || interaction.member;
 
-		switch (sub) {
-			case 'hug':
-				if (interaction.user.id === displayuser.id) {
-					await interaction.reply({
-						content: `${emojis.custom.fail} You tried **giving yourself** a **hug**, it **didn't** work \`💔\``,
-						flags: MessageFlags.Ephemeral
-					});
-					await interaction.channel.send({
-						content: `${interaction.user} tried **giving themselves** a **hug**, but they were **too** fat to do so \`💔\``
-					});
-
-					if (!data) {
-						data = await profileschema.create({
-							User: interaction.user.id,
-							HugGive: 0,
-							Hug: 0,
-							Fail: 1,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-					}
-				} else {
-					const randomizer = Math.floor(Math.random() * hug.length);
-
-					const hugembed = new EmbedBuilder()
-						.setColor(color.default)
-						.setTimestamp()
-						.setTitle('`🤗` Gave a Hug!')
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-						.setImage(hug[randomizer])
-						.addFields({ name: `**• Hug Given**`, value: `${emojis.custom.arrowright} ${interaction.user} has given \n${emojis.custom.arrowright} ${displayuser} a hug! \`❤️\`` });
-
-					await interaction.reply({ embeds: [hugembed], content: `${displayuser}` });
-
-					if (!data) {
-						data = await profileschema.create({
-							User: interaction.user.id,
-							HugGive: 0,
-							Hug: 0,
-							Fail: 0,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: interaction.user.id }, { $set: { HugGive: data.HugGive + 1 } });
-					}
-
-					if (!interactdata) {
-						interactdata = await profileschema.create({
-							User: displayuser.id,
-							HugGive: 0,
-							Hug: 1,
-							Fail: 0,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: displayuser.id }, { $set: { Hug: interactdata.Hug + 1 } });
-					}
-				}
-
-				break;
-			case 'profile':
-				if (!interactdata)
-					return await interaction.reply({
-						content: `${emojis.custom.fail} That user **has not** been given any **statistics** yet!`,
-						flags: MessageFlags.Ephemeral
-					});
-				else {
-					const statembed = new EmbedBuilder()
-						.setColor(color.default)
-						.setTimestamp()
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-						.setTitle(`${emojis.custom.right} ${displayuser.username}'s Profile ${emojis.custom.left}`)
-						.addFields(
-							{
-								name: `**Statistics Received**`,
-								value: `${emojis.custom.arrowright} • **Hugs**: \`${interactdata.Hug}\` \n${emojis.custom.arrowright} **Slaps**: \`${interactdata.Slap}\` \n${emojis.custom.arrowright} **Kills**: \`${interactdata.Kill}\` \n${emojis.custom.arrowright} **Kisses**: \`${interactdata.Kiss}\``,
-								inline: false
-							},
-							{
-								name: `**Statistics Given**`,
-								value: `${emojis.custom.arrowright} **Hugs**: \`${interactdata.HugGive}\` \n${emojis.custom.arrowright} **Slaps**: \`${interactdata.SlapGive}\` \n${emojis.custom.arrowright} **Kills**: \`${interactdata.KillGive}\` \n${emojis.custom.arrowright} **Kisses**: \`${interactdata.KissGive}\``,
-								inline: true
-							},
-							{
-								name: `**Failures**`,
-								value: `${emojis.custom.arrowright} **Fails**: \`${interactdata.Fail}\` \n${emojis.custom.arrowright} **Real Errors**: \`${interactdata.Err}\``,
-								inline: false
-							}
-						);
-
-					await interaction.reply({ embeds: [statembed] });
-				}
-
-				break;
-			case 'slap':
-				if (interaction.user.id === displayuser.id) {
-					await interaction.reply({
-						content: `${emojis.custom.fail} You tried **slapping yourself**, you are weird.. \`👋\``,
-						flags: MessageFlags.Ephemeral
-					});
-					await interaction.channel.send({ content: `${interaction.user} tried **slapping themselves**, for some reason.. \`👋\`` });
-
-					if (!data) {
-						data = await profileschema.create({
-							User: interaction.user.id,
-							HugGive: 0,
-							Hug: 0,
-							Fail: 1,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-					}
-				} else {
-					const results = [
-						{ name: `${interaction.user} **slapped** ${displayuser}!`, result: `s` },
-						{
-							name: `${interaction.user} **slapped** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** punch!`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **slap** went unoticed.`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **slap** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged the **attack**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} slapped \n${emojis.custom.arrowright} you back)`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} **couldn't** slap ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **What a save :o**`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **slap** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **slapped** ${interaction.user} instead :(`,
-							result: `f`
-						},
-						{ name: `${interaction.user} **slapped** ${displayuser}, \n> they will **remember** that..`, result: `s` },
-						{ name: `${interaction.user} **slapped** ${displayuser}, \n> how rudeful!`, result: `s` },
-						{
-							name: `Looks like an **error** occured, hm.. \n${emojis.custom.arrowright} perhaps the **GIF** generator is in \n${emojis.custom.arrowright} another **castle**!`,
-							result: `e`
-						},
-						{ name: `${interaction.user} **slapped** ${displayuser}, \n> lol.. **W** play \`😎\``, result: `s` },
-						{ name: `${interaction.user} **slapped** ${displayuser}, \n> will they take their **revenge**?`, result: `s` }
-					];
-
-					const randomizer = Math.floor(Math.random() * slap.length);
-					const failchance = Math.floor(Math.random() * results.length);
-
-					const slapembed = new EmbedBuilder()
-						.setColor(color.default)
-						.setTimestamp()
-						.setTitle('`👋` Ooo, a SLAP!')
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-						.setImage(slap[randomizer]);
-
-					if (results[failchance].result === 'f') {
-						slapembed.addFields({ name: `**• Slap Given**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					if (results[failchance].result === 's') {
-						slapembed.addFields({ name: `**• Slap Given**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					if (results[failchance].result === 'e') {
-						slapembed.addFields({ name: `**• Slap Error?**`, value: `\n > ${results[failchance].name}` });
-						slapembed.setImage('https://cdn.discordapp.com/icons/1078641070180675665/c3ee76cdd52c2bba8492027dfaafa15d.webp?size=1024');
-
-						if (!data) {
-							data = await profileschema.create({
-								User: interaction.user.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 0,
-								Err: 1,
-								Kiss: 0,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: interaction.user.id }, { $set: { Err: data.Err + 1 } });
-						}
-					}
-
-					await interaction.reply({ embeds: [slapembed], content: `${displayuser}` });
-
-					if (results[failchance].result === 'e') return;
-					else {
-						if (results[failchance].result === 's') {
-							if (!data) {
-								data = await profileschema.create({
-									User: interaction.user.id,
-									HugGive: 0,
-									Hug: 0,
-									Fail: 0,
-									Slap: 0,
-									SlapGive: 1,
-									Kill: 0,
-									KillGive: 0,
-									Err: 0,
-									Kiss: 0,
-									KissGive: 0
-								});
-							} else {
-								await profileschema.updateOne({ User: interaction.user.id }, { $set: { SlapGive: data.SlapGive + 1 } });
-							}
-
-							if (!interactdata) {
-								interactdata = await profileschema.create({
-									User: displayuser.id,
-									HugGive: 0,
-									Hug: 0,
-									Fail: 0,
-									Slap: 1,
-									SlapGive: 0,
-									Kill: 0,
-									KillGive: 0,
-									Err: 0,
-									Kiss: 0,
-									KissGive: 0
-								});
-							} else {
-								await profileschema.updateOne({ User: displayuser.id }, { $set: { Slap: interactdata.Slap + 1 } });
-							}
-						} else if (results[failchance].result === 'f') {
-							if (!data) {
-								data = await profileschema.create({
-									User: interaction.user.id,
-									HugGive: 0,
-									Hug: 0,
-									Fail: 1,
-									Slap: 0,
-									SlapGive: 0,
-									Kill: 0,
-									KillGive: 0,
-									Err: 0,
-									Kiss: 0,
-									KissGive: 0
-								});
-							} else {
-								await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-								await profileschema.updateOne({ User: interaction.user.id }, { $set: { Slap: data.Slap + 1 } });
-							}
-
-							if (!interactdata) {
-								interactdata = await profileschema.create({
-									User: displayuser.id,
-									HugGive: 0,
-									Hug: 0,
-									Fail: 0,
-									Slap: 0,
-									SlapGive: 1,
-									Kill: 0,
-									KillGive: 0,
-									Err: 0,
-									Kiss: 0,
-									KissGive: 0
-								});
-							} else {
-								await profileschema.updateOne({ User: displayuser.id }, { $set: { SlapGive: interactdata.SlapGive + 1 } });
-							}
-						}
-					}
-				}
-
-				break;
-			case 'kill':
-				if (interaction.user.id === displayuser.id) {
-					await interaction.reply({
-						content: `${emojis.custom.fail} You tried **killing yourself**, emotional damage? \`🔪\``,
-						flags: MessageFlags.Ephemeral
-					});
-					await interaction.channel.send({ content: `${interaction.user} tried **killing themselves**, give them some support.. \`🔪\`` });
-
-					if (!data) {
-						data = await profileschema.create({
-							User: interaction.user.id,
-							HugGive: 0,
-							Hug: 0,
-							Fail: 1,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-					}
-				} else {
-					const results = [
-						{ name: `${interaction.user} **killed** ${displayuser}!`, result: `s` },
-						{
-							name: `${interaction.user} **tried to kill** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** punch!`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **knife** went unoticed.`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **kill** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged the **attack**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} killed \n${emojis.custom.arrowright} you)`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} **couldn't** kill ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **Group murder babbyyy!**`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **kill** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **killed** ${interaction.user} instead :(`,
-							result: `f`
-						},
-						{ name: `${interaction.user} **killed** ${displayuser}, \n> they will **remember** that..`, result: `s` },
-						{ name: `${interaction.user} **killed** ${displayuser}, \n> how evil!`, result: `s` },
-						{ name: `${interaction.user} **killed** ${displayuser}, \n> lol.. **skill issue** \`😎\``, result: `s` },
-						{
-							name: `${interaction.user} **killed** ${displayuser}, \n${emojis.custom.arrowright} will they take their **revenge** (they won't, \n${emojis.custom.arrowright} they are dead)`,
-							result: `s`
-						}
-					];
-
-					const randomizer = Math.floor(Math.random() * kill.length);
-					const failchance = Math.floor(Math.random() * results.length);
-
-					const killembed = new EmbedBuilder()
-						.setColor('DarkRed')
-						.setTimestamp()
-						.setTitle('`🔪` A murder!')
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-						.setImage(kill[randomizer]);
-
-					if (results[failchance].result === 'f') {
-						killembed.addFields({ name: `**• Kill Confirmed**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					if (results[failchance].result === 's') {
-						killembed.addFields({ name: `**• Murder Failed**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					await interaction.reply({ embeds: [killembed], content: `${displayuser}` });
-
-					if (results[failchance].result === 's') {
-						if (!data) {
-							data = await profileschema.create({
-								User: interaction.user.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 1,
-								Err: 0,
-								Kiss: 0,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: interaction.user.id }, { $set: { KillGive: data.KillGive + 1 } });
-						}
-
-						if (!interactdata) {
-							interactdata = await profileschema.create({
-								User: displayuser.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 1,
-								KillGive: 0,
-								Err: 0,
-								Kiss: 0,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: displayuser.id }, { $set: { Kill: interactdata.Kill + 1 } });
-						}
-					} else if (results[failchance].result === 'f') {
-						if (!data) {
-							data = await profileschema.create({
-								User: interaction.user.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 1,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 0,
-								Err: 0,
-								Kiss: 0,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-							await profileschema.updateOne({ User: interaction.user.id }, { $set: { Slap: data.Kill + 1 } });
-						}
-
-						if (!interactdata) {
-							interactdata = await profileschema.create({
-								User: displayuser.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 1,
-								Err: 0,
-								Kiss: 0,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: displayuser.id }, { $set: { KillGive: interactdata.KillGive + 1 } });
-						}
-					}
-				}
-
-				break;
-			case 'kiss':
-				if (interaction.user.id === displayuser.id) {
-					await interaction.reply({
-						content: `${emojis.custom.fail} You tried **kissing yourself**, feel lonely? \`💋\``,
-						flags: MessageFlags.Ephemeral
-					});
-					await interaction.channel.send({
-						content: `${interaction.user} tried **kissing themselves**, they feel lonely, please befriend them. \`💋\``
-					});
-
-					if (!data) {
-						data = await profileschema.create({
-							User: interaction.user.id,
-							HugGive: 0,
-							Hug: 0,
-							Fail: 1,
-							Slap: 0,
-							SlapGive: 0,
-							Kill: 0,
-							KillGive: 0,
-							Err: 0,
-							Kiss: 0,
-							KissGive: 0
-						});
-					} else {
-						await profileschema.updateOne({ User: interaction.user.id }, { $set: { Fail: data.Fail + 1 } });
-					}
-				} else {
-					const results = [
-						{ name: `${interaction.user} **kissed** ${displayuser}!`, result: `s` },
-						{
-							name: `${interaction.user} **tried to kiss** ${displayuser}, \n${emojis.custom.arrowright} but ${displayuser} responded with an \n${emojis.custom.arrowright} **explosive** slap to the face!`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} triggered raging mode, \n${emojis.custom.arrowright} ${displayuser}'s **attempts** to avoid \n${emojis.custom.arrowright} the **kiss** went unnoticed.`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **kiss** ${displayuser} but \n${emojis.custom.arrowright} ${displayuser} dodged their **mouth**, \n${emojis.custom.arrowright} what a fail! (oh yeah, ${displayuser} reported \n${emojis.custom.arrowright} you for sexual harassment)`,
-							result: `f`
-						},
-						{
-							name: `${interaction.user} **couldn't** kiss ${displayuser} at \n${emojis.custom.arrowright} first, but **Cadia Bot** helped \n${emojis.custom.arrowright} them out! **We all need a little help!**`,
-							result: `s`
-						},
-						{
-							name: `${interaction.user} tried to **kiss** ${displayuser}, \n${emojis.custom.arrowright} but **Cadia Bot** felt mercy and \n${emojis.custom.arrowright} **kissed** ${interaction.user} instead, what`,
-							result: `f`
-						},
-						{ name: `${interaction.user} **kissed** ${displayuser}, \n> they **liked** that..`, result: `s` },
-						{ name: `${interaction.user} **kissed** ${displayuser}, \n> how romantic!`, result: `s` },
-						{ name: `${interaction.user} **kissed** ${displayuser}, \n> lol.. **W** rizz \`😎\``, result: `s` },
-						{ name: `${interaction.user} **kissed** ${displayuser}, \n> will they do it back?`, result: `s` }
-					];
-
-					const randomizer = Math.floor(Math.random() * kill.length);
-					const failchance = Math.floor(Math.random() * results.length);
-
-					const kissembed = new EmbedBuilder()
-						.setColor('DarkRed')
-						.setTimestamp()
-						.setTitle('`💋` A wonderful kiss!')
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.client.user.displayAvatarURL() })
-						.setThumbnail(interaction.client.user.displayAvatarURL())
-						.setImage(kiss[randomizer]);
-
-					if (results[failchance].result === 'f') {
-						kissembed.addFields({ name: `**• You were rejected**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					if (results[failchance].result === 's') {
-						kissembed.addFields({ name: `**• You kissed someone**`, value: `\n > ${results[failchance].name}` });
-					}
-
-					await interaction.reply({ embeds: [kissembed], content: `${displayuser}` });
-
-					if (results[failchance].result === 's') {
-						if (!data) {
-							data = await profileschema.create({
-								User: interaction.user.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 0,
-								Err: 0,
-								Kiss: 0,
-								KissGive: 1
-							});
-						} else {
-							await profileschema.updateOne({ User: interaction.user.id }, { $set: { KissGive: data.KissGive + 1 } });
-						}
-
-						if (!interactdata) {
-							interactdata = await profileschema.create({
-								User: displayuser.id,
-								HugGive: 0,
-								Hug: 0,
-								Fail: 0,
-								Slap: 0,
-								SlapGive: 0,
-								Kill: 0,
-								KillGive: 0,
-								Err: 0,
-								Kiss: 1,
-								KissGive: 0
-							});
-						} else {
-							await profileschema.updateOne({ User: displayuser.id }, { $set: { Kiss: interactdata.Kiss + 1 } });
-						}
-					}
-				}
+		if (!member) {
+			return interaction.reply({
+				components: [
+					buildPanel(
+						color.fail,
+						`${emojis.custom.fail} **User Not Found**`,
+						`${emojis.custom.arrowright} That user does not exist within this server.`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
 		}
+
+		if (sub === 'profile') return this.showProfile(interaction, displayUser);
+		return this.runAction(interaction, displayUser, actions[sub]);
 	}
+
+	async runAction(interaction, target, action) {
+		if (interaction.user.id === target.id) {
+			await incrementStats(interaction.user.id, { Fail: 1 });
+			return interaction.reply({
+				components: [buildPanel(color.fail, `${emojis.custom.fail} **Action Failed**`, `${emojis.custom.arrowright} ${action.selfMessage}`)],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
+
+		await incrementStats(interaction.user.id, { [action.giveField]: 1 });
+		await incrementStats(target.id, { [action.receiveField]: 1 });
+
+		const image = action.images[Math.floor(Math.random() * action.images.length)];
+		const container = new ContainerBuilder()
+			.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.heart2} **${action.label} Delivered**`))
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					`${emojis.custom.person} **From:** ${interaction.user}\n${emojis.custom.arrowright} **To:** ${target}\n${emojis.custom.comment} ${interaction.user} ${action.verb} ${target}.`
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(image).setDescription(action.label)));
+
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+
+	async showProfile(interaction, user) {
+		const data = await profileschema.findOne({ User: user.id });
+
+		if (!data) {
+			return interaction.reply({
+				components: [
+					buildPanel(
+						color.fail,
+						`${emojis.custom.fail} **No Interaction Profile**`,
+						`${emojis.custom.arrowright} ${user} does not have any interaction statistics yet.`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
+
+		const container = new ContainerBuilder()
+			.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.person} **${user.username}'s Interaction Profile**`))
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					[
+						`${emojis.custom.mail} **Received**`,
+						`${emojis.custom.arrowright} Hugs: \`${data.Hug}\``,
+						`${emojis.custom.arrowright} Slaps: \`${data.Slap}\``,
+						`${emojis.custom.arrowright} Kills: \`${data.Kill}\``,
+						`${emojis.custom.arrowright} Kisses: \`${data.Kiss}\``
+					].join('\n')
+				)
+			)
+			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(
+					[
+						`${emojis.custom.pencil} **Given**`,
+						`${emojis.custom.arrowright} Hugs: \`${data.HugGive}\``,
+						`${emojis.custom.arrowright} Slaps: \`${data.SlapGive}\``,
+						`${emojis.custom.arrowright} Kills: \`${data.KillGive}\``,
+						`${emojis.custom.arrowright} Kisses: \`${data.KissGive}\``,
+						'',
+						`${emojis.custom.warning} **Fails:** \`${data.Fail}\``,
+						`${emojis.custom.fail} **Errors:** \`${data.Err}\``
+					].join('\n')
+				)
+			);
+
+		await interaction.reply({
+			components: [container],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
+
+function addUserAction(command, name, description) {
+	return command
+		.setName(name)
+		.setDescription(description)
+		.addUserOption((option) => option.setName('user').setDescription('Specified user will receive this interaction.').setRequired(true));
+}
+
+async function incrementStats(userId, increments) {
+	const data = (await profileschema.findOne({ User: userId })) ?? (await profileschema.create({ User: userId, ...defaultStats }));
+	const update = {};
+
+	for (const [key, increment] of Object.entries(increments)) {
+		update[key] = (data[key] ?? 0) + increment;
+	}
+
+	await profileschema.updateOne({ User: userId }, { $set: update });
+}
+
+function buildPanel(accentColor, title, body) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(accentColor.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
 }
 
 module.exports = {

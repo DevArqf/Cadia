@@ -1,14 +1,18 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder } = require('discord.js');
+const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 const wait = require('node:timers/promises').setTimeout;
 
+const steps = [
+	'Running the process...',
+	'Installing dramatic fake malware...',
+	'Finding imaginary passwords...',
+	'Scanning devices and Wi-Fi...',
+	'Locating snack supplies...',
+	'Packaging completely fake evidence...'
+];
+
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -16,44 +20,67 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('hack')
 				.setDescription(this.description)
-                .addUserOption(option => option
-                    .setName('target')
-                    .setDescription('The mentioned user will get hacked')
-                    .setRequired(true)),
+				.addUserOption((option) => option.setName('target').setDescription('The mentioned user will get hacked').setRequired(true))
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-        const target = await interaction.options.getUser(`target`);
-        if(!target) 
-            return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription('Who are you trying to hack huh? Hack yourself? Mention a valid user to hack smh...')]});
-        
-        await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Running the process to hack ${target}...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Installing malware on ${target}'s devices...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Getting ${target}'s IP address, passwords and personal information...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Hacking ${target}'s devices and Wi-Fi...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Stealing ${target}'s mom's credit card...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.loading} Exposing ${target}'s personal information...`)] })
-        await wait(2500);
-        await interaction.editReply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} **Mission complete!** I've successfully hacked ${target}'s devices and exposed everything they possibly have! \n\n ${emojis.custom.chad} __Respect++__`)] })
-    }
-};
+		const target = interaction.options.getUser('target');
+
+		if (!target) {
+			return interaction.reply({
+				components: [
+					buildHackPanel(color.fail, `${emojis.custom.fail} **Target Missing**`, 'Mention a valid user to run the totally real hack.')
+				],
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+		}
+
+		await interaction.reply({
+			components: [buildHackPanel(color.default, `${emojis.custom.loading} **Hack Started**`, `${emojis.custom.person} Target: ${target}`)],
+			flags: MessageFlags.IsComponentsV2
+		});
+
+		for (const [index, step] of steps.entries()) {
+			await wait(1_200);
+			await interaction.editReply({
+				components: [
+					buildHackPanel(
+						color.default,
+						`${emojis.custom.loading} **Hack Progress**`,
+						`${emojis.custom.person} Target: ${target}\n${emojis.custom.arrowright} Step ${index + 1}/${steps.length}: ${step}`
+					)
+				],
+				flags: MessageFlags.IsComponentsV2
+			});
+		}
+
+		await wait(1_200);
+		await interaction.editReply({
+			components: [
+				buildHackPanel(
+					color.success,
+					`${emojis.custom.success} **Mission Complete**`,
+					`${emojis.custom.chad} Successfully fake-hacked ${target}. Respect increased.`
+				)
+			],
+			flags: MessageFlags.IsComponentsV2
+		});
+	}
+}
+
+function buildHackPanel(accentColor, title, body) {
+	return new ContainerBuilder()
+		.setAccentColor(Number.parseInt(accentColor.replace('#', ''), 16))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(title))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
+}
 
 module.exports = {
 	UserCommand
