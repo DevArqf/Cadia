@@ -1,14 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis, channels } = require('../../config')
-const { EmbedBuilder, PermissionsBitField, ButtonStyle, ButtonBuilder, ActionRowBuilder , MessageFlags} = require('discord.js');
+const { color, emojis, channels } = require('../../config');
+const { ButtonStyle, MessageFlags } = require('discord.js');
 const { BugReportBlacklist } = require('../../lib/schemas/bugreportSchema');
+const { actionButton, componentReply, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -16,220 +12,219 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('bug-report')
 				.setDescription(this.description)
-
-				// Main cmd
 				.addSubcommand((subcommand) =>
-					subcommand //
+					subcommand
 						.setName('send')
 						.setDescription('Submit a bug report to the Developer of Cadia')
-                .addStringOption(option =>
-                    option
-                        .setName('issue')
-                        .setDescription('Describe the issue(s) you encountered')
-                        .setRequired(true))
-				.addStringOption(option =>
-					option
-						.setName('system')
-						.setDescription('What command or system did you find this bug in?')
-						.setRequired(true))
-                .addAttachmentOption(option =>
-                    option
-                        .setName('image')
-                        .setDescription('Attach a image related to the issue you encountered')
-                        .setRequired(false))
-                .addStringOption(option =>
-                    option
-                        .setName('notes')
-                        .setDescription('Do you have any additional note for the developers?')
-                        .setRequired(false)))
-
-				//Blacklist
+						.addStringOption((option) => option.setName('issue').setDescription('Describe the issue you encountered').setRequired(true))
+						.addStringOption((option) =>
+							option.setName('system').setDescription('What command or system did you find this bug in?').setRequired(true)
+						)
+						.addAttachmentOption((option) =>
+							option.setName('image').setDescription('Attach an image related to the issue').setRequired(false)
+						)
+						.addStringOption((option) => option.setName('notes').setDescription('Additional notes for developers').setRequired(false))
+				)
 				.addSubcommand((subcommand) =>
-					subcommand //
+					subcommand
 						.setName('blacklist-user')
 						.setDescription('Blacklist a user from executing the bug-report command')
-				.addStringOption(option =>
-					option
-						.setName('user-id')
-						.setDescription('The ID of the user')
-						.setRequired(true))
-				.addStringOption(option =>
-					option
-						.setName('reason')
-						.setDescription('The reason of blacklisting the user')
-						.setRequired(false)))
-				
-				//Un-Blacklist
+						.addStringOption((option) => option.setName('user-id').setDescription('The ID of the user').setRequired(true))
+						.addStringOption((option) =>
+							option.setName('reason').setDescription('The reason for blacklisting the user').setRequired(false)
+						)
+				)
 				.addSubcommand((subcommand) =>
-					subcommand //
+					subcommand
 						.setName('unblacklist-user')
 						.setDescription('Unblacklist a user from executing the bug-report command')
-				.addStringOption(option =>
-					option
-						.setName('user-id')
-						.setDescription('The ID of the user')
-						.setRequired(true))),
-        );
-
+						.addStringOption((option) => option.setName('user-id').setDescription('The ID of the user').setRequired(true))
+				)
+		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
 		const subcommand = interaction.options.getSubcommand();
-		const { DEVELOPERS } = process.env;
-		const authorizedIDs = DEVELOPERS.split(' ');
 
-		if (subcommand === 'blacklist-user') {
-			if (!authorizedIDs.includes(interaction.user.id)) { 
-				return await interaction.reply(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`);
-			};
+		if (subcommand === 'blacklist-user') return this.blacklistUser(interaction);
+		if (subcommand === 'unblacklist-user') return this.unblacklistUser(interaction);
+		return this.sendReport(interaction);
+	}
 
-			const userId = interaction.options.getString('user-id');
-			const reason = interaction.options.getString('reason') || 'No reason provided';
+	async blacklistUser(interaction) {
+		if (!isDeveloper(interaction.user.id)) return unauthorized(interaction);
 
-			if (Number.isNaN(userId)) {
-				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You have **entered** a character that is **not** a number.`)], flags: MessageFlags.Ephemeral });
-			};
-			const find = await BugReportBlacklist.find({ userID: userId });
-
-			if (find.length === 0) {
-				await BugReportBlacklist.create({ userID: userId, reason });
-				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} **Successfully Blacklisted!**\n\`${userId}\` has been **blacklisted** from executing the **bug-report** command\n\n**Reason:**\n ${emojis.custom.arrowright} \`${reason}\``)], flags: MessageFlags.Ephemeral});
-			}
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} **Failed to Backlist!**\n\n\`${userId}\` **cannot** be **blacklisted** from executing the **bug-report** command as they have already been **blacklisted**`)], flags: MessageFlags.Ephemeral});
-
+		const userId = interaction.options.getString('user-id', true);
+		const reason = interaction.options.getString('reason') || 'No reason provided';
+		if (!/^\d{17,20}$/.test(userId)) {
+			return interaction.reply(
+				componentReply(
+					notice(`${emojis.custom.warning} **Invalid User ID**`, 'Please provide a valid Discord snowflake.', color.warning),
+					true
+				)
+			);
 		}
 
-		if (subcommand === 'unblacklist-user') {
-			if (!authorizedIDs.includes(interaction.user.id)) { 
-				return await interaction.reply(`${emojis.custom.forbidden} You are not **authorized** to **execute** this command!`);
-			};
-			const userId = interaction.options.getString('user-id');
-			const find = await BugReportBlacklist.find({ userID: userId });
-
-			if (find.length !== 0) {
-				await BugReportBlacklist.findOneAndDelete({ userID: userId });
-				return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} **Successfully Unblacklisted!**\n\`${userId}\` has been **sucessfully** Unblacklisted`)], flags: MessageFlags.Ephemeral })
-			}
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.success} **Failed to Unblacklist!**\n\n\`${userId}\` **cannot** be **blacklisted** from **executing** the **bug-report** command as they have already been **blacklisted**`)], flags: MessageFlags.Ephemeral});
-
-		};
-
-		if (subcommand === 'send') {
-			const find = await BugReportBlacklist.find({ userID: interaction.user.id });
-			if (find.length !== 0) {
-				const blacklistEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(`${emojis.custom.warning} You have been **blacklisted** from **executing** the bug-report command! Please join our discord server [here](https://discord.gg/2XunevgrHD) for more info.`)
-				.setTimestamp()
-				.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
-
-			return await interaction.reply({ embeds: [blacklistEmbed], flags: MessageFlags.Ephemeral })
-			};
-			
-			const issue = interaction.options.getString('issue');
-			const notes = interaction.options.getString('notes') || 'No notes provided';
-			const image = interaction.options.getAttachment('image');
-			const system = interaction.options.getString('system');
-			
-			const BugReportChanel = interaction.client.channels.cache.get(channels.bugReports);
-
-		const sentEmbed = new EmbedBuilder()
-		.setColor(`${color.random}`)
-		.setDescription(`${emojis.custom.success} **Thank you for submitting this bug report.** The Developers will **investigate** the bug **very** soon.\n ${emojis.custom.arrowright} ${emojis.custom.warning} Abusing or misusing this feature will **result** in you getting **blacklisted**!`) // \n\n **Issue:**\n${emojis.custom.arrowright} ${issue}\n\n **Notes:**\n${emojis.custom.arrowright} ${notes} \n\n**Image:**\n ${image ? `${emojis.custom.arrowright} Please look below` : `${emojis.custom.arrowright} No picture provided`}\n\n**System:**\n ${emojis.custom.arrowright} ${system} **Abusing** this feature will **result** in you getting **blacklisted***!`)
-		.addFields([
-			{ name: `${emojis.custom.warning} \`-\` **Bug:**`, value: `${emojis.custom.arrowright} ${issue}` },
-			{ name: `${emojis.custom.pencil} \`-\` **Notes:**'`, value: `${emojis.custom.arrowright} ${notes}` },
-			{ name: `${emojis.custom.settings} \`-\` **System:**`, value: `${emojis.custom.arrowright} ${system}` },
-			{ name: `${emojis.custom.save} \`-\` **Image:**`, value: `${image ? `${emojis.custom.arrowright} Please take look below` : `${emojis.custom.arrowright} No picture provided`}` }
-		])
-		.setImage(image ? image.url : null)
-		.setTimestamp()
-        .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
-
-		const devEmbed = new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(`${emojis.custom.mail} New Bug Report`)
-		.addFields([
-			{ name: `${emojis.custom.person} \`-\` **User info:**`, value: `${emojis.custom.arrowright} **User ID:** ${interaction.user.id}\n${emojis.custom.arrowright} **User:** <@${interaction.user.id}>` },
-			{ name: `${emojis.custom.warning} **Bug:**`, value: `${emojis.custom.arrowright} ${issue}` },
-			{ name: `${emojis.custom.pencil} \`-\` **Notes:**'`, value: `${emojis.custom.arrowright} ${notes}` },
-			{ name: `${emojis.custom.settings} \`-\` **System:**`, value: `${emojis.custom.arrowright} ${system}`},
-			{ name: `${emojis.custom.save} \`-\` **Image:**`, value: `${image ? `${emojis.custom.arrowright} Please look below` : `${emojis.custom.arrowright} No picture provided`}` },
-			])
-		.setTimestamp()
-		.setFooter({ text: `Report submitted by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-		.setImage(image ? image.url : null);
-			
-			const button = new ActionRowBuilder()
-			.addComponents(
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.success)
-					.setLabel("Solved")
-					.setStyle(ButtonStyle.Success)
-					.setCustomId("solve")
-					)
-					
-					await interaction.reply({ embeds: [sentEmbed] });
-					const sendMessage = await BugReportChanel.send({ embeds: [devEmbed], components: [button] });
-					const collector = sendMessage.createMessageComponentCollector({ time: 604800000 });
-					
-					collector.on('collect', async (interaction) => {
-						if (!interaction.isButton() || interaction.message.id !== sendMessage.id) return;
-						
-						const { customId } = interaction;
-						
-						if (customId === 'solve') {
-				try {
-					
-					const user = interaction.user.displayName;
-					const newActionRowEmbeds = interaction.message.components.map((oldActionRow) => {
-						const updatesActionRow = new ActionRowBuilder();
-
-						updatesActionRow.addComponents(
-							oldActionRow.components.map((buttonComponent) => {
-								const newButton = new ButtonBuilder()
-									.setCustomId(buttonComponent.customId)
-									.setEmoji(emojis.custom.success)
-									.setLabel(`Bug solved by ${user}`)
-									.setStyle(ButtonStyle.Success)
-									.setDisabled(true)
-
-							return newButton;
-							})
-						);
-						return updatesActionRow;
-					});
-					const successEmbed = new EmbedBuilder()
-						.setColor(color.success)
-						.setDescription(`${emojis.custom.success} **Marked Resolved**\n\nThis bug report has been **successfully** been marked as **resolved**.`)
-					await interaction.reply({ embeds: [successEmbed] , flags: MessageFlags.Ephemeral });
-					await interaction.message.edit({ components: newActionRowEmbeds });
-
-				} catch (error) {
-					console.error(error);
-					const errorEmbed = new EmbedBuilder()
-							.setColor(color.fail)
-							.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-							.setTimestamp();
-							
-							return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-						}
-					}});
-					return;
-				};
+		const existing = await BugReportBlacklist.findOne({ userID: userId });
+		if (existing) {
+			return interaction.reply(
+				componentReply(
+					notice(`${emojis.custom.warning} **Already Blacklisted**`, `\`${userId}\` is already blocked from bug reports.`, color.warning),
+					true
+				)
+			);
 		}
-};
+
+		await BugReportBlacklist.create({ userID: userId, reason });
+		return interaction.reply(
+			componentReply(
+				panel({
+					accentColor: color.success,
+					title: `${emojis.custom.success} **Bug Report Access Blocked**`,
+					subtitle: 'Developer moderation action',
+					sections: [`${emojis.custom.person} **User ID:** \`${userId}\``, `${emojis.custom.pencil} **Reason:** ${reason}`],
+					footer: `${emojis.custom.person} Updated by ${interaction.user.displayName}`
+				}),
+				true
+			)
+		);
+	}
+
+	async unblacklistUser(interaction) {
+		if (!isDeveloper(interaction.user.id)) return unauthorized(interaction);
+
+		const userId = interaction.options.getString('user-id', true);
+		const removed = await BugReportBlacklist.findOneAndDelete({ userID: userId });
+		if (!removed) {
+			return interaction.reply(
+				componentReply(
+					notice(`${emojis.custom.warning} **Not Blacklisted**`, `\`${userId}\` was not blocked from bug reports.`, color.warning),
+					true
+				)
+			);
+		}
+
+		return interaction.reply(
+			componentReply(
+				panel({
+					accentColor: color.success,
+					title: `${emojis.custom.success} **Bug Report Access Restored**`,
+					subtitle: 'Developer moderation action',
+					sections: [`${emojis.custom.person} **User ID:** \`${userId}\``, `${emojis.custom.info} This user can submit bug reports again.`],
+					footer: `${emojis.custom.person} Updated by ${interaction.user.displayName}`
+				}),
+				true
+			)
+		);
+	}
+
+	async sendReport(interaction) {
+		const blocked = await BugReportBlacklist.findOne({ userID: interaction.user.id });
+		if (blocked) {
+			return interaction.reply(
+				componentReply(
+					notice(
+						`${emojis.custom.warning} **Bug Reports Blocked**`,
+						`You are blacklisted from submitting bug reports.\n${emojis.custom.arrowright} Reason: ${blocked.reason ?? 'No reason provided'}`,
+						color.warning
+					),
+					true
+				)
+			);
+		}
+
+		const issue = interaction.options.getString('issue', true);
+		const notes = interaction.options.getString('notes') || 'No notes provided';
+		const image = interaction.options.getAttachment('image');
+		const system = interaction.options.getString('system', true);
+		const reportChannel = interaction.client.channels.cache.get(channels.bugReports);
+
+		if (!reportChannel) {
+			return interaction.reply(
+				componentReply(
+					notice(
+						`${emojis.custom.fail} **Report Channel Missing**`,
+						'The configured bug report channel is not cached or no longer exists.'
+					),
+					true
+				)
+			);
+		}
+
+		const reportId = `bug:${interaction.id}`;
+		await interaction.reply(
+			componentReply(
+				panel({
+					accentColor: color.success,
+					title: `${emojis.custom.mail} **Bug Report Submitted**`,
+					subtitle: 'The developers received your report',
+					sections: [
+						`${emojis.custom.warning} **Issue**\n${issue}`,
+						`${emojis.custom.settings} **System:** ${system}`,
+						`${emojis.custom.pencil} **Notes:** ${notes}`,
+						`${emojis.custom.save} **Image:** ${image ? 'Attached below for developers.' : 'No image provided.'}`
+					],
+					footer: `${emojis.custom.info} Misusing this feature can result in a report blacklist.`
+				})
+			)
+		);
+
+		const sent = await reportChannel.send(
+			componentReply(
+				panel({
+					accentColor: color.default,
+					title: `${emojis.custom.mail} **New Bug Report**`,
+					subtitle: `Report ID ${reportId}`,
+					sections: [
+						`${emojis.custom.person} **Reporter**\nUser: ${interaction.user}\nUser ID: \`${interaction.user.id}\``,
+						`${emojis.custom.warning} **Issue**\n${issue}`,
+						`${emojis.custom.settings} **System:** ${system}`,
+						`${emojis.custom.pencil} **Notes:** ${notes}`,
+						`${emojis.custom.save} **Image:** ${image ? image.url : 'No image provided.'}`
+					],
+					buttons: [actionButton(`${reportId}:solve`, 'Mark Solved', ButtonStyle.Success, emojis.custom.success)],
+					footer: `${emojis.custom.clock} Submitted <t:${Math.floor(Date.now() / 1000)}:R>`
+				})
+			)
+		);
+
+		const collector = sent.createMessageComponentCollector({ time: 604_800_000 });
+		collector.on('collect', async (i) => {
+			if (!i.isButton() || i.customId !== `${reportId}:solve`) return;
+
+			await i.update(
+				componentReply(
+					panel({
+						accentColor: color.success,
+						title: `${emojis.custom.success} **Bug Report Resolved**`,
+						subtitle: `Report ID ${reportId}`,
+						sections: [
+							`${emojis.custom.person} **Reporter:** ${interaction.user}`,
+							`${emojis.custom.warning} **Issue**\n${issue}`,
+							`${emojis.custom.success} **Resolved by:** ${i.user}`
+						],
+						footer: `${emojis.custom.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
+					})
+				)
+			);
+		});
+	}
+}
+
+function isDeveloper(userId) {
+	return (process.env.DEVELOPERS || '').split(/\s+/).filter(Boolean).includes(userId);
+}
+
+function unauthorized(interaction) {
+	return interaction.reply(
+		componentReply(notice(`${emojis.custom.forbidden} **Developer Only**`, 'You are not authorized to use this bug-report admin action.'), true)
+	);
+}
 
 module.exports = {
 	UserCommand

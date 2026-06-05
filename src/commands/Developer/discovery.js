@@ -1,13 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { ChannelType, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { ChannelType, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { componentReply, linkButton, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -16,78 +13,66 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder //
-				.setName('discovery')
-				.setDescription(this.description)
-		);
+		registry.registerChatInputCommand((builder) => builder.setName('discovery').setDescription(this.description));
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
 		try {
-			await interaction.editReply({ embeds: [createLoadingEmbed('Fetching the server cache...')] });
+			await interaction.editReply(componentReply(loadingPanel('Fetching the server cache...'), true));
 			await interaction.client.guilds.fetch();
 
-			const lines = [];
 			const guilds = [...interaction.client.guilds.cache.values()].sort((a, b) => b.memberCount - a.memberCount);
+			const rows = [];
 
-			await interaction.editReply({
-				embeds: [createLoadingEmbed(`Found ${guilds.length} servers. Creating invite links and reading join dates...`)]
-			});
+			await interaction.editReply(componentReply(loadingPanel(`Found ${guilds.length} servers. Creating invite links...`), true));
 
 			for (const [index, guild] of guilds.entries()) {
 				if (index === 0 || (index + 1) % 5 === 0 || index + 1 === guilds.length) {
-					await interaction.editReply({
-						embeds: [createLoadingEmbed(`Retrieving server details... ${index + 1}/${guilds.length}`)]
-					});
+					await interaction.editReply(componentReply(loadingPanel(`Reading server details ${index + 1}/${guilds.length}`), true));
 				}
 
 				const invite = await createGuildInvite(guild);
 				const joinedAt = await getBotJoinDate(guild);
-				const guildName = escapeMarkdown(guild.name);
-				const linkedName = invite ? `[${guildName}](${invite.url})` : `**${guildName}**`;
-
-				lines.push(
-					`${emojis.custom.arrowright} ${linkedName}\n> ID: \`${guild.id}\` | Members: **${guild.memberCount}** | Owner: <@${guild.ownerId}> | Joined: **${joinedAt}**`
-				);
+				rows.push({
+					guild,
+					invite,
+					line: `${emojis.custom.arrowright} **${escapeMarkdown(guild.name)}**\nID: \`${guild.id}\` - Members: **${(guild.memberCount ?? 0).toLocaleString()}** - Owner: <@${guild.ownerId}> - Joined: **${joinedAt}**`
+				});
 			}
 
-			await interaction.editReply({ embeds: [createLoadingEmbed('Building the discovery list...')] });
-
-			const embeds = chunkLines(lines).map((description, index) =>
-				new EmbedBuilder()
-					.setColor(color.default)
-					.setTitle(index === 0 ? 'Cadia Server Discovery' : `Cadia Server Discovery (${index + 1})`)
-					.setDescription(description)
-					.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-					.setTimestamp()
+			const chunks = chunkLines(rows.map((row) => row.line));
+			const firstInvite = rows.find((row) => row.invite)?.invite?.url;
+			const containers = chunks.slice(0, 5).map((description, index) =>
+				panel({
+					accentColor: color.default,
+					title: `${emojis.custom.compass} **Cadia Server Discovery${index ? ` (${index + 1})` : ''}**`,
+					subtitle: `${guilds.length.toLocaleString()} servers indexed`,
+					sections: [description],
+					footer: `${emojis.custom.person} Requested by ${interaction.user.displayName}`,
+					buttons: index === 0 && firstInvite ? [linkButton('Open First Invite', firstInvite)] : []
+				})
 			);
 
-			return interaction.editReply({ embeds });
+			return interaction.editReply(componentReply(containers, true));
 		} catch (error) {
 			console.error(error);
-
-			const errorEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(`${emojis.custom.fail} Oopsie, I was unable to generate the server discovery list.`)
-				.setTimestamp();
-
-			return interaction.editReply({ embeds: [errorEmbed] });
+			return interaction.editReply(
+				componentReply(notice(`${emojis.custom.fail} **Discovery Failed**`, 'I was unable to generate the server discovery list.'), true)
+			);
 		}
 	}
 }
 
-function createLoadingEmbed(message) {
-	return new EmbedBuilder().setColor(color.default).setDescription(`${emojis.custom.loading} ${message}`).setTimestamp();
+function loadingPanel(message) {
+	return panel({
+		accentColor: color.default,
+		title: `${emojis.custom.loading} **Discovery Running**`,
+		sections: [`${emojis.custom.arrowright} ${message}`],
+		footer: false
+	});
 }
 
 async function createGuildInvite(guild) {
@@ -100,16 +85,15 @@ async function createGuildInvite(guild) {
 		const permissions = channel.permissionsFor(guild.members.me);
 		if (!permissions?.has(PermissionFlagsBits.CreateInstantInvite)) continue;
 
-		try {
-			return await channel.createInvite({
+		const invite = await channel
+			.createInvite({
 				maxAge: 86400,
 				maxUses: 0,
 				unique: false,
 				reason: 'Developer discovery command'
-			});
-		} catch {
-			continue;
-		}
+			})
+			.catch(() => null);
+		if (invite) return invite;
 	}
 
 	return null;
@@ -119,20 +103,15 @@ async function getBotJoinDate(guild) {
 	const member = guild.members.me ?? (await guild.members.fetchMe().catch(() => null));
 	if (!member?.joinedAt) return 'Unknown';
 
-	return formatExactDate(member.joinedAt);
-}
-
-function formatExactDate(date) {
-	return `${new Intl.DateTimeFormat('en-CA', {
+	return new Intl.DateTimeFormat('en-CA', {
 		timeZone: 'America/Caracas',
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
 		hour: '2-digit',
 		minute: '2-digit',
-		second: '2-digit',
 		hour12: false
-	}).format(date)} Caracas`;
+	}).format(member.joinedAt);
 }
 
 function chunkLines(lines) {
@@ -140,16 +119,15 @@ function chunkLines(lines) {
 	let current = '';
 
 	for (const line of lines) {
-		if (current.length + line.length + 2 > 3900) {
+		if (current.length + line.length + 2 > 3500) {
 			chunks.push(current);
 			current = '';
 		}
-
 		current += `${line}\n\n`;
 	}
 
 	if (current) chunks.push(current);
-	return chunks.slice(0, 10);
+	return chunks;
 }
 
 function escapeMarkdown(text) {

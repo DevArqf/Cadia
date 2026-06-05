@@ -1,14 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
 const sourcebin = require('sourcebin_js');
+const { componentReply, linkButton, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -17,45 +13,37 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder //
-				.setName('guild-list')
-				.setDescription(this.description)
-		);
+		registry.registerChatInputCommand((builder) => builder.setName('guild-list').setDescription(this.description));
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-		let list = '';
-		interaction.client.guilds.cache.forEach((guild) => {
-			list += `${guild.name} (${guild.id}) | ${guild.memberCount} Members | Owner: ${guild.ownerId}\n`;
-		});
+		try {
+			const guilds = [...interaction.client.guilds.cache.values()].sort((a, b) => b.memberCount - a.memberCount);
+			const list = guilds.map((guild) => `${guild.name} (${guild.id}) | ${guild.memberCount} Members | Owner: ${guild.ownerId}`).join('\n');
+			const src = await sourcebin.create([{ name: 'Cadia Guild List', content: list || 'No guilds found.', languageId: 'text' }]);
 
-		sourcebin
-			.create([
-				{
-					name: `Cadia Guild List - Code By Cadia`,
-					content: list,
-					languageId: 'js'
-				}
-			])
-			.then((src) => {
-				const embed = new EmbedBuilder()
-					.setDescription(
-						`${emojis.custom.success} The Guild List has been **successfully** generated!\n⠀${emojis.custom.arrowright} [Click here to view](${src.url})`
-					)
-					.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-					.setColor(color.success)
-					.setTimestamp();
-
-				interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-			});
+			return interaction.reply(
+				componentReply(
+					panel({
+						accentColor: color.success,
+						title: `${emojis.custom.success} **Guild List Generated**`,
+						subtitle: 'Private owner report',
+						sections: [
+							`${emojis.custom.community} **Servers:** ${guilds.length.toLocaleString()}`,
+							`${emojis.custom.person} **Members:** ${guilds.reduce((total, guild) => total + (guild.memberCount ?? 0), 0).toLocaleString()}`
+						],
+						buttons: [linkButton('Open Sourcebin', src.url)]
+					}),
+					true
+				)
+			);
+		} catch (error) {
+			console.error(error);
+			return interaction.reply(
+				componentReply(notice(`${emojis.custom.fail} **Guild List Failed**`, 'I could not generate the guild list right now.'), true)
+			);
+		}
 	}
 }
 

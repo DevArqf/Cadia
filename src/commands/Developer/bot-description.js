@@ -1,27 +1,21 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { EmbedBuilder, MessageFlags } = require('discord.js');
+const { MessageFlags } = require('discord.js');
+const { componentReply, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
 			permissionLevel: PermissionLevels.Developer,
-			description: "Modify the Cadia's Description"
+			description: "Modify Cadia's description"
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('bot-description')
 				.setDescription(this.description)
 				.addStringOption((option) =>
@@ -34,38 +28,36 @@ class UserCommand extends CadiaCommand {
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
-		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
 
 		try {
 			const description = interaction.options.getString('description', true).replace(/\\n/g, '\n');
-			const descriptionPreview = description.length > 1024 ? `${description.slice(0, 1021)}...` : description;
+			const descriptionPreview = description.length > 1400 ? `${description.slice(0, 1397)}...` : description;
 
 			await interaction.client.application.fetch();
 			await interaction.client.application.edit({ description });
 
-			const embed = new EmbedBuilder()
-				.setColor(color.success)
-				.setDescription(`${emojis.custom.success} The bot description has been **successfully** updated!`)
-				.addFields({ name: `${emojis.custom.pencil} \`-\` Description`, value: descriptionPreview || 'No description provided.' })
-				.setTimestamp()
-				.setFooter({ text: interaction.user.displayName, iconURL: interaction.user.displayAvatarURL() });
-
-			return interaction.editReply({ embeds: [embed] });
+			return interaction.editReply(
+				componentReply(
+					panel({
+						accentColor: color.success,
+						title: `${emojis.custom.success} **Description Updated**`,
+						subtitle: 'Developer application profile edit',
+						sections: [
+							`${emojis.custom.pencil} **Preview**\n${descriptionPreview || 'No description provided.'}`,
+							`${emojis.custom.info} Characters: **${description.length.toLocaleString()} / 4,000**`
+						],
+						footer: `${emojis.custom.person} Updated by ${interaction.user.displayName}`
+					}),
+					true
+				)
+			);
 		} catch (error) {
 			console.error(error);
-
-			const errorEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(
-					`${emojis.custom.fail} Oopsie, I was unable to update the bot description. Please check the description length and try again.`
-				)
-				.setTimestamp();
-
-			return interaction.editReply({ embeds: [errorEmbed] });
+			return interaction.editReply(
+				componentReply(notice(`${emojis.custom.fail} **Description Update Failed**`, 'Check the description length and try again.'), true)
+			);
 		}
 	}
 }

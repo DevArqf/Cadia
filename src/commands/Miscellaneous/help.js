@@ -112,7 +112,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 			new SectionBuilder()
 				.addTextDisplayComponents(
 					new TextDisplayBuilder().setContent(
-						`## ${emojis.custom.openfolder} Cadia Command Center\n` +
+						`${emojis.custom.openfolder} **Cadia Command Center**\n` +
 							`Browse **${totalCommands} commands** across **${catalog.length} categories**. Use the menu below to jump between command groups.`
 					)
 				)
@@ -121,7 +121,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`### ${getCategoryIcon(selectedCategory?.name)} ${selectedCategory?.name ?? 'Commands'}\n` +
+				`${getCategoryIcon(selectedCategory?.name)} **${selectedCategory?.name ?? 'Commands'}**\n` +
 					`${formatCommandList(visibleCommands)}` +
 					(hiddenCount
 						? `\n\n${emojis.custom.info} Showing the first **${visibleCommands.length}** commands. **${hiddenCount}** more are in this category.`

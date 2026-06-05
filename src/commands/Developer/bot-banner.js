@@ -1,13 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder, REST, Routes, DataResolver , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const { DataResolver, REST, Routes } = require('discord.js');
+const { componentReply, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -16,52 +13,59 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('bot-banner')
 				.setDescription(this.description)
-				.addAttachmentOption((option) => option
-                    .setName('banner')
-                    .setDescription('The banner you want to add')
-                    .setRequired(true))
+				.addAttachmentOption((option) => option.setName('banner').setDescription('The banner you want to add').setRequired(true))
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
-	async chatInputRun(interaction, client) {
-            const { TOKEN } = process.env;
-            const { options } = interaction;
-            const banner = options.getAttachment("banner");
-        
-            async function sendMessage(message) {
-              const embed = new EmbedBuilder()
-                .setColor(color.warning)
-                .setDescription(message);
-        
-              await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-            
-            if (banner.contentType !== "image/gif" && banner.contentType !== "image/png")
-                return await sendMessage(`${emojis.custom.warning} Please use a **GIF** or a **PNG** format for banners`);
-            
-            var error;
+	async chatInputRun(interaction) {
+		const banner = interaction.options.getAttachment('banner', true);
 
-            const rest = new REST().setToken(TOKEN);
-            await rest.patch(Routes.user(), {
-                body: { banner: await DataResolver.resolveImage(banner.url) },
-            });
+		if (!['image/gif', 'image/png'].includes(banner.contentType)) {
+			return interaction.reply(
+				componentReply(notice(`${emojis.custom.warning} **Unsupported Banner**`, 'Please upload a GIF or PNG banner.', color.warning), true)
+			);
+		}
 
-            if (error) return;
+		try {
+			const rest = new REST().setToken(process.env.TOKEN);
+			await rest.patch(Routes.user(), {
+				body: { banner: await DataResolver.resolveImage(banner.url) }
+			});
 
-            await sendMessage(`${emojis.custom.success} The banner has been **successfully** uploaded!`);
-          }
-        };
+			return interaction.reply(
+				componentReply(
+					panel({
+						accentColor: color.success,
+						title: `${emojis.custom.success} **Banner Updated**`,
+						subtitle: 'Developer profile asset upload',
+						sections: [
+							`${emojis.custom.openfolder} **Asset:** ${banner.name ?? 'Uploaded file'}`,
+							`${emojis.custom.info} Cadia's bot banner was updated successfully.`
+						],
+						footer: `${emojis.custom.person} Updated by ${interaction.user.displayName}`
+					}),
+					true
+				)
+			);
+		} catch (error) {
+			console.error(error);
+			return interaction.reply(
+				componentReply(
+					notice(
+						`${emojis.custom.fail} **Banner Upload Failed**`,
+						'Discord rejected the uploaded banner asset. Check the image format, file size, and bot profile access.'
+					),
+					true
+				)
+			);
+		}
+	}
+}
 
 module.exports = {
 	UserCommand

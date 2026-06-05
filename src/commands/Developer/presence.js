@@ -1,13 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
-const { ActivityType, EmbedBuilder, MessageFlags } = require('discord.js');
+const { ActivityType } = require('discord.js');
+const { componentReply, notice, panel } = require('../../lib/util/components');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -16,9 +13,6 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder
@@ -56,17 +50,11 @@ class UserCommand extends CadiaCommand {
 						.setRequired(false)
 				)
 				.addStringOption((option) =>
-					option
-						.setName('url')
-						.setDescription('The stream URL. Required when activity is Streaming.')
-						.setRequired(false)
+					option.setName('url').setDescription('The stream URL. Required when activity is Streaming.').setRequired(false)
 				)
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
 		try {
 			const presence = interaction.options.getString('type', true);
@@ -81,27 +69,28 @@ class UserCommand extends CadiaCommand {
 				activities: activityData ? [activityData] : []
 			});
 
-			const embed = new EmbedBuilder()
-				.setTitle("Cadia's Presence")
-				.setDescription(
-					`${emojis.custom.success} **Successfully** set presence to **${presence}**${activityData ? ` with **${activity} ${activityData.name}**` : ''}!`
+			return interaction.reply(
+				componentReply(
+					panel({
+						accentColor: color.default,
+						title: `${emojis.custom.connected} **Presence Updated**`,
+						subtitle: 'Activity rotation is now paused',
+						sections: [
+							`${emojis.custom.online} **Status:** ${presence}`,
+							`${emojis.custom.settings} **Activity:** ${activityData ? `${activity} ${activityData.name}` : 'None'}`,
+							activityData?.url ? `${emojis.custom.link} **Stream URL:** ${activityData.url}` : null
+						].filter(Boolean),
+						footer: `${emojis.custom.person} Updated by ${interaction.user.displayName}`
+					})
 				)
-				.setColor(color.default)
-				.setTimestamp()
-				.setFooter({ text: `${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
-
-			return interaction.reply({ embeds: [embed] });
+			);
 		} catch (error) {
 			console.error(error);
-
-			const errorEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(error.message === 'Streaming requires a valid Twitch or YouTube URL.'
-					? `${emojis.custom.fail} Streaming presence requires a valid Twitch or YouTube URL.`
-					: `${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-				.setTimestamp();
-
-			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+			const message =
+				error.message === 'Streaming requires a valid Twitch or YouTube URL.'
+					? 'Streaming presence requires a valid Twitch or YouTube URL.'
+					: 'The presence update could not be applied.';
+			return interaction.reply(componentReply(notice(`${emojis.custom.fail} **Presence Update Failed**`, message), true));
 		}
 	}
 }

@@ -4,7 +4,7 @@ const figlet = require('figlet');
 const os = require('os');
 const { connectMysql } = require('../lib/database/mysql');
 const dev = process.env.NODE_ENV !== 'production';
-const { ActivityType } = require('discord.js');
+const { ActivityType, Events } = require('discord.js');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -12,6 +12,7 @@ class UserEvent extends Listener {
 	constructor(context, options = {}) {
 		super(context, {
 			...options,
+			event: Events.ClientReady,
 			once: true
 		});
 	}
