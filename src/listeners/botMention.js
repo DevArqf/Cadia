@@ -1,5 +1,5 @@
 const { Listener } = require('@sapphire/framework');
-const { EmbedBuilder, ButtonStyle, ButtonBuilder, ActionRowBuilder , MessageFlags} = require('discord.js');
+const { EmbedBuilder, ButtonStyle, ButtonBuilder, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { color, emojis } = require('../config');
 
 class UserEvent extends Listener {
@@ -41,11 +41,7 @@ class UserEvent extends Listener {
 					.setLabel('Invite Cadia')
 					.setURL('https://discord.com/api/oauth2/authorize?client_id=1200475110235197631&permissions=8&scope=bot')
 					.setStyle(ButtonStyle.Link),
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.home)
-					.setLabel('Support Server')
-					.setURL('https://discord.gg/qavsdVeyTZ')
-					.setStyle(ButtonStyle.Link),
+				new ButtonBuilder().setLabel('Support Server').setURL('https://discord.gg/qavsdVeyTZ').setStyle(ButtonStyle.Link),
 				new ButtonBuilder().setEmoji(emojis.custom.trash).setLabel('Delete').setStyle(ButtonStyle.Danger).setCustomId('deleteEmbed')
 			);
 
