@@ -83,7 +83,7 @@ class UserCommand extends CadiaCommand {
 				if (i.user.id !== interaction.user.id) {
 					return i.reply({
 						components: buildNoticeComponents(
-							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run \`/help\` to open your own.`
+							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run \`</help:1221554638910787585>\` to open your own.`
 						),
 						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 					});

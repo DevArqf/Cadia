@@ -4,7 +4,7 @@ const { Message, EmbedBuilder } = require('discord.js');
 const { channels, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
-const { buildAlertNudge, componentReply, getActiveAlert } = require('../../lib/util/globalAlerts');
+const { buildAlertNudge, componentReply, getActiveAlert, markAlertNudged, shouldSendAlertNudge } = require('../../lib/util/globalAlerts');
 
 class UserEvent extends Listener {
 	/**
@@ -63,12 +63,21 @@ async function sendGlobalAlertNudge(interaction) {
 
 	const alert = await getActiveAlert().catch(() => null);
 	if (!alert) return;
+	if (!(await shouldSendAlertNudge(alert, interaction.user.id).catch(() => false))) return;
 
 	const response = componentReply(buildAlertNudge(alert), true);
+	let sent = false;
 	if (interaction.replied || interaction.deferred) {
-		await interaction.followUp(response).catch(() => null);
-		return;
+		sent = await interaction.followUp(response).then(
+			() => true,
+			() => false
+		);
+	} else {
+		sent = await interaction.reply(response).then(
+			() => true,
+			() => false
+		);
 	}
 
-	await interaction.reply(response).catch(() => null);
+	if (sent) await markAlertNudged(alert, interaction.user.id).catch(() => null);
 }
