@@ -28,6 +28,7 @@ const rpgCommandNames = [
 	'rpg inventory',
 	'rpg equip',
 	'rpg leaderboard',
+	'rpg bestiary',
 	'rpg delete',
 	'rpg admin find',
 	'rpg admin inspect',
