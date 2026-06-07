@@ -166,7 +166,9 @@ const emojis = {
 		orbBlue: '<:orb_blue:1512578165481017495>',
 		orbGreen: '<:orb_green:1512578161970253965>',
 		orbPurple: '<:orb_purple:1512578163186733207>',
-		orbYellow: '<:orb_yellow:1512578164251951156>'
+		orbYellow: '<:orb_yellow:1512578164251951156>',
+		rpgCogGold: '<:rpgcog_gold:1513150928444985536>',
+		rpgCogSilver: '<:rpgcog_silver:1513150929761730661>'
 	}
 };
 
