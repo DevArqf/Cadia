@@ -79,6 +79,7 @@ const emojis = {
 		offline: '<:offline:1511904859018756226>',
 		developer: '<:developer:1511903616091291779>',
 		javascript: '<:cl_javascript:1223402720967393360>',
+		cadia: '<:cadia:1513145150669455511>',
 		tada1: '<:tada:1511951461745950791>',
 		tada2: '<a:tada_a:1511962310531481792>',
 		loading: '<a:loading:1511956877062307950>',

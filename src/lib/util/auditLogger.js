@@ -94,6 +94,7 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 	const channel = guild.channels.cache.get(config.channelId) || (await guild.channels.fetch(config.channelId).catch(() => null));
 	if (!channel?.isTextBased?.()) return;
 
+	const loggedAt = Math.floor(Date.now() / 1000);
 	const thumbnailURL = resolveAuditThumbnail(guild, options);
 	const header = new TextDisplayBuilder().setContent(
 		`${options.emoji || emojis.custom.info} **${title}**\n-# ${auditCategories[action.category].label} / ${action.label}`
@@ -103,7 +104,7 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(new TextDisplayBuilder().setContent(formatDetails(details)))
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Logged <t:${Math.floor(Date.now() / 1000)}:R>`));
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.clock} **Logged:** <t:${loggedAt}:F>\n-# <t:${loggedAt}:R>`));
 
 	if (thumbnailURL) {
 		container.spliceComponents(
