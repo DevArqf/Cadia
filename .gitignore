@@ -27,8 +27,8 @@ package-lock.json
 *.zip
 
 # Unfinished Systems
-src/commands/Systems/RPG System/
-src/commands/Developer/rpg-access.js
-src/lib/rpg/
-src/lib/schemas/RPG System/
-assets/RPG Assets/
+# src/commands/Systems/RPG System/
+# src/commands/Developer/rpg-access.js
+# src/lib/rpg/
+# src/lib/schemas/RPG System/
+# assets/RPG Assets/

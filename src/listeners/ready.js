@@ -1,5 +1,5 @@
 const { Listener } = require('@sapphire/framework');
-const { green, yellow, magenta, cyan, red, blue, gray, magentaBright, white } = require('colorette');
+const { green, yellow, magenta, cyan, red, blue, gray } = require('colorette');
 const figlet = require('figlet');
 const os = require('os');
 const { connectMysql } = require('../lib/database/mysql');
@@ -36,8 +36,8 @@ class UserEvent extends Listener {
 		const success = green('+');
 		const fail = red('-');
 
-		const llc = dev ? magentaBright : white;
-		const blc = dev ? magenta : blue;
+		const llc = blue;
+		const blc = blue;
 		const db = dbInfo.error ? `[${fail}] Database Not Connected (${dbInfo.message})` : `[${success}] Database Connected`;
 
 		const line01 = llc(String.raw` ██████╗ █████╗ ██████╗ ██╗ █████╗ `);
@@ -55,7 +55,7 @@ class UserEvent extends Listener {
 			String.raw`
 ${line01}
 ${line02}
-${line03} ${pad}${blc('1.3.0')}
+${line03} ${pad}${blc('2.1')}
 ${line04} ${pad}[${success}] Gateway
 ${line05} ${pad}${db}
 ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}` : ''}
@@ -80,7 +80,7 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		const commandCount = this.container.stores.get('commands').size;
 		const totalMembers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
 		const totalGuilds = client.guilds.cache.size;
-		const botVersion = 'Cadia Alpha 1.3.0';
+		const botVersion = 'Cadia 2.1';
 		const botOwner = 'Malik';
 		const developers = 'Oreo & Navin';
 

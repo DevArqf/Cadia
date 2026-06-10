@@ -93,7 +93,7 @@ async function fetchImage(category) {
 	const response = await fetch(`https://nekos.best/api/v2/${endpoint}`, {
 		headers: {
 			accept: 'application/json',
-			'user-agent': 'Cadia-Bot/1.3.0'
+			'user-agent': 'Cadia-Bot/2.1'
 		}
 	});
 	const contentType = response.headers.get('content-type') ?? '';

@@ -67,18 +67,13 @@ class UserCommand extends CadiaCommand {
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.person} Requested by **${interaction.user.displayName}**`))
 			.addActionRowComponents(
 				new ActionRowBuilder().addComponents(
-					new ButtonBuilder().setLabel("Navin's APIs").setStyle(ButtonStyle.Link).setURL('https://baymax-apis.onrender.com/docs/'),
-					new ButtonBuilder().setLabel("Navin's GitHub").setStyle(ButtonStyle.Link).setURL('https://github.com/uhhhhh1231'),
+					new ButtonBuilder().setLabel("Navin's GitHub").setStyle(ButtonStyle.Link).setURL('https://github.com/CodeByNavin'),
 					new ButtonBuilder().setLabel("Oreo's Website").setStyle(ButtonStyle.Link).setURL('https://oreotm.xyz/')
 				)
 			)
 			.addActionRowComponents(
 				new ActionRowBuilder().addComponents(
-					new ButtonBuilder().setLabel("Oreo's GitHub").setStyle(ButtonStyle.Link).setURL('https://github.com/TheOreoTM'),
-					new ButtonBuilder()
-						.setLabel("Toowake's Discord")
-						.setStyle(ButtonStyle.Link)
-						.setURL('https://discord.gg/toowake-dev-hosting-1121353922355929129')
+					new ButtonBuilder().setLabel("Oreo's GitHub").setStyle(ButtonStyle.Link).setURL('https://github.com/TheOreoTM')
 				)
 			);
 
