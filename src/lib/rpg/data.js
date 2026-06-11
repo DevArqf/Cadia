@@ -241,10 +241,126 @@ const questSteps = [
 	'Recover rare gear and prepare for deeper boss fights.'
 ];
 
+const npcQuests = [
+	{
+		id: 'larry-gate-wisp-lanterns',
+		npc: {
+			name: 'Larry',
+			portrait: 'Larry.png',
+			role: 'Gate Lantern Keeper'
+		},
+		regionId: 'broken-gate',
+		title: 'Lanterns That Whisper',
+		intro:
+			'The lanterns along the Broken Gate are repeating names that nobody remembers. Larry lowers his voice and asks you to silence the wisps before the whispers spread.',
+		objectiveText: 'Defeat 3 Gate Wisps in The Broken Gate, then return to Larry.',
+		targets: [{ encounterId: 'gate-wisp', amount: 3 }],
+		rewards: { gold: 180, xp: 70, shards: 1, items: ['star_salve'] },
+		completeText: 'Larry shields the lantern flame with both hands. The whispers fade, and one clean shard drops into your palm.'
+	},
+	{
+		id: 'hunter-rust-hound-tracks',
+		npc: {
+			name: 'Hunter',
+			portrait: 'Hunter.png',
+			role: 'Ruin Tracker'
+		},
+		regionId: 'broken-gate',
+		title: 'Iron Teeth In The Dust',
+		intro:
+			'Hunter points to claw marks dragged through the market dust. Rust Hounds are circling the old roads, and he wants their trail broken before caravans return.',
+		objectiveText: 'Defeat 2 Rust Hounds in The Broken Gate, then return to Hunter.',
+		targets: [{ encounterId: 'rust-hound', amount: 2 }],
+		rewards: { gold: 220, xp: 85, items: ['warden_blade'] },
+		completeText: 'Hunter checks the ruined collars you brought back and nods once. The road is quieter now.'
+	},
+	{
+		id: 'carys-hollow-fire-embers',
+		npc: {
+			name: 'Carys',
+			portrait: 'Carys.png',
+			role: 'Ash Reader'
+		},
+		regionId: 'broken-gate',
+		title: 'Ash That Remembers',
+		intro:
+			'Carys studies a smear of orange ash that refuses to cool. Hollow Fire has been feeding on old spellwork, and she needs proof before it consumes another block.',
+		objectiveText: 'Defeat 2 Hollow Fires in The Broken Gate, then return to Carys.',
+		targets: [{ encounterId: 'hollow-fire', amount: 2 }],
+		rewards: { gold: 240, xp: 90, items: ['ash_charm'] },
+		completeText: 'Carys presses the ember fragments into a charm casing. The ash finally sleeps.'
+	},
+	{
+		id: 'rocky-thorn-stalker-roots',
+		npc: {
+			name: 'Rocky',
+			portrait: 'Rocky.png',
+			role: 'Ashwood Pathbreaker'
+		},
+		regionId: 'ashwood-outskirts',
+		title: 'Roots Across The Road',
+		intro:
+			'Rocky has mapped three safe paths through Ashwood. By sunrise, thorn trails covered all of them. He needs the Stalkers cut down before the forest closes.',
+		objectiveText: 'Defeat 3 Thorn Stalkers in Ashwood Outskirts, then return to Rocky.',
+		targets: [{ encounterId: 'thorn-stalker', amount: 3 }],
+		rewards: { gold: 420, xp: 160, shards: 1, items: ['ember_spear'] },
+		completeText: 'Rocky marks the path with fresh chalk. For the first time today, the trees do not move it.'
+	},
+	{
+		id: 'emma-mossbound-oath',
+		npc: {
+			name: 'Emma',
+			portrait: 'Emma.png',
+			role: 'Forest Archivist'
+		},
+		regionId: 'ashwood-outskirts',
+		title: 'The Green Oath',
+		intro:
+			'Emma found old knight vows carved under living moss. The Mossbound still answer them, and she asks you to break their patrol before the Regent wakes.',
+		objectiveText: 'Defeat 2 Mossbound Knights in Ashwood Outskirts, then return to Emma.',
+		targets: [{ encounterId: 'mossbound-knight', amount: 2 }],
+		rewards: { gold: 520, xp: 190, items: ['rootguard_plate'] },
+		completeText: 'Emma records the broken oath in a careful hand. The forest lets the ink dry.'
+	},
+	{
+		id: 'ellon-glass-mite-prisms',
+		npc: {
+			name: 'Ellon',
+			portrait: 'Ellon.png',
+			role: 'Glassmine Surveyor'
+		},
+		regionId: 'glassmine-depths',
+		title: 'Prisms Under Skin',
+		intro:
+			'Ellon taps a crystal sample and winces when something taps back. Glass Mites are nesting in the mine seams, and every prism they hatch makes the echoes louder.',
+		objectiveText: 'Defeat 3 Glass Mites in Glassmine Depths, then return to Ellon.',
+		targets: [{ encounterId: 'glass-mite', amount: 3 }],
+		rewards: { gold: 760, xp: 260, shards: 1, items: ['echo_lens'] },
+		completeText: 'Ellon seals the prism jar with wax. The mine stops answering for a moment.'
+	},
+	{
+		id: 'gary-echo-miner-tools',
+		npc: {
+			name: 'Gary',
+			portrait: 'Gary.png',
+			role: 'Lost Foreman'
+		},
+		regionId: 'glassmine-depths',
+		title: 'Tools That Swing Alone',
+		intro:
+			'Gary counts abandoned pickaxes and keeps arriving at one too many. Echo Miners are copying the old crew, and he wants the false shift ended.',
+		objectiveText: 'Defeat 2 Echo Miners in Glassmine Depths, then return to Gary.',
+		targets: [{ encounterId: 'echo-miner', amount: 2 }],
+		rewards: { gold: 840, xp: 290, items: ['glass_pick'] },
+		completeText: 'Gary hangs the recovered tags on a snapped rail. The mine is still dangerous, but at least it is honest.'
+	}
+];
+
 module.exports = {
 	classes,
 	encounters,
 	items,
+	npcQuests,
 	origins,
 	questSteps,
 	regions

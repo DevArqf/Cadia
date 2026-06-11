@@ -6,12 +6,12 @@ const width = 1024;
 const height = 1024;
 const questPagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Quests Page.png');
 
-async function createQuestPageCard({ profile, region, questText, questIndex, totalQuests, fileName = 'rpg-quest-page.png' }) {
+async function createQuestPageCard({ profile, region, questText, fileName = 'rpg-quest-page.png' }) {
 	const canvas = createCanvas(width, height);
 	const ctx = canvas.getContext('2d');
 
 	await drawBackground(ctx);
-	drawQuestText(ctx, { profile, region, questText, questIndex, totalQuests });
+	drawQuestText(ctx, { profile, region, questText });
 
 	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
 }
@@ -26,7 +26,7 @@ async function drawBackground(ctx) {
 	}
 }
 
-function drawQuestText(ctx, { profile, region, questText, questIndex, totalQuests }) {
+function drawQuestText(ctx, { profile, region, questText }) {
 	ctx.fillStyle = '#4d2d19';
 	ctx.textAlign = 'center';
 	ctx.font = '700 48px "Courier New", Consolas, monospace';
@@ -45,16 +45,8 @@ function drawQuestText(ctx, { profile, region, questText, questIndex, totalQuest
 	ctx.fillText('Current Objective', 260, 358);
 
 	ctx.fillStyle = '#2f2117';
-	ctx.font = '700 31px "Courier New", Consolas, monospace';
-	wrapText(ctx, questText, 260, 415, 520, 42);
-
-	drawDivider(ctx, 250, 620, 524);
-
-	ctx.font = '700 24px "Courier New", Consolas, monospace';
-	ctx.fillStyle = '#5b3820';
-	ctx.fillText(`Relic Shards: ${profile.relicShards.toLocaleString()}`, 270, 675);
-	ctx.fillText(`Victories: ${profile.battlesWon.toLocaleString()}`, 270, 714);
-	ctx.fillText(`Quest: ${Math.min(questIndex + 1, totalQuests)} / ${totalQuests}`, 270, 753);
+	ctx.font = '700 28px "Courier New", Consolas, monospace';
+	wrapText(ctx, questText, 250, 415, 550, 39, 765);
 
 	ctx.textAlign = 'center';
 	ctx.fillStyle = '#7a4a27';
@@ -71,7 +63,7 @@ function drawDivider(ctx, x, y, dividerWidth) {
 	ctx.stroke();
 }
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxY = 780) {
 	const words = String(text || '').split(/\s+/);
 	let line = '';
 	let currentY = y;
@@ -82,12 +74,16 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 			ctx.fillText(line, x, currentY);
 			line = word;
 			currentY += lineHeight;
+			if (currentY > maxY) {
+				ctx.fillText('...', x, maxY);
+				return;
+			}
 		} else {
 			line = testLine;
 		}
 	}
 
-	if (line) ctx.fillText(line, x, currentY);
+	if (line && currentY <= maxY) ctx.fillText(line, x, currentY);
 }
 
 module.exports = {

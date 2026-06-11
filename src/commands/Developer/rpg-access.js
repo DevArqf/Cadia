@@ -3,6 +3,7 @@ const { color, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { componentReply, notice, panel } = require('../../lib/util/components');
 const rpg = require('../../lib/rpg/service');
+const { MessageFlags } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -40,26 +41,27 @@ class UserCommand extends CadiaCommand {
 	}
 
 	async chatInputRun(interaction) {
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 		const subcommand = interaction.options.getSubcommand();
 		const userId = interaction.options.getString('user-id', true).trim();
 
 		try {
 			if (subcommand === 'grant') {
 				const access = await rpg.grantRpgAccess(userId, interaction.user.id);
-				return interaction.reply(componentReply(buildAccessPanel('Access Granted', access, interaction.user.id), true));
+				return interaction.editReply(componentReply(buildAccessPanel('Access Granted', access, interaction.user.id), true));
 			}
 
 			if (subcommand === 'revoke') {
 				const access = await rpg.revokeRpgAccess(userId, interaction.user.id);
-				return interaction.reply(componentReply(buildAccessPanel('Access Revoked', access, interaction.user.id), true));
+				return interaction.editReply(componentReply(buildAccessPanel('Access Revoked', access, interaction.user.id), true));
 			}
 
 			const access = await rpg.getRpgAccess(userId);
-			return interaction.reply(componentReply(buildAccessPanel('Access Check', access || { userId, enabled: false }, interaction.user.id), true));
+			return interaction.editReply(componentReply(buildAccessPanel('Access Check', access || { userId, enabled: false }, interaction.user.id), true));
 		} catch (error) {
 			const expected = error instanceof rpg.RpgError;
 			if (!expected) console.error(error);
-			return interaction.reply(
+			return interaction.editReply(
 				componentReply(
 					notice(
 						expected ? `${emojis.custom.warning} **RPG Access Notice**` : `${emojis.custom.fail} **RPG Access Error**`,
@@ -86,8 +88,8 @@ function buildAccessPanel(title, access, actorId) {
 				`${emojis.custom.owner || emojis.custom.person} **Changed By:** <@${actorId}>`
 			],
 			enabled
-				? `${emojis.custom.arrowright} This user can now use `/rpg` while the RPG System is private.`
-				: `${emojis.custom.arrowright} This user cannot use `/rpg` unless they are a Cadia developer.`
+				? `${emojis.custom.arrowright} This user can now use \`/rpg\` while the RPG System is private.`
+				: `${emojis.custom.arrowright} This user cannot use \`/rpg\` unless they are a Cadia developer.`
 		],
 		footer: `${emojis.custom.clock} Updated <t:${Math.floor(Date.now() / 1000)}:R>`
 	});

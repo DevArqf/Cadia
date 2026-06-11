@@ -15,6 +15,8 @@ const RpgProfileSchema = createModel('rpgProfileSchema', {
 	stats: () => ({ hp: 30, attack: 5, defense: 3, speed: 3, luck: 2, focus: 2 }),
 	region: 'broken-gate',
 	questStep: 0,
+	activeQuest: null,
+	completedQuests: () => [],
 	relicShards: 0,
 	battlesWon: 0,
 	battlesLost: 0,

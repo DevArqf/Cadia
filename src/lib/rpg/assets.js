@@ -4,6 +4,9 @@ const { AttachmentBuilder } = require('discord.js');
 const placeholderImage = 'https://placehold.co/900x520/png?text=RPG+Scene+Placeholder';
 const profileImageFileName = 'rpg-profile-bg.png';
 const profileImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Profile BG.png');
+const travelImageFileName = 'rpg-travel-bg.png';
+const travelImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Travel BG Image.png');
+const npcPortraitPath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'NPC Portraits');
 const adventureStoryImages = {
 	'broken-gate-gatehouse-corridor': {
 		fileName: 'region-1-adventure-story-2.png',
@@ -64,11 +67,27 @@ const sceneImages = {
 	battle: placeholderImage,
 	'broken-gate': placeholderImage,
 	'ashwood-outskirts': placeholderImage,
-	'glassmine-depths': placeholderImage
+	'glassmine-depths': placeholderImage,
+	travel: `attachment://${travelImageFileName}`
 };
 
 function createProfileImageAttachment() {
 	return new AttachmentBuilder(profileImagePath, { name: profileImageFileName });
+}
+
+function createTravelImageAttachment() {
+	return new AttachmentBuilder(travelImagePath, { name: travelImageFileName });
+}
+
+function npcPortrait(portrait) {
+	if (!portrait) return null;
+	const extension = path.extname(portrait) || '.png';
+	const baseName = path.basename(portrait, extension).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	const fileName = `rpg-npc-${baseName}${extension}`;
+	return {
+		url: `attachment://${fileName}`,
+		attachment: new AttachmentBuilder(path.join(npcPortraitPath, portrait), { name: fileName })
+	};
 }
 
 function adventureStoryImage(id) {
@@ -93,6 +112,8 @@ module.exports = {
 	adventureStoryImage,
 	battleResultImage,
 	createProfileImageAttachment,
+	createTravelImageAttachment,
+	npcPortrait,
 	placeholderImage,
 	sceneImages
 };

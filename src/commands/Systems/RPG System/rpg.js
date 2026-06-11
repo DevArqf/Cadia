@@ -10,14 +10,23 @@ const {
 	MessageFlags,
 	SeparatorBuilder,
 	SeparatorSpacingSize,
+	SectionBuilder,
 	StringSelectMenuBuilder,
 	StringSelectMenuOptionBuilder,
-	TextDisplayBuilder
+	TextDisplayBuilder,
+	ThumbnailBuilder
 } = require('discord.js');
 const { actionButton, componentReply, notice, panel } = require('../../../lib/util/components');
-const { adventureStoryImage, battleResultImage, createProfileImageAttachment, sceneImages } = require('../../../lib/rpg/assets');
+const {
+	adventureStoryImage,
+	battleResultImage,
+	createProfileImageAttachment,
+	createTravelImageAttachment,
+	npcPortrait,
+	sceneImages
+} = require('../../../lib/rpg/assets');
 const { createBossBattleCard, createEncounterBattleCard, hasEncounterBattleCard } = require('../../../lib/rpg/battleCanvas');
-const { classes, encounters, items, origins, regions } = require('../../../lib/rpg/data');
+const { classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
@@ -379,11 +388,7 @@ async function createCharacter(interaction) {
 async function offerTutorial(interaction) {
 	await rpg.markTutorialOffered(interaction.guild.id, interaction.user.id);
 	const customIdBase = `rpg-tutorial-offer:${interaction.id}`;
-	const response = await interaction.reply({
-		...componentReply(buildTutorialOfferPanel(customIdBase), true),
-		withResponse: true
-	});
-	const message = response.resource?.message ?? (await interaction.fetchReply().catch(() => null));
+	const message = await sendInteractiveRpgReply(interaction, componentReply(buildTutorialOfferPanel(customIdBase), true));
 	if (!message) return;
 
 	const collector = message.createMessageComponentCollector({ time: 120_000, max: 1 });
@@ -415,8 +420,7 @@ async function runTutorial(interaction, fromComponent = false) {
 		await interaction.update(reply);
 		message = interaction.message;
 	} else {
-		const response = await interaction.reply({ ...reply, withResponse: true });
-		message = response.resource?.message ?? (await interaction.fetchReply?.().catch(() => null));
+		message = await sendInteractiveRpgReply(interaction, reply);
 	}
 	if (!message) return;
 
@@ -654,8 +658,49 @@ async function showCharacterId(interaction) {
 
 async function showQuest(interaction) {
 	const profile = await rpg.requireProfile(interaction.guild.id, interaction.user.id);
-	const reply = await buildQuestReply(profile);
-	return interaction.reply(reply);
+	return openQuestBoard(interaction, profile);
+}
+
+async function openQuestBoard(interaction, profile, ephemeral = false) {
+	const customIdBase = `rpg-quest:${interaction.id}`;
+	const response = await interaction.reply({
+		...(await buildQuestReply(profile, customIdBase, ephemeral)),
+		withResponse: true
+	});
+	const message = response.resource?.message ?? (await interaction.fetchReply?.().catch(() => null));
+	if (!message) return;
+
+	const collector = message.createMessageComponentCollector({ time: 120_000 });
+	collector.on('collect', async (i) => {
+		if (i.user.id !== interaction.user.id) {
+			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Quest**`, 'Open your own RPG quest board to use these controls.'), true));
+		}
+		if (!i.customId.startsWith(customIdBase)) return;
+
+		try {
+			await i.deferUpdate();
+			const action = i.customId.split(':').at(-1);
+			let nextProfile = await rpg.requireProfile(i.guild.id, i.user.id);
+
+			if (action === 'accept') {
+				const questId = i.customId.split(':').at(-2);
+				const state = await rpg.acceptQuest(i.guild.id, i.user.id, questId);
+				nextProfile = state.profile;
+			} else if (action === 'claim') {
+				const result = await rpg.claimQuestReward(i.guild.id, i.user.id);
+				return i.editReply(await buildQuestRewardReply(result, customIdBase, ephemeral));
+			}
+
+			return i.editReply(await buildQuestReply(nextProfile, customIdBase, ephemeral));
+		} catch (error) {
+			return sendRpgIssue(i, error);
+		}
+	});
+
+	collector.on('end', async () => {
+		const latestProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id).catch(() => profile);
+		await interaction.editReply(await buildQuestReply(latestProfile, customIdBase, ephemeral, true)).catch(() => null);
+	});
 }
 
 async function travel(interaction) {
@@ -669,7 +714,7 @@ async function travel(interaction) {
 	}
 
 	const result = await rpg.travel(interaction.guild.id, interaction.user.id, region.id);
-	return interaction.editReply(componentReply(buildTravelCompletePanel(result), true));
+	return interaction.editReply(buildTravelCompleteReply(result, true));
 }
 
 async function adventure(interaction) {
@@ -886,7 +931,7 @@ async function handleProfileAction(interaction, action, characterId) {
 	}
 
 	if (action === 'inventory') return openInventory(interaction, profile);
-	if (action === 'quest') return interaction.reply(await buildQuestReply(profile, true));
+	if (action === 'quest') return openQuestBoard(interaction, profile, true);
 	if (action === 'equip') return openEquipPicker(interaction, profile);
 	if (action === 'travel') return openTravelPicker(interaction, profile);
 
@@ -949,7 +994,7 @@ async function openTravelPicker(interaction, profile) {
 			if (!gate.ok) return i.update({ components: [buildLockedRegionPanel(profile, selectedRegion, gate)] });
 
 			const result = await rpg.travel(i.guild.id, i.user.id, selectedRegion.id);
-			return i.update({ components: [buildTravelCompletePanel(result)] });
+			return i.update(buildTravelCompleteReply(result, true));
 		} catch (error) {
 			return sendRpgIssue(i, error);
 		}
@@ -1101,38 +1146,168 @@ async function deleteCharacter(interaction) {
 	);
 }
 
-async function buildQuestReply(profile, ephemeral = false) {
+async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephemeral = false, disabled = false) {
 	const region = regions[profile.region];
-	const questIndex = Math.min(profile.questStep, rpg.questSteps.length - 1);
-	const questText = rpg.questSteps[questIndex] || 'Story complete for this prototype chapter.';
+	const state = rpg.getQuestState(profile);
+	const quest = state.quest || state.availableQuest;
+	const activeQuest = state.activeQuest;
+	const questText = quest ? questPageText(quest, activeQuest) : 'No NPC quest is available in this region yet. Travel onward or check back after clearing more gates.';
 	const fileName = `rpg-quest-${profile.characterId}.png`;
 	const attachment = await createQuestPageCard({
 		profile,
 		region,
 		questText,
-		questIndex,
-		totalQuests: rpg.questSteps.length,
+		questIndex: Math.max(profile.questStep || 0, 0),
+		totalQuests: npcQuests.length,
 		fileName
 	});
+	const portrait = quest ? npcPortrait(quest.npc?.portrait) : null;
+	const files = [attachment, portrait?.attachment].filter(Boolean);
+	const header = new TextDisplayBuilder().setContent(
+		quest
+			? `${icon.objective} **${quest.title}**\n-# ${quest.npc.name} - ${quest.npc.role}`
+			: `${icon.objective} **Quest Board**\n-# ${region.name}`
+	);
+	const container = new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(formatQuestStatus(profile, state)))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				disabled ? `-# Quest controls expired. Run \`/rpg quest\` again.` : `-# Quest controls expire after 2 minutes.`
+			)
+		);
+
+	if (portrait) {
+		container.spliceComponents(
+			0,
+			0,
+			new SectionBuilder().addTextDisplayComponents(header).setThumbnailAccessory(new ThumbnailBuilder().setURL(portrait.url))
+		);
+	} else {
+		container.spliceComponents(0, 0, header);
+	}
+
+	if (quest && !activeQuest) {
+		container.addActionRowComponents(
+			new ActionRowBuilder().addComponents(actionButton(`${customIdBase}:${quest.id}:accept`, 'Accept Quest', ButtonStyle.Primary, icon.success).setDisabled(disabled))
+		);
+	} else if (quest && activeQuest?.status === 'ready') {
+		container.addActionRowComponents(
+			new ActionRowBuilder().addComponents(actionButton(`${customIdBase}:${quest.id}:claim`, 'Return To NPC', ButtonStyle.Success, icon.objective).setDisabled(disabled))
+		);
+	}
 
 	return {
-		...componentReply(panel({
-		accentColor: color.RPG,
-		title: `${icon.folder} **Story Ledger**`,
-		subtitle: `Chapter ${region.chapter} - ${region.name}`,
-		image: `attachment://${fileName}`,
-		sections: [
-			[
-				`${icon.shards} **Relic Shards:** ${profile.relicShards}`,
-				`${icon.success} **Victories:** ${profile.battlesWon}`,
-				`${icon.compass} **Current Region:** ${region.name}`
-			],
-			`${icon.info} Your current objective is written on the quest page.`
-		],
-		footer: `${icon.person} Warden ${profile.name}`
-	}), ephemeral),
-		files: [attachment]
+		components: [container],
+		files,
+		flags: MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0)
 	};
+}
+
+async function buildQuestRewardReply(result, customIdBase = 'rpg-quest:static', ephemeral = false) {
+	const region = regions[result.quest.regionId] || regions[result.profile.region];
+	const fileName = `rpg-quest-complete-${result.profile.characterId}.png`;
+	const attachment = await createQuestPageCard({
+		profile: result.profile,
+		region,
+		questText: `${result.quest.npc.name}: "${result.quest.completeText}"\n\nRewards claimed: ${formatQuestRewards(result.rewards)}`,
+		questIndex: Math.max(result.profile.questStep || 0, 0),
+		totalQuests: npcQuests.length,
+		fileName
+	});
+	const portrait = npcPortrait(result.quest.npc?.portrait);
+	const files = [attachment, portrait?.attachment].filter(Boolean);
+	const header = new TextDisplayBuilder().setContent(`${icon.success} **Quest Complete**\n-# ${result.quest.npc.name} - ${result.quest.title}`);
+	const container = new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.success.replace('#', ''), 16))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				[
+					`${icon.person} **NPC:** ${result.quest.npc.name}`,
+					`${icon.loot} **Rewards:** ${formatQuestRewards(result.rewards)}`,
+					`${icon.arrowRight} Run \`/rpg quest\` again when you want to accept the next NPC request.`
+				].join('\n')
+			)
+		)
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Quest controls expire after 2 minutes.`));
+
+	if (portrait) {
+		container.spliceComponents(
+			0,
+			0,
+			new SectionBuilder().addTextDisplayComponents(header).setThumbnailAccessory(new ThumbnailBuilder().setURL(portrait.url))
+		);
+	} else {
+		container.spliceComponents(0, 0, header);
+	}
+
+	return {
+		components: [container],
+		files,
+		flags: MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0)
+	};
+}
+
+function questPageText(quest, activeQuest) {
+	if (!activeQuest) return `${quest.npc.name}: "${quest.intro}"\n\n${quest.objectiveText}`;
+	if (activeQuest.status === 'ready') return `${quest.npc.name}: "You did it. Come back and let me pay what I promised."\n\nReturn to ${quest.npc.name} to claim your reward.`;
+	return `${quest.npc.name}: "${quest.intro}"\n\n${quest.objectiveText}`;
+}
+
+function formatQuestStatus(profile, state) {
+	const quest = state.quest || state.availableQuest;
+	if (!quest) {
+		return [
+			`${icon.info} **No Open NPC Quest**`,
+			`${icon.compass} Current Region: **${regions[profile.region]?.name || profile.region}**`,
+			`${icon.arrowRight} Use \`/rpg adventure\` to keep farming or \`/rpg travel\` when you unlock the next region.`
+		].join('\n');
+	}
+
+	const activeQuest = state.activeQuest;
+	const targetLines = (quest.targets || []).map((target) => {
+		const encounter = rpg.getEncounterById(target.encounterId);
+		const current = activeQuest?.progress?.mobKills?.[target.encounterId] || 0;
+		return `${icon.arrowRight} **${encounter.name}:** ${Math.min(current, target.amount)}/${target.amount}`;
+	});
+	const rewardText = formatQuestRewards(quest.rewards);
+
+	if (!activeQuest) {
+		return [
+			`${icon.person} **NPC:** ${quest.npc.name} - ${quest.npc.role}`,
+			`${icon.compass} **Region:** ${regions[quest.regionId]?.name || quest.regionId}`,
+			`${icon.objective} **Objective**\n${targetLines.join('\n')}`,
+			`${icon.loot} **Reward:** ${rewardText}`,
+			`${icon.arrowRight} Accept the quest, defeat the requested mobs with \`/rpg adventure\`, then return here.`
+		].join('\n\n');
+	}
+
+	return [
+		`${activeQuest.status === 'ready' ? icon.success : icon.objective} **${activeQuest.status === 'ready' ? 'Ready To Turn In' : 'Quest In Progress'}**`,
+		`${icon.person} **Return NPC:** ${quest.npc.name}`,
+		`${icon.objective} **Progress**\n${targetLines.join('\n')}`,
+		`${icon.loot} **Reward:** ${rewardText}`,
+		activeQuest.status === 'ready'
+			? `${icon.arrowRight} Use **Return To NPC** to claim your reward.`
+			: `${icon.arrowRight} Use \`/rpg adventure\` in **${regions[quest.regionId]?.name || quest.regionId}** to find the targets.`
+	].join('\n\n');
+}
+
+function formatQuestRewards(rewards = {}) {
+	const parts = [];
+	if (rewards.gold) parts.push(`${icon.coin} ${rewards.gold.toLocaleString()} Gold`);
+	if (rewards.xp) parts.push(`${icon.xpLabel} ${rewards.xp.toLocaleString()} XP`);
+	if (rewards.shards) parts.push(`${icon.shards} ${rewards.shards.toLocaleString()} Shards`);
+	for (const itemId of rewards.items || []) parts.push(formatItemName(items[itemId]) || titleCase(itemId));
+	return parts.join(' | ') || 'None';
 }
 
 function buildInventoryPanel(profile, requestedBy) {
@@ -1269,18 +1444,27 @@ function buildInventoryConfirmText(profile, item, category) {
 	].join('\n');
 }
 
+function buildTravelCompleteReply(result, ephemeral = false) {
+	return {
+		...componentReply(buildTravelCompletePanel(result), ephemeral),
+		files: [createTravelImageAttachment()]
+	};
+}
+
 function buildTravelCompletePanel(result) {
+	const story = travelStory(result.region);
 	return panel({
 		accentColor: color.default,
 		title: `${icon.compass} **Travel Complete**`,
 		subtitle: `Now stationed in ${result.region.name}`,
-		image: sceneImages[result.region.id],
+		image: sceneImages.travel,
 		sections: [
-			result.region.description,
+			story,
 			[
 				`${icon.chapter} **Chapter:** ${result.region.chapter}`,
 				`${icon.level} **Unlock Rank:** ${result.region.unlockRank}`,
-				`${icon.person} **Warden:** ${result.profile.name}`
+				`${icon.person} **Warden:** ${result.profile.name}`,
+				`${icon.region} **Destination:** ${result.region.name}`
 			]
 		],
 		footer: `${icon.clock} Region updated <t:${Math.floor(Date.now() / 1000)}:R>`
@@ -1837,6 +2021,30 @@ function explorationScene(regionId, encounterName) {
 	};
 }
 
+function travelStory(region) {
+	const stories = [
+		[
+			`${icon.compass} **The road opens slowly.**`,
+			`${region.name} does not appear all at once. ${region.description}`,
+			'Your boots cross old borders, fresh dust, and quiet places where the relic storm has already passed.',
+			`By the final mile, the signs all point toward **${region.name}**.`
+		],
+		[
+			`${icon.compass} **You follow a half-buried route marker.**`,
+			'The path bends through empty fields, broken stone, and stretches of silence where even the wind seems careful.',
+			`${region.description}`,
+			`When the terrain changes under your feet, you know you have reached **${region.name}**.`
+		],
+		[
+			`${icon.compass} **The journey takes longer than the map promised.**`,
+			'You pass ruined posts, cold campfires, and footprints that vanish whenever you look back.',
+			`${region.description}`,
+			`At last, the road gives way to **${region.name}**. Your next chapter begins here.`
+		]
+	];
+	return stories[Math.floor(Math.random() * stories.length)].join('\n');
+}
+
 function progressBar(value, max) {
 	const total = 8;
 	const safeMax = Math.max(max, 1);
@@ -1912,6 +2120,22 @@ async function sendRpgIssue(interaction, error) {
 
 	if (interaction.deferred || interaction.replied) return interaction.followUp(response).catch(() => null);
 	return interaction.reply(response).catch(() => null);
+}
+
+async function sendInteractiveRpgReply(interaction, payload) {
+	if (interaction.deferred) return interaction.editReply(payload).catch(() => null);
+	if (interaction.replied) {
+		const response = await interaction.followUp({ ...payload, withResponse: true }).catch(() => null);
+		return response?.resource?.message ?? null;
+	}
+
+	const response = await interaction.reply({ ...payload, withResponse: true }).catch((error) => {
+		if (error?.code !== 40060) throw error;
+		return null;
+	});
+	if (response?.resource?.message) return response.resource.message;
+	if (interaction.deferred || interaction.replied) return interaction.fetchReply?.().catch(() => null);
+	return null;
 }
 
 function rpgUnavailableReply() {

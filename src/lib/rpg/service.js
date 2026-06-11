@@ -3,7 +3,7 @@ const { RpgAccessSchema } = require('../schemas/RPG System/rpgAccessSchema');
 const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
 const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema');
 const { getMysqlError, isMysqlConnected } = require('../database/mysql');
-const { classes, encounters, items, questSteps, regions } = require('./data');
+const { classes, encounters, items, npcQuests, questSteps, regions } = require('./data');
 
 const xpPerLevel = 100;
 const adminMaxRank = 100;
@@ -13,7 +13,7 @@ const adminMaxItemQuantity = 99;
 
 async function getProfile(guildId, userId) {
 	assertDatabaseReady();
-	const profile = await RpgProfileSchema.findOne({ guildId, userId });
+	const profile = await RpgProfileSchema.findOne({ userId });
 	return profile ? normalizeProfile(profile) : null;
 }
 
@@ -56,7 +56,7 @@ async function getRpgAccess(userId) {
 
 async function shouldOfferTutorial(guildId, userId) {
 	assertDatabaseReady();
-	const state = await RpgTutorialSchema.findOne({ guildId, userId });
+	const state = await RpgTutorialSchema.findOne({ userId });
 	return !state || (!state.offered && !state.skipped && !state.completed);
 }
 
@@ -74,8 +74,9 @@ async function markTutorialCompleted(guildId, userId) {
 
 async function updateTutorialState(guildId, userId, patch) {
 	assertDatabaseReady();
-	let state = await RpgTutorialSchema.findOne({ guildId, userId });
+	let state = await RpgTutorialSchema.findOne({ userId });
 	if (!state) state = new RpgTutorialSchema({ guildId, userId, createdAt: Date.now() });
+	if (!state.guildId) state.guildId = guildId;
 	Object.assign(state, patch, { updatedAt: Date.now() });
 	await state.save();
 	return state;
@@ -107,6 +108,8 @@ async function createProfile(guildId, userId, name, classId, origin) {
 		stats,
 		gold: 25,
 		defeatedBosses: [],
+		activeQuest: null,
+		completedQuests: [],
 		inventory: [{ itemId: 'star_salve', quantity: 1 }],
 		equipment: { weapon: null, armor: null, charm: null }
 	});
@@ -116,7 +119,7 @@ async function createProfile(guildId, userId, name, classId, origin) {
 
 async function deleteProfile(guildId, userId) {
 	assertDatabaseReady();
-	return RpgProfileSchema.deleteOne({ guildId, userId });
+	return RpgProfileSchema.deleteOne({ userId });
 }
 
 async function getProfileByCharacterId(characterId) {
@@ -179,6 +182,8 @@ async function adminMaxCharacter(characterId) {
 	profile.inventory = Object.keys(items).map((itemId) => ({ itemId, quantity: adminMaxItemQuantity }));
 	profile.hp = getEffectiveMaxHp(profile);
 	profile.questStep = questSteps.length - 1;
+	profile.activeQuest = null;
+	profile.completedQuests = npcQuests.map((quest) => quest.id);
 
 	await saveProfile(profile);
 	return {
@@ -230,6 +235,42 @@ async function useItem(guildId, userId, itemId) {
 	decrementInventoryItem(profile, itemId);
 	await saveProfile(profile);
 	return { profile, item, recoveredHp };
+}
+
+async function acceptQuest(guildId, userId, questId) {
+	const profile = await requireProfile(guildId, userId);
+	const quest = getQuestById(questId);
+	const gate = canStartQuest(profile, quest);
+	if (!gate.ok) throw new RpgError(gate.reason);
+
+	profile.activeQuest = {
+		questId: quest.id,
+		status: 'active',
+		progress: createQuestProgress(quest),
+		startedAt: Date.now()
+	};
+	await saveProfile(profile);
+	return getQuestState(profile);
+}
+
+async function claimQuestReward(guildId, userId) {
+	const profile = await requireProfile(guildId, userId);
+	const state = getQuestState(profile);
+	if (!state.activeQuest || state.activeQuest.status !== 'ready') throw new RpgError('Finish the active quest objective before returning for the reward.');
+
+	const quest = state.quest;
+	const rewards = quest.rewards || {};
+	profile.gold = (profile.gold || 0) + (rewards.gold || 0);
+	profile.relicShards = (profile.relicShards || 0) + (rewards.shards || 0);
+	if (rewards.xp) addXp(profile, rewards.xp);
+	for (const itemId of rewards.items || []) addInventoryItem(profile, itemId);
+
+	if (!Array.isArray(profile.completedQuests)) profile.completedQuests = [];
+	if (!profile.completedQuests.includes(quest.id)) profile.completedQuests.push(quest.id);
+	profile.activeQuest = null;
+	advanceQuest(profile);
+	await saveProfile(profile);
+	return { profile, quest, rewards };
 }
 
 async function startAdventure(guildId, userId) {
@@ -330,6 +371,7 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 		if (encounter.boss) markBossDefeated(profile, encounter.id);
 		if (loot) addInventoryItem(profile, loot);
 		addXp(profile, encounter.xp);
+		progressQuestKill(profile, encounter.id);
 		advanceQuest(profile, loot);
 		Object.assign(result, { gold, xp: encounter.xp, loot });
 	} else if (lost) {
@@ -393,6 +435,7 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 		profile.hp = Math.min(effectiveMaxHp, Math.max(profile.hp - Math.floor(enemyDamage / 2), 1));
 		if (loot) addInventoryItem(profile, loot);
 		addXp(profile, encounter.xp);
+		progressQuestKill(profile, encounter.id);
 		advanceQuest(profile, loot);
 		await saveProfile(profile);
 		return { profile, encounter, won, crit, damage, enemyDamage: Math.floor(enemyDamage / 2), gold, xp: encounter.xp, loot };
@@ -406,14 +449,14 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 
 async function leaderboard(guildId, type = 'level') {
 	assertDatabaseReady();
-	const profiles = await RpgProfileSchema.find({ guildId });
+	const profiles = await RpgProfileSchema.find({});
 	for (const profile of profiles) await normalizeProfile(profile);
 	return profiles.sort((a, b) => compareProfiles(a, b, type));
 }
 
 async function saveProfile(profile) {
 	assertDatabaseReady();
-	if (!profile.guildId || !profile.userId) throw new RpgError('This RPG profile is missing database ownership fields.');
+	if (!profile.userId) throw new RpgError('This RPG profile is missing database ownership fields.');
 	profile.updatedAt = Date.now();
 	await profile.save();
 	return profile;
@@ -482,6 +525,96 @@ function advanceQuest(profile, loot) {
 	if (profile.questStep === 2 && hasDefeatedBoss(profile, 'harlequin') && profile.level >= 5) profile.questStep = 3;
 	if (profile.questStep === 3 && loot && items[loot]?.rarity === 'rare') profile.questStep = 4;
 	if (profile.questStep === 4 && hasDefeatedBoss(profile, 'mossbound-regent')) profile.questStep = 5;
+}
+
+function getQuestById(questId) {
+	const quest = npcQuests.find((entry) => entry.id === questId);
+	if (!quest) throw new RpgError('That quest does not exist.');
+	return quest;
+}
+
+function getQuestState(profile) {
+	normalizeQuestFields(profile);
+	let activeQuest = profile.activeQuest;
+	let quest = activeQuest?.questId ? npcQuests.find((entry) => entry.id === activeQuest.questId) : null;
+
+	if (activeQuest && !quest) {
+		profile.activeQuest = null;
+		activeQuest = null;
+	}
+
+	const availableQuest = activeQuest ? null : nextAvailableQuest(profile);
+	return {
+		profile,
+		activeQuest,
+		quest,
+		availableQuest,
+		completedQuests: profile.completedQuests || []
+	};
+}
+
+function nextAvailableQuest(profile) {
+	const completed = new Set(profile.completedQuests || []);
+	return npcQuests.find((quest) => !completed.has(quest.id) && canStartQuest(profile, quest).ok) || null;
+}
+
+function canStartQuest(profile, quest) {
+	if (!quest) return { ok: false, reason: 'That quest does not exist.' };
+	if (profile.activeQuest?.questId) return { ok: false, reason: 'Finish or return your active quest before accepting another.' };
+	if ((profile.completedQuests || []).includes(quest.id)) return { ok: false, reason: 'You already completed that quest.' };
+	const region = regions[quest.regionId];
+	const gate = canTravel(profile, region);
+	if (!gate.ok) return { ok: false, reason: `This quest is in ${region?.name || 'another region'}. ${gate.reason}` };
+	if (profile.region !== quest.regionId) return { ok: false, reason: `Travel to ${region.name} before accepting this quest.` };
+	return { ok: true };
+}
+
+function createQuestProgress(quest) {
+	return {
+		mobKills: Object.fromEntries((quest.targets || []).map((target) => [target.encounterId, 0]))
+	};
+}
+
+function progressQuestKill(profile, encounterId) {
+	const state = getQuestState(profile);
+	if (!state.quest || state.activeQuest?.status !== 'active') return false;
+	const target = state.quest.targets?.find((entry) => entry.encounterId === encounterId);
+	if (!target) return false;
+
+	const progress = state.activeQuest.progress || createQuestProgress(state.quest);
+	const mobKills = { ...(progress.mobKills || {}) };
+	mobKills[encounterId] = Math.min((mobKills[encounterId] || 0) + 1, target.amount);
+	state.activeQuest.progress = { ...progress, mobKills };
+	if (isQuestObjectiveComplete(state.quest, state.activeQuest)) state.activeQuest.status = 'ready';
+	profile.activeQuest = state.activeQuest;
+	return true;
+}
+
+function isQuestObjectiveComplete(quest, activeQuest) {
+	const mobKills = activeQuest?.progress?.mobKills || {};
+	return (quest.targets || []).every((target) => (mobKills[target.encounterId] || 0) >= target.amount);
+}
+
+function normalizeQuestFields(profile) {
+	if (!Array.isArray(profile.completedQuests)) profile.completedQuests = [];
+	if (profile.activeQuest?.questId) {
+		const quest = npcQuests.find((entry) => entry.id === profile.activeQuest.questId);
+		if (!quest) {
+			profile.activeQuest = null;
+			return;
+		}
+		profile.activeQuest.status = profile.activeQuest.status || 'active';
+		profile.activeQuest.progress = profile.activeQuest.progress || createQuestProgress(quest);
+		for (const target of quest.targets || []) {
+			if (typeof profile.activeQuest.progress.mobKills?.[target.encounterId] !== 'number') {
+				profile.activeQuest.progress.mobKills = {
+					...(profile.activeQuest.progress.mobKills || {}),
+					[target.encounterId]: 0
+				};
+			}
+		}
+		if (profile.activeQuest.status === 'active' && isQuestObjectiveComplete(quest, profile.activeQuest)) profile.activeQuest.status = 'ready';
+	}
 }
 
 function rollLoot(encounter, luck) {
@@ -618,6 +751,13 @@ async function normalizeProfile(profile) {
 		profile.defeatedBosses = [];
 		changed = true;
 	}
+	if (!Array.isArray(profile.completedQuests)) {
+		profile.completedQuests = [];
+		changed = true;
+	}
+	const beforeQuestState = JSON.stringify({ activeQuest: profile.activeQuest, completedQuests: profile.completedQuests });
+	normalizeQuestFields(profile);
+	if (JSON.stringify({ activeQuest: profile.activeQuest, completedQuests: profile.completedQuests }) !== beforeQuestState) changed = true;
 
 	const archetype = classes[profile.classId];
 	if (archetype && (!profile.maxHp || profile.maxHp < archetype.stats.hp)) {
@@ -691,6 +831,7 @@ function assertDatabaseReady() {
 
 module.exports = {
 	RpgError,
+	acceptQuest,
 	adminAddCurrency,
 	adminAddItem,
 	adminMaxCharacter,
@@ -707,6 +848,7 @@ module.exports = {
 	getEncounterMatchup,
 	getProfile,
 	getProfileByCharacterId,
+	getQuestState,
 	getRpgAccess,
 	grantRpgAccess,
 	hasRpgAccess,
@@ -719,6 +861,7 @@ module.exports = {
 	regions,
 	requireProfile,
 	revokeRpgAccess,
+	claimQuestReward,
 	resolveAdventure,
 	resolveAdventureTurn,
 	shouldOfferTutorial,
