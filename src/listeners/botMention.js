@@ -25,7 +25,7 @@ class UserEvent extends Listener {
 			const pingEmbed = new EmbedBuilder()
 				.setColor(color.default)
 				.setDescription(
-					`Hey there **${message.author.username}**! Here is some **information** on how to **use** me!\n\n ${emojis.custom.info} Use the </help:1220511304771440641> command to view a list of all my existing commands!`
+					`Hey there **${message.author.username}**! Here is some **information** on how to **use** me!\n\n ${emojis.custom.info} Use the </help:1221554638910787585> command to view a list of all my existing commands!`
 				)
 				.addFields(
 					{ name: `${emojis.custom.slash} \`-\` **Commands:**`, value: `${emojis.custom.arrowright} **${commands}**`, inline: true },
