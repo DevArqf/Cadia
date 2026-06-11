@@ -25,6 +25,7 @@ package-lock.json
 .env.production.local
 .env
 *.zip
+*.7z
 
 # Unfinished Systems
 # src/commands/Systems/RPG System/

@@ -5,6 +5,7 @@ const os = require('os');
 const { connectMysql } = require('../lib/database/mysql');
 const dev = process.env.NODE_ENV !== 'production';
 const { ActivityType, Events } = require('discord.js');
+const { syncDiscordBotListCommands } = require('../lib/util/discordBotListCommands');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -26,6 +27,7 @@ class UserEvent extends Listener {
 		this._printStoreDebugInformation();
 		this._displayAdvancedConsole();
 		this._setBotActivities(client);
+		await syncDiscordBotListCommands(client);
 	}
 
 	/**
