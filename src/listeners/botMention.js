@@ -41,7 +41,7 @@ class UserEvent extends Listener {
 					.setLabel('Invite Cadia')
 					.setURL('https://discord.com/api/oauth2/authorize?client_id=1200475110235197631&permissions=8&scope=bot')
 					.setStyle(ButtonStyle.Link),
-				new ButtonBuilder().setLabel('Support Server').setURL('https://discord.gg/qavsdVeyTZ').setStyle(ButtonStyle.Link),
+				new ButtonBuilder().setLabel('Support Server').setURL('https://discord.gg/26R7kXa6dx').setStyle(ButtonStyle.Link),
 				new ButtonBuilder().setEmoji(emojis.custom.trash).setLabel('Delete').setStyle(ButtonStyle.Danger).setCustomId('deleteEmbed')
 			);
 
@@ -62,7 +62,7 @@ class UserEvent extends Listener {
 						const errorEmbed = new EmbedBuilder()
 							.setColor(color.fail)
 							.setDescription(
-								`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`
+								`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
 							)
 							.setTimestamp();
 

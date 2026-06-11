@@ -9,16 +9,21 @@ class UserEvent extends Listener {
 
 	async run(message) {
 		if (!message.guild || message.author?.bot) return;
+		const author = message.author;
 		await sendAuditLog(
 			message.guild,
 			'messageDelete',
 			'Message Deleted',
 			[
-				{ label: 'Author', value: `${message.author} (${message.author.id})`, icon: emojis.custom.person },
-				{ label: 'Channel', value: `${message.channel}`, icon: emojis.custom.openfolder },
+				{ label: 'Author', value: author ? `${author} (${author.id})` : 'Unknown user', icon: emojis.custom.person },
+				{
+					label: 'Channel',
+					value: message.channel ? `${message.channel}` : `Unknown channel (${message.channelId || 'unknown id'})`,
+					icon: emojis.custom.openfolder
+				},
 				{ label: 'Content', value: message.content || 'No text content captured.', icon: emojis.custom.pencil }
 			],
-			{ color: color.fail, emoji: emojis.custom.trash, user: message.author }
+			{ color: color.fail, emoji: emojis.custom.trash, user: author }
 		);
 	}
 }

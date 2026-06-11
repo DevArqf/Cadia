@@ -6,6 +6,7 @@ const { connectMysql } = require('../lib/database/mysql');
 const dev = process.env.NODE_ENV !== 'production';
 const { ActivityType, Events } = require('discord.js');
 const { syncDiscordBotListCommands } = require('../lib/util/discordBotListCommands');
+const { startTopggStatsPoster, syncTopggCommands } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -28,6 +29,8 @@ class UserEvent extends Listener {
 		this._displayAdvancedConsole();
 		this._setBotActivities(client);
 		await syncDiscordBotListCommands(client);
+		await syncTopggCommands(client).catch((error) => client.logger.warn(error.message));
+		startTopggStatsPoster(client);
 	}
 
 	/**

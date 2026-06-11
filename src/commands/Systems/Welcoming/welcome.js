@@ -1,8 +1,9 @@
+const { ChannelType, EmbedBuilder, MessageFlags } = require('discord.js');
+const { color, emojis } = require('../../../config');
+const { WelcomeSchema } = require('../../../lib/schemas/welcomeSchema');
 const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
-const { color, emojis } = require('../../../config')
-const { EmbedBuilder, ChannelType, PermissionsBitField } = require('discord.js');
-const { WelcomeSchema } = require('../../../lib/schemas/welcomeSchema');
+const { getWelcomeTemplate, listWelcomeTemplates, renderWelcomePreview } = require('../../../lib/util/welcomeTemplates');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -12,9 +13,10 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-            name: 'welcome',
-			description: 'Setup an automatic Welcome System witgin your server',
-            requiredUserPermissions: ['ManageGuild']
+			name: 'welcome',
+			description: 'Configure the server welcome system',
+			permissionLevel: PermissionLevels.Administrator,
+			requiredUserPermissions: ['ManageGuild']
 		});
 	}
 
@@ -23,214 +25,246 @@ class UserCommand extends CadiaCommand {
 	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName(this.name)
 				.setDescription(this.description)
-
-                //Setup Subcommand
-                .addSubcommand((subcommand) =>
-					subcommand //
+				.addSubcommand((subcommand) =>
+					subcommand
 						.setName('setup')
-						.setDescription('Setup a Welcome System within your server')
-                .addChannelOption(option =>
-                    option.setName('channel')
-                        .setDescription('Specified channel to send the welcome message to')
-                        .addChannelTypes(ChannelType.GuildText)
-                        .setRequired(true))
-                .addStringOption((option) =>
-                        option
-                            .setName('type')
-                            .setDescription('The type of message')
-                            .addChoices(
-                                { name: 'Regular', value: 'regular' },
-                                { name: 'Embed', value: 'embed' },
-                            )
-                            .setRequired(true))
-                .addStringOption((option) =>
-                        option
-                            .setName('message')
-                            .setDescription('Specified message will be sent as a Welcome within the embed')
-                            .setRequired(true))
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-title')
-                        .setDescription('The title of the embed')
-                        .setRequired(false))
-                        
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-hex')
-                        .setDescription('The HEX code of the embed')
-                        .setRequired(false)) 
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-footer')
-                        .setDescription('The footer of the embed')
-                        .setRequired(false))
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-thumbnailurl')
-                        .setDescription('The thumbnail URL for the embed')
-                        .setRequired(false))
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-authorname')
-                        .setDescription('The author message or name of the embed')
-                        .setRequired(false))
-                .addStringOption((option) =>
-                    option
-                        .setName('embed-iconurl')
-                        .setDescription('The icon URL of the embed')
-                        .setRequired(false))
-                )
-
-                // Disable SubCommand
-                .addSubcommand((subcommand) =>
-                        subcommand 
-                            .setName('disable')
-                            .setDescription('Disable the Welcome System within your server'))
-                // Vars SubCommand
-                .addSubcommand((subcommand) => 
-                        subcommand
-                            .setName('vars')
-                            .setDescription('Receive a list of Variables that you can use for your Welcome message')),
-                 
-        );
+						.setDescription('Enable welcome messages with a ready-made template')
+						.addChannelOption((option) =>
+							option
+								.setName('channel')
+								.setDescription('The channel where welcome messages are sent')
+								.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+								.setRequired(true)
+						)
+						.addStringOption((option) =>
+							option
+								.setName('template')
+								.setDescription('The welcome template to use')
+								.setRequired(false)
+								.addChoices(...templateChoices())
+						)
+				)
+				.addSubcommand((subcommand) =>
+					subcommand
+						.setName('template')
+						.setDescription('Change the active welcome template')
+						.addStringOption((option) =>
+							option
+								.setName('template')
+								.setDescription('The welcome template to use')
+								.setRequired(true)
+								.addChoices(...templateChoices())
+						)
+				)
+				.addSubcommand((subcommand) =>
+					subcommand
+						.setName('channel')
+						.setDescription('Change the welcome message channel')
+						.addChannelOption((option) =>
+							option
+								.setName('channel')
+								.setDescription('The channel where welcome messages are sent')
+								.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+								.setRequired(true)
+						)
+				)
+				.addSubcommand((subcommand) => subcommand.setName('preview').setDescription('Preview the current welcome message'))
+				.addSubcommand((subcommand) => subcommand.setName('status').setDescription('View the current welcome setup'))
+				.addSubcommand((subcommand) => subcommand.setName('disable').setDescription('Disable the welcome system'))
+				.addSubcommand((subcommand) => subcommand.setName('vars').setDescription('View welcome message variables'))
+		);
 	}
 
 	/**
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-        const subcommand = interaction.options.getSubcommand();
+		const subcommand = interaction.options.getSubcommand();
 
-        if (subcommand === 'setup') {
-            const channelID = interaction.options.getChannel('channel').id;
-            const messageType = interaction.options.getString('type');
-            const message = interaction.options.getString('message');
-            const find = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+		if (subcommand === 'setup') return setupWelcome(interaction);
+		if (subcommand === 'template') return updateTemplate(interaction);
+		if (subcommand === 'channel') return updateChannel(interaction);
+		if (subcommand === 'preview') return previewWelcome(interaction);
+		if (subcommand === 'status') return showStatus(interaction);
+		if (subcommand === 'disable') return disableWelcome(interaction);
+		if (subcommand === 'vars') return showVariables(interaction);
+	}
+}
 
-            if (find) {
-                    return await interaction.reply(`${emojis.custom.fail} The Welcome System has **already** been **setup** within the server!`);
-            } else {
+async function setupWelcome(interaction) {
+	const channel = interaction.options.getChannel('channel', true);
+	const templateId = interaction.options.getString('template') || 'classic';
+	const template = getWelcomeTemplate(templateId);
 
-            // await WelcomeSchema.create({ guildId: interaction.guild.id, welcomeChannelId: channelID, messageType: messageType, messageInfo: { title: null, message: null, footer: null, hexCode: null} });
+	await upsertWelcomeConfig(interaction.guild.id, {
+		welcomeChannelId: channel.id,
+		enabled: true,
+		templateId: template.id,
+		messageType: template.type,
+		...templateToLegacyFields(template)
+	});
 
-            if (messageType === 'regular') {
-                await WelcomeSchema.create({ guildId: interaction.guild.id, welcomeChannelId: channelID, messageType: messageType, message: ' ', title: null, footer: null, thumbnailImage: null, authorName: null, iconURL: null, hexCode: null });
-                await WelcomeSchema.findOneAndUpdate({ guildId: interaction.guild.id }, { title: null, message: message, footer: null, thumbnailImage: null, authorName: null, iconURL: null, hexCode: null }, { upsert: false });
-                return SendMessage(interaction);
-            } else {
-                const title = interaction.options.getString('embed-title');
-                const footer = interaction.options.getString('embed-footer');
-                const hexCode = interaction.options.getString('embed-hex');
-                const authorName = interaction.options.getString('embed-authorname');
-                const thumbnailURLBefore = interaction.options.getString('embed-thumbnailurl');
-                const iconURLBefore = interaction.options.getString('embed-iconurl');
+	return interaction.reply({
+		embeds: [successEmbed(interaction, 'Welcome System Enabled', `Welcome messages will be sent in ${channel} using **${template.name}**.`)]
+	});
+}
 
-                let iconURL = '';
-                let thumbnailURL ='';
-                if (iconURL) {
-                    if (iconURLBefore.includes('{serverIcon}')) {
-                        const guildIcon = await interaction.guild.iconURL({ dynamic: true, size: 2048 });
-                        iconURL += guildIcon
-                    } else {
-                        iconURL =+ iconURLBefore
-                    };
+async function updateTemplate(interaction) {
+	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+	if (!config)
+		return interaction.reply({
+			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			flags: MessageFlags.Ephemeral
+		});
 
-                    if (!iconURL.startsWith('https://') && !iconURL.startsWith('http://')) {
-                        const iconURLError = new EmbedBuilder()
-                        .setColor(color.fail)
-                        .setDescription(`${emojis.custom.fail} Your Input is **not** an **URL**. Please make sure your **URL** starts with "**https://**" or "**http://*"`)
-                        .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+	const template = getWelcomeTemplate(interaction.options.getString('template', true));
+	Object.assign(config, {
+		enabled: true,
+		templateId: template.id,
+		messageType: template.type,
+		...templateToLegacyFields(template),
+		updatedAt: Date.now()
+	});
+	await config.save();
 
-                        return await interaction.reply({ embeds: [iconURLError] });
-                    }
-                };
+	return interaction.reply({
+		embeds: [successEmbed(interaction, 'Welcome Template Updated', `New members will now receive the **${template.name}** welcome template.`)]
+	});
+}
 
-                if (thumbnailURL) {
-                    if (thumbnailURLBefore.includes('{serverIcon}')) {
-                        const guildIcon = await interaction.guild.iconURL({ dynamic: true, size: 2048 });
-                        thumbnailURL += guildIcon
-                    } else {
-                        thumbnailURL += thumbnailURLBefore;
-                    };
+async function updateChannel(interaction) {
+	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+	if (!config)
+		return interaction.reply({
+			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			flags: MessageFlags.Ephemeral
+		});
 
+	const channel = interaction.options.getChannel('channel', true);
+	config.welcomeChannelId = channel.id;
+	config.enabled = true;
+	config.updatedAt = Date.now();
+	await config.save();
 
-                    if (!thumbnailURL.startsWith('https://') && !thumbnailURL.startsWith('http://')) {
-                        const thumbnailError = new EmbedBuilder()
-                        .setColor(color.fail)
-                        .setDescription(`${emojis.custom.fail} Your Input is **not** an **URL**. Please make sure your **URL** starts with "**https://**" or "**http://*"`)
-                        .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+	return interaction.reply({ embeds: [successEmbed(interaction, 'Welcome Channel Updated', `Welcome messages will now be sent in ${channel}.`)] });
+}
 
-                        return await interaction.reply({ embeds: [thumbnailError] });
-                    }
-                };
+async function previewWelcome(interaction) {
+	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+	if (!config)
+		return interaction.reply({
+			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			flags: MessageFlags.Ephemeral
+		});
 
-                if (hexCode) {
-                    if (!typeof !hexCode.length === 6 && !hexCode.startsWith('#')) {
-                        const hexError = new EmbedBuilder()
-                        .setColor(color.fail)
-                        .setDescription(`${emojis.custom.fail} Your Input is **not** a valid **HEX Code**. Please make sure your **HEX Code** starts with "**#**" or includes **6** numbers!`)
-                        .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+	const payload = renderWelcomePreview(interaction.member, config);
+	return interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+}
 
-                        return await interaction.reply({ embeds: [hexError] });
-                    }
-                };
+async function showStatus(interaction) {
+	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+	if (!config)
+		return interaction.reply({
+			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			flags: MessageFlags.Ephemeral
+		});
 
-                await WelcomeSchema.create({ guildId: interaction.guild.id, welcomeChannelId: channelID, messageType: messageType, message: ' ', title: null, footer: null, thumbnailImage: null, authorName: null, iconURL: null, hexCode: null });
+	const template = getWelcomeTemplate(config.templateId || 'classic');
+	const embed = new EmbedBuilder()
+		.setColor(color.default)
+		.setTitle('Welcome System Status')
+		.setDescription(
+			[
+				`${config.enabled === false ? emojis.custom.warning : emojis.custom.success} **Status:** ${config.enabled === false ? 'Disabled' : 'Enabled'}`,
+				`${emojis.custom.openfolder} **Channel:** <#${config.welcomeChannelId}>`,
+				`${emojis.custom.pencil} **Template:** ${template.name}`,
+				`${emojis.custom.info} **Style:** ${template.type === 'embed' ? 'Embed' : 'Regular message'}`
+			].join('\n')
+		)
+		.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+		.setTimestamp();
 
-                await WelcomeSchema.findOneAndUpdate({ guildId: interaction.guild.id }, { title: title, message: message, footer: footer, thumbnailImage: thumbnailURL, authorName: authorName, iconURL: iconURL, hexCode: hexCode }, { upsert: false });
-                return SendMessage(interaction);
-            }
+	return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
 
+async function disableWelcome(interaction) {
+	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
+	if (!config)
+		return interaction.reply({ embeds: [failEmbed('The Welcome System has not been setup within the server.')], flags: MessageFlags.Ephemeral });
 
-            async function SendMessage(interaction) {
-            const CreatedEmbed = new EmbedBuilder()
-                .setColor(`${color.default}`)
-                .setDescription(`${emojis.custom.success} The **Welcome System** has been setup!\n\n ${emojis.custom.pencil} \`-\` **Channel:**\n ${emojis.custom.arrowright} <#${channelID}>`)
-                .setTimestamp()
-                .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
+	await WelcomeSchema.deleteOne({ guildId: interaction.guild.id });
+	return interaction.reply({
+		embeds: [successEmbed(interaction, 'Welcome System Disabled', 'New member welcome messages will no longer be sent.')]
+	});
+}
 
-            return await interaction.reply({ embeds: [CreatedEmbed] })
-           }
-        }      
-     };
+async function showVariables(interaction) {
+	const embed = new EmbedBuilder()
+		.setColor(color.default)
+		.setTitle('Welcome Variables')
+		.setDescription(
+			[
+				'`{user}` Mention the new member',
+				'`{userName}` Member username',
+				'`{userTag}` Member tag',
+				'`{userId}` Member ID',
+				'`{serverName}` Server name',
+				'`{serverMembers}` Current member count',
+				'`{memberOrdinal}` Member count with suffix',
+				'`{serverIcon}` Server icon URL',
+				'`{accountAge}` Discord account age',
+				'`\\n` New line'
+			].join('\n')
+		)
+		.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+		.setTimestamp();
 
-        if (subcommand === 'disable') {
-            const find = await WelcomeSchema.find({ guildId: interaction.guild.id });
-		
-            if (find.length === 0) {
-                const cantDisable = new EmbedBuilder()
-                .setColor(color.fail)
-                .setDescription(`${emojis.custom.fail} I **cannot** disable the **Welcome System** as it has **not** been setup within the server!`)
-                return await interaction.reply({ embeds: [cantDisable] });
-            } else {
-                await WelcomeSchema.deleteOne({ guildId: interaction.guild.id });
-                const Deleted = new EmbedBuilder()
-                    .setColor(color.default)
-                    .setDescription(`${emojis.custom.success} The **Welcome System** has been **disabled** within the server!`)
-                return await interaction.reply({ embeds: [Deleted] });
-            };
-        };
+	return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
 
-        if (subcommand === 'vars') {
-            const embed = new EmbedBuilder()
-                .setColor(color.default)
-                .setTitle('`📜` Welcome System Variables `📜`')
-                .addFields([
-                    { name: '**Title:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users **ID**\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server` },
-                    { name: '**Message:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users **ID**\n${emojis.custom.arrowright} \`{userMention}\` Mention the user who joined\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server\n${emojis.custom.arrowright} \`\\n\` Use this to make a new line in a message` },
-                    { name: '**Footer:**', value: `${emojis.custom.arrowright} \`{userId}\` Get the users name\n${emojis.custom.arrowright} \`{serverName}\` Get the servers name\n${emojis.custom.arrowright} \`{serverMembers}\` Get the total member count of the server` },
-                    { name: '**Url\'s:**', value: `${emojis.custom.arrowright} \`{serverIcon}\` Get the icon of the server.` }
-                ])
-                .setTimestamp()
-                .setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() });
+async function upsertWelcomeConfig(guildId, patch) {
+	let config = await WelcomeSchema.findOne({ guildId });
+	if (!config) config = new WelcomeSchema({ guildId, createdAt: Date.now() });
 
-                return interaction.reply({ embeds: [embed] });
-           }
-        }
-     };
+	Object.assign(config, patch, { updatedAt: Date.now() });
+	await config.save();
+	return config;
+}
+
+function templateChoices() {
+	return listWelcomeTemplates().map((template) => ({
+		name: template.name,
+		value: template.id
+	}));
+}
+
+function templateToLegacyFields(template) {
+	return {
+		message: template.message,
+		title: template.embed?.title ?? null,
+		footer: template.embed?.footer ?? null,
+		thumbnailImage: template.embed?.image ?? null,
+		authorName: template.embed?.author ?? null,
+		iconURL: template.embed?.thumbnail ?? null,
+		hexCode: template.embed?.color ?? null
+	};
+}
+
+function successEmbed(interaction, title, description) {
+	return new EmbedBuilder()
+		.setColor(color.default)
+		.setTitle(title)
+		.setDescription(`${emojis.custom.success} ${description}`)
+		.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
+		.setTimestamp();
+}
+
+function failEmbed(description) {
+	return new EmbedBuilder().setColor(color.fail).setDescription(`${emojis.custom.fail} ${description}`);
+}
 
 module.exports = {
 	UserCommand

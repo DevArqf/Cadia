@@ -3,6 +3,7 @@ const { createModel } = require('../database/model');
 const AuditLogConfigSchema = createModel('auditLogConfigSchema', {
 	guildId: null,
 	channelId: null,
+	channelIds: () => ({}),
 	enabled: false,
 	events: () => ({
 		messageUpdate: true,

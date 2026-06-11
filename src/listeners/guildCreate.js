@@ -1,6 +1,7 @@
 const { Listener, Events } = require('@sapphire/framework');
-const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType , MessageFlags} = require('discord.js');
+const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType } = require('discord.js');
 const { color, emojis } = require('../config');
+const { postTopggStats } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
 	/**
@@ -17,6 +18,7 @@ class UserEvent extends Listener {
 	 */
 	async run(guild) {
 		try {
+			postTopggStats(guild.client).catch((error) => guild.client.logger?.warn?.(error.message));
 			const owner = await guild.fetchOwner();
 			const avatarURL = guild.client.user.displayAvatarURL({ format: 'png', size: 512 });
 			const topChannel = guild.channels.cache
@@ -34,7 +36,7 @@ class UserEvent extends Listener {
 				new ButtonBuilder()
 					.setEmoji(emojis.custom.home)
 					.setLabel('Support Server')
-					.setURL('https://discord.gg/SrYexYcKZ2')
+					.setURL('https://discord.gg/26R7kXa6dx')
 					.setStyle(ButtonStyle.Link),
 
 				new ButtonBuilder()
@@ -54,7 +56,7 @@ class UserEvent extends Listener {
 				new ButtonBuilder()
 					.setEmoji(`${emojis.custom.home}`)
 					.setLabel('Support Server')
-					.setURL('https://discord.gg/SrYexYcKZ2')
+					.setURL('https://discord.gg/26R7kXa6dx')
 					.setStyle(ButtonStyle.Link),
 
 				new ButtonBuilder()
@@ -67,12 +69,7 @@ class UserEvent extends Listener {
 			owner.send({ embeds: [embed], components: [dmbot] });
 			topChannel.send({ embeds: [embed], components: [channel] });
 		} catch (error) {
-			console.error(error);
-			const errorEmbed = new EmbedBuilder()
-            	.setColor(color.fail)
-            	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`)
-            	.setTimestamp();
-			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });	
+			guild.client.logger?.error?.(error);
 		}
 	}
 }

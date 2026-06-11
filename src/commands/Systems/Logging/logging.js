@@ -15,7 +15,14 @@ const {
 	StringSelectMenuOptionBuilder,
 	TextDisplayBuilder
 } = require('discord.js');
-const { auditActions, auditCategories, getAuditConfig, toggleAuditEvent, updateAuditConfig } = require('../../../lib/util/auditLogger');
+const {
+	auditActions,
+	auditCategories,
+	getAuditConfig,
+	resolveAuditChannelId,
+	toggleAuditEvent,
+	updateAuditConfig
+} = require('../../../lib/util/auditLogger');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -32,7 +39,7 @@ class UserCommand extends CadiaCommand {
 
 	async chatInputRun(interaction) {
 		const componentId = `logging:${interaction.id}`;
-		const state = { category: 'messages' };
+		const state = { category: 'messages', channelTarget: 'default' };
 		const config = await getAuditConfig(interaction.guild.id);
 		const response = await interaction.reply({
 			components: [buildLoggingPanel(interaction, config, componentId, state.category)],
@@ -57,14 +64,25 @@ class UserCommand extends CadiaCommand {
 
 			if (action === 'enable') nextConfig = await updateAuditConfig(interaction.guild.id, { enabled: true });
 			if (action === 'disable') nextConfig = await updateAuditConfig(interaction.guild.id, { enabled: false });
-			if (action === 'channel') nextConfig = await updateAuditConfig(interaction.guild.id, { channelId: i.values[0] });
-			if (action === 'category') state.category = i.values[0];
+			if (action === 'channel') {
+				const channelId = i.values[0];
+				if (state.channelTarget === 'default') {
+					nextConfig = await updateAuditConfig(interaction.guild.id, { channelId });
+				} else {
+					nextConfig = await updateAuditConfig(interaction.guild.id, { channelIds: { [state.channelTarget]: channelId } });
+				}
+			}
+			if (action === 'category') {
+				state.category = i.values[0];
+				state.channelTarget = 'default';
+			}
+			if (action === 'channelTarget') state.channelTarget = i.values[0];
 			if (action === 'actions') {
 				for (const eventKey of i.values) nextConfig = await toggleAuditEvent(interaction.guild.id, eventKey);
 			}
 
 			await i.update({
-				components: [buildLoggingPanel(interaction, nextConfig, componentId, state.category)],
+				components: [buildLoggingPanel(interaction, nextConfig, componentId, state.category, state.channelTarget)],
 				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 			});
 		});
@@ -73,7 +91,7 @@ class UserCommand extends CadiaCommand {
 			const latestConfig = await getAuditConfig(interaction.guild.id).catch(() => config);
 			await interaction
 				.editReply({
-					components: [buildLoggingPanel(interaction, latestConfig, componentId, state.category, true)],
+					components: [buildLoggingPanel(interaction, latestConfig, componentId, state.category, state.channelTarget, true)],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 				})
 				.catch(() => null);
@@ -81,12 +99,17 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
-function buildLoggingPanel(interaction, config, componentId, selectedCategory = 'messages', disabled = false) {
+function buildLoggingPanel(interaction, config, componentId, selectedCategory = 'messages', channelTarget = 'default', disabled = false) {
 	const actionEntries = Object.entries(auditActions);
 	const enabledCount = actionEntries.filter(([key]) => config.events?.[key]).length;
 	const channel = config.channelId ? `<#${config.channelId}>` : 'No channel selected';
 	const category = auditCategories[selectedCategory] ? selectedCategory : 'messages';
 	const selectedActions = actionEntries.filter(([, action]) => action.category === category);
+	const target = channelTarget === 'default' || auditActions[channelTarget]?.category === category ? channelTarget : 'default';
+	const targetChannelId = target === 'default' ? config.channelId : resolveAuditChannelId(config, target);
+	const targetLabel = target === 'default' ? 'Default fallback' : auditActions[target].label;
+	const targetChannel = targetChannelId ? `<#${targetChannelId}>` : 'No channel selected';
+	const dedicatedCount = Object.keys(config.channelIds || {}).length;
 
 	return new ContainerBuilder()
 		.setAccentColor(Number.parseInt((config.enabled ? color.success : color.warning).replace('#', ''), 16))
@@ -100,10 +123,12 @@ function buildLoggingPanel(interaction, config, componentId, selectedCategory = 
 			new TextDisplayBuilder().setContent(
 				[
 					`${config.enabled ? emojis.custom.success : emojis.custom.warning} **Status:** ${config.enabled ? 'Enabled' : 'Disabled'}`,
-					`${emojis.custom.openfolder} **Log Channel:** ${channel}`,
+					`${emojis.custom.openfolder} **Default Channel:** ${channel}`,
+					`${emojis.custom.openfolder} **Editing Channel For:** ${targetLabel} -> ${targetChannel}`,
 					`${emojis.custom.info} **Enabled Audits:** ${enabledCount}/${actionEntries.length}`,
+					`${emojis.custom.settings} **Dedicated Channels:** ${dedicatedCount}`,
 					`${emojis.custom.settings} **Editing:** ${auditCategories[category].label}`,
-					`-# The bot needs permission to view and send messages in the selected channel.`
+					`-# Dedicated audit channels override the default channel for that audit. The bot needs permission to view and send messages there.`
 				].join('\n')
 			)
 		)
@@ -113,9 +138,33 @@ function buildLoggingPanel(interaction, config, componentId, selectedCategory = 
 			new ActionRowBuilder().addComponents(
 				new ChannelSelectMenuBuilder()
 					.setCustomId(`${componentId}:channel`)
-					.setPlaceholder('Choose audit log channel')
+					.setPlaceholder(`Choose channel for ${targetLabel}`)
 					.setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
 					.setDisabled(disabled)
+			)
+		)
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new StringSelectMenuBuilder()
+					.setCustomId(`${componentId}:channelTarget`)
+					.setPlaceholder('Choose audit destination to edit')
+					.setMinValues(1)
+					.setMaxValues(1)
+					.setDisabled(disabled)
+					.addOptions([
+						new StringSelectMenuOptionBuilder()
+							.setLabel('Default fallback')
+							.setDescription('Used when an audit has no dedicated channel.')
+							.setValue('default')
+							.setDefault(target === 'default'),
+						...selectedActions.map(([key, action]) =>
+							new StringSelectMenuOptionBuilder()
+								.setLabel(action.label)
+								.setDescription(formatChannelTargetDescription(config, key))
+								.setValue(key)
+								.setDefault(target === key)
+						)
+					])
 			)
 		)
 		.addActionRowComponents(
@@ -171,10 +220,21 @@ function buildLoggingPanel(interaction, config, componentId, selectedCategory = 
 		);
 }
 
+function formatChannelTargetDescription(config, eventKey) {
+	const dedicatedChannelId = config.channelIds?.[eventKey];
+	if (dedicatedChannelId) return `Dedicated channel: #${dedicatedChannelId}`;
+	if (config.channelId) return `Uses default channel: #${config.channelId}`;
+	return 'No destination channel selected yet.';
+}
+
 function formatEventSummary(config, category) {
 	const categoryRows = Object.entries(auditActions)
 		.filter(([, action]) => action.category === category)
-		.map(([key, action]) => `${config.events?.[key] ? emojis.custom.success : emojis.custom.fail} **${action.label}:** ${action.description}`);
+		.map(([key, action]) => {
+			const channelId = config.channelIds?.[key];
+			const destination = channelId ? ` -> <#${channelId}>` : config.channelId ? ' -> default' : '';
+			return `${config.events?.[key] ? emojis.custom.success : emojis.custom.fail} **${action.label}:** ${action.description}${destination}`;
+		});
 	const categorySummary = Object.entries(auditCategories)
 		.map(([key, group]) => {
 			const actions = Object.entries(auditActions).filter(([, action]) => action.category === key);

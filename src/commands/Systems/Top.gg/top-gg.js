@@ -1,6 +1,7 @@
 const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
-const { color, emojis } = require('../../../config');
+const { emojis } = require('../../../config');
+const { postTopggStats, startTopggStatsPoster, syncTopggCommands } = require('../../../lib/util/topgg');
 const { AutoPoster } = require('topgg-autoposter');
 
 class UserCommand extends CadiaCommand {
@@ -33,41 +34,43 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		await interaction.deferReply();
 
-        const token = process.env.TOPGG_TOKEN;
+		if (!process.env.TOPGG_TOKEN && !process.env.TOP_GG_TOKEN && !process.env.TOPGG_API_TOKEN) {
+			return interaction.editReply({ content: `${emojis.custom.fail} Missing \`TOPGG_TOKEN\` in the environment.` });
+		}
 
-        if (!token) {
-            return interaction.editReply({ content: `${emojis.custom.fail} Missing \`TOPGG_TOKEN\` in the environment.` });
-        }
+		try {
+			const { poster } = getTopggPoster(interaction.client, process.env.TOPGG_TOKEN || process.env.TOP_GG_TOKEN || process.env.TOPGG_API_TOKEN);
+			const stats = await postTopggStats(interaction.client);
+			const commands = await syncTopggCommands(interaction.client);
+			poster.post();
+			startTopggStatsPoster(interaction.client);
 
-        const { created, poster } = getTopggPoster(interaction.client, token);
-
-        poster.post();
-
-        return interaction.editReply({
-            content: created
-                ? `${emojis.custom.success} Top.gg autoposter has been **started** and a stats post was queued.`
-                : `${emojis.custom.success} Top.gg autoposter is **already running**. A stats post was queued.`
-        });
+			return interaction.editReply({
+				content: `${emojis.custom.success} Posted **${stats.serverCount}** servers to Top.gg and synced **${commands.commandCount}** commands.`
+			});
+		} catch (error) {
+			return interaction.editReply({ content: `${emojis.custom.fail} ${error.message}` });
+		}
 	}
-};
+}
 
 function getTopggPoster(client, token) {
-    if (client.topggPoster) return { created: false, poster: client.topggPoster };
+	if (client.topggPoster) return { created: false, poster: client.topggPoster };
 
-    const poster = AutoPoster(token, client, {
-        postOnStart: false
-    });
+	const poster = AutoPoster(token, client, {
+		postOnStart: false
+	});
 
-    poster.on('posted', () => {
-        client.logger?.info?.('Successfully posted Cadia stats to Top.gg');
-    });
+	poster.on('posted', () => {
+		client.logger?.info?.('Successfully posted Cadia stats to Top.gg');
+	});
 
-    poster.on('error', (error) => {
-        client.logger?.error?.(error);
-    });
+	poster.on('error', (error) => {
+		client.logger?.error?.(error);
+	});
 
-    client.topggPoster = poster;
-    return { created: true, poster };
+	client.topggPoster = poster;
+	return { created: true, poster };
 }
 
 module.exports = {

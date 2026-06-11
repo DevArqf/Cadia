@@ -62,12 +62,14 @@ async function getAuditConfig(guildId) {
 	}
 
 	config.events = { ...defaultEvents(), ...(config.events || {}) };
+	config.channelIds = normalizeChannelIds(config.channelIds);
 	return config;
 }
 
 async function updateAuditConfig(guildId, patch) {
 	const config = await getAuditConfig(guildId);
 	if ('channelId' in patch) config.channelId = patch.channelId;
+	if (patch.channelIds) config.channelIds = { ...normalizeChannelIds(config.channelIds), ...patch.channelIds };
 	if ('enabled' in patch) config.enabled = patch.enabled;
 	if (patch.events) config.events = { ...defaultEvents(), ...(config.events || {}), ...patch.events };
 	config.updatedAt = Date.now();
@@ -89,9 +91,12 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 	if (!guild || !action) return;
 
 	const config = await getAuditConfig(guild.id).catch(() => null);
-	if (!config?.enabled || !config.channelId || !config.events?.[eventKey]) return;
+	if (!config?.enabled || !config.events?.[eventKey]) return;
 
-	const channel = guild.channels.cache.get(config.channelId) || (await guild.channels.fetch(config.channelId).catch(() => null));
+	const channelId = resolveAuditChannelId(config, eventKey);
+	if (!channelId) return;
+
+	const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
 	if (!channel?.isTextBased?.()) return;
 
 	const loggedAt = Math.floor(Date.now() / 1000);
@@ -123,6 +128,16 @@ function defaultEvents() {
 	return Object.fromEntries(Object.keys(auditActions).map((key) => [key, true]));
 }
 
+function resolveAuditChannelId(config, eventKey) {
+	return normalizeChannelIds(config.channelIds)[eventKey] || config.channelId || null;
+}
+
+function normalizeChannelIds(channelIds) {
+	if (!channelIds || typeof channelIds !== 'object' || Array.isArray(channelIds)) return {};
+
+	return Object.fromEntries(Object.entries(channelIds).filter(([eventKey, channelId]) => auditActions[eventKey] && channelId));
+}
+
 function formatDetails(details) {
 	const rows = details.filter((detail) => detail && detail.value !== undefined && detail.value !== null && detail.value !== '');
 	if (!rows.length) return `${emojis.custom.warning} No extra details were captured.`;
@@ -149,6 +164,7 @@ module.exports = {
 	auditCategories,
 	defaultEvents,
 	getAuditConfig,
+	resolveAuditChannelId,
 	sendAuditLog,
 	toggleAuditEvent,
 	updateAuditConfig

@@ -103,7 +103,7 @@ class UserCommand extends CadiaCommand {
 			.addActionRowComponents(
 				new ActionRowBuilder().addComponents(
 					new ButtonBuilder().setLabel('Invite Cadia').setStyle(ButtonStyle.Link).setURL(inviteUrl),
-					new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL('https://discord.gg/2XunevgrHD')
+					new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL('https://discord.gg/26R7kXa6dx')
 				)
 			);
 

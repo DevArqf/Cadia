@@ -9,17 +9,22 @@ class UserEvent extends Listener {
 
 	async run(oldMessage, newMessage) {
 		if (!newMessage.guild || newMessage.author?.bot || oldMessage.content === newMessage.content) return;
+		const author = newMessage.author;
 		await sendAuditLog(
 			newMessage.guild,
 			'messageUpdate',
 			'Message Edited',
 			[
-				{ label: 'Author', value: `${newMessage.author} (${newMessage.author.id})`, icon: emojis.custom.person },
-				{ label: 'Channel', value: `${newMessage.channel}`, icon: emojis.custom.openfolder },
+				{ label: 'Author', value: author ? `${author} (${author.id})` : 'Unknown user', icon: emojis.custom.person },
+				{
+					label: 'Channel',
+					value: newMessage.channel ? `${newMessage.channel}` : `Unknown channel (${newMessage.channelId || 'unknown id'})`,
+					icon: emojis.custom.openfolder
+				},
 				{ label: 'Before', value: oldMessage.content || 'No previous content captured.', icon: emojis.custom.pencil },
 				{ label: 'After', value: newMessage.content || 'No new content captured.', icon: emojis.custom.success }
 			],
-			{ color: color.warning, emoji: emojis.custom.pencil, user: newMessage.author }
+			{ color: color.warning, emoji: emojis.custom.pencil, user: author }
 		);
 	}
 }

@@ -2,6 +2,7 @@ const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { color, emojis } = require('../../../config');
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
+const { checkTopggVote } = require('../../../lib/util/topgg');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -31,26 +32,21 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const apiKey = process.env.TOPGG_TOKEN;
-		const botId = '1200475110235197631';
 		const userId = interaction.user.id;
 
-		if (!apiKey) {
+		if (!process.env.TOPGG_TOKEN && !process.env.TOP_GG_TOKEN && !process.env.TOPGG_API_TOKEN) {
 			return interaction.reply({ content: `${emojis.custom.fail} Missing \`TOPGG_TOKEN\` in the environment.`, flags: MessageFlags.Ephemeral });
 		}
 
 		try {
 			await interaction.deferReply();
-			const response = await fetch(`https://top.gg/api/bots/${botId}/check?userId=${userId}`, {
-				headers: {
-					Authorization: apiKey
-				}
-			});
-			if (response.ok) {
-				const data = await response.json();
-				if (data.voted === 1) {
-					return interaction.editReply(`${emojis.custom.fail} You have **already** voted for Cadia. We **appreciate** you trying again!`);
-				} else if (data.voted === 0) {
+			const vote = await checkTopggVote(userId, interaction.client);
+			if (vote.ok) {
+				if (vote.voted) {
+					return interaction.editReply(
+						`${emojis.custom.success} You have **already** voted for Cadia. We **appreciate** you trying again!`
+					);
+				} else {
 					const voteEmbed = new EmbedBuilder()
 						.setColor(color.default)
 						.setDescription(
@@ -75,24 +71,24 @@ class UserCommand extends CadiaCommand {
 							new ButtonBuilder()
 								.setLabel('DiscordList.gg')
 								.setURL(`https://discordlist.gg/bot/1200475110235197631?message=success`)
-							.setStyle(ButtonStyle.Link)
+								.setStyle(ButtonStyle.Link)
 						);
 
 					return interaction.editReply({ embeds: [voteEmbed], components: [voteButton1] });
 				}
 			} else {
 				return interaction.editReply(
-					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
 				);
 			}
 		} catch (error) {
 			if (!interaction.deferred && !interaction.replied) {
 				return interaction.reply(
-					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
 				);
 			}
 			return interaction.editReply(
-				`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/2XunevgrHD) for assistance or use </bugreport:1219050295770742934>*`
+				`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
 			);
 		}
 	}
