@@ -7,6 +7,7 @@ const dev = process.env.NODE_ENV !== 'production';
 const { ActivityType, Events } = require('discord.js');
 const { syncDiscordBotListCommands } = require('../lib/util/discordBotListCommands');
 const { startTopggStatsPoster, syncTopggCommands } = require('../lib/util/topgg');
+const { preloadRpgAssets } = require('../lib/rpg/preload');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -31,6 +32,7 @@ class UserEvent extends Listener {
 		await syncDiscordBotListCommands(client);
 		await syncTopggCommands(client).catch((error) => client.logger.warn(error.message));
 		startTopggStatsPoster(client);
+		preloadRpgAssets(client).catch((error) => client.logger.warn(`RPG asset preload failed: ${error.message}`));
 	}
 
 	/**

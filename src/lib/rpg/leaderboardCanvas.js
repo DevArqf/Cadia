@@ -5,6 +5,7 @@ const { AttachmentBuilder } = require('discord.js');
 const backgroundPath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Leaderboard BG.png');
 const width = 960;
 const height = 610;
+let backgroundImagePromise = null;
 
 async function createRpgLeaderboardCard({ guildName, leaders, type, page, totalPages, resolveUser, fileName = 'rpg-leaderboard.png' }) {
 	const canvas = createCanvas(width, height);
@@ -26,7 +27,9 @@ async function createRpgLeaderboardCard({ guildName, leaders, type, page, totalP
 
 async function drawBackground(ctx) {
 	try {
-		const background = await loadImage(backgroundPath);
+		backgroundImagePromise ??= loadImage(backgroundPath).catch(() => null);
+		const background = await backgroundImagePromise;
+		if (!background) throw new Error('Leaderboard background unavailable.');
 		ctx.drawImage(background, 0, 0, width, height);
 	} catch {
 		const gradient = ctx.createLinearGradient(0, 0, width, height);
@@ -39,6 +42,11 @@ async function drawBackground(ctx) {
 
 	ctx.fillStyle = 'rgba(22, 13, 6, 0.48)';
 	ctx.fillRect(0, 0, width, height);
+}
+
+function preloadLeaderboardAssets() {
+	backgroundImagePromise ??= loadImage(backgroundPath).catch(() => null);
+	return backgroundImagePromise;
 }
 
 function drawFrame(ctx) {
@@ -154,5 +162,6 @@ function roundRect(ctx, x, y, rectWidth, rectHeight, radius) {
 }
 
 module.exports = {
-	createRpgLeaderboardCard
+	createRpgLeaderboardCard,
+	preloadLeaderboardAssets
 };

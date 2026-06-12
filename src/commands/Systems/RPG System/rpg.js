@@ -93,6 +93,7 @@ const icon = {
 };
 
 const leaderboardPageSize = 6;
+const activeRpgActions = new Map();
 const leaderboardTypes = [
 	{ id: 'level', label: 'Level', description: 'Highest level and XP progress', emoji: icon.rank.s },
 	{ id: 'gold', label: 'Gold', description: 'Richest Wardens', emoji: icon.coin },
@@ -105,6 +106,10 @@ const adminCurrencies = [
 	{ name: 'XP', value: 'xp' },
 	{ name: 'Level', value: 'level' }
 ];
+const adminBossChoices = Object.values(encounters)
+	.flat()
+	.filter((encounter) => encounter.boss)
+	.map((encounter) => ({ name: encounter.name, value: encounter.id }));
 const inventoryCategories = [
 	{ id: 'weapon', label: 'Weapons', action: 'equip' },
 	{ id: 'armor', label: 'Armor', action: 'equip' },
@@ -277,7 +282,7 @@ class UserCommand extends CadiaCommand {
 										.setName('item')
 										.setDescription('The item to add')
 										.setRequired(true)
-				.addChoices(...Object.values(items).map((item) => ({ name: item.name, value: item.id })))
+										.addChoices(...Object.values(items).map((item) => ({ name: item.name, value: item.id })))
 								)
 								.addIntegerOption((option) =>
 									option.setName('quantity').setDescription('How many to add').setRequired(false).setMinValue(1).setMaxValue(99)
@@ -300,6 +305,18 @@ class UserCommand extends CadiaCommand {
 						)
 						.addSubcommand((subcommand) =>
 							subcommand.setName('harlequin').setDescription('Force-start the Harlequin boss fight for yourself')
+						)
+						.addSubcommand((subcommand) =>
+							subcommand
+								.setName('boss')
+								.setDescription('Force-start any RPG boss fight for yourself')
+								.addStringOption((option) =>
+									option
+										.setName('boss')
+										.setDescription('The boss fight to test')
+										.setRequired(true)
+										.addChoices(...adminBossChoices)
+								)
 						)
 				)
 		);
@@ -596,18 +613,19 @@ async function adminPanel(interaction, subcommand) {
 		);
 	}
 
-	if (subcommand === 'harlequin') return forceHarlequinBoss(interaction);
+	if (subcommand === 'harlequin') return forceBossFight(interaction, 'harlequin');
+	if (subcommand === 'boss') return forceBossFight(interaction, interaction.options.getString('boss', true));
 
 	throw new rpg.RpgError('Unknown RPG admin action.');
 }
 
-async function forceHarlequinBoss(interaction) {
-	const profile = await rpg.requireProfile(interaction.guild.id, interaction.user.id);
-	const encounter = rpg.getEncounterById('harlequin');
+async function forceBossFight(interaction, bossId) {
+	const { profile } = await rpg.prepareBossFight(interaction.guild.id, interaction.user.id);
+	const encounter = rpg.getBossById(bossId);
 	return bossAdventure(interaction, {
 		profile,
 		encounter,
-		region: regions[profile.region] || regions['broken-gate']
+		region: regionForEncounter(encounter.id) || regions[profile.region] || regions['broken-gate']
 	});
 }
 
@@ -673,7 +691,9 @@ async function openQuestBoard(interaction, profile, ephemeral = false) {
 	const collector = message.createMessageComponentCollector({ time: 120_000 });
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Quest**`, 'Open your own RPG quest board to use these controls.'), true));
+			return i.reply(
+				componentReply(notice(`${icon.forbidden} **Not Your Quest**`, 'Open your own RPG quest board to use these controls.'), true)
+			);
 		}
 		if (!i.customId.startsWith(customIdBase)) return;
 
@@ -718,15 +738,27 @@ async function travel(interaction) {
 }
 
 async function adventure(interaction) {
-	await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-	const result = await rpg.startAdventure(interaction.guild.id, interaction.user.id);
-	const exploration = explorationScene(result.region.id, result.encounter.name);
+	const activeAction = getActiveRpgAction(interaction);
+	if (activeAction) return replyActiveRpgAction(interaction, activeAction);
 
-	const battleId = `rpg:${interaction.id}:${result.encounter.id}`;
-	await interaction.editReply({
-		...componentReply(buildExplorationPanel(result.profile, result.encounter, result.region, battleId, result.recoveredHp, exploration)),
-		files: exploration.attachment ? [exploration.attachment] : []
-	});
+	setActiveRpgAction(interaction, 'exploring');
+	await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+	let result;
+	let battleId;
+
+	try {
+		result = await rpg.startAdventure(interaction.guild.id, interaction.user.id);
+		const exploration = explorationScene(result.region.id, result.encounter.name);
+
+		battleId = `rpg:${interaction.id}:${result.encounter.id}`;
+		await interaction.editReply({
+			...componentReply(buildExplorationPanel(result.profile, result.encounter, result.region, battleId, result.recoveredHp, exploration)),
+			files: exploration.attachment ? [exploration.attachment] : []
+		});
+	} catch (error) {
+		clearActiveRpgAction(interaction);
+		throw error;
+	}
 
 	const responseMessage = await interaction.fetchReply();
 	let discovered = false;
@@ -743,6 +775,7 @@ async function adventure(interaction) {
 			if (i.customId === `${battleId}:continue`) {
 				await i.deferUpdate();
 				discovered = true;
+				setActiveRpgAction(interaction, 'battle');
 				return i.editReply(await buildEncounterReply(result.profile, result.encounter, result.region, battleId));
 			}
 
@@ -759,6 +792,7 @@ async function adventure(interaction) {
 	});
 
 	collector.on('end', async (collected) => {
+		clearActiveRpgAction(interaction);
 		if (resolvedFight) return;
 		await interaction
 			.editReply({
@@ -777,6 +811,10 @@ async function adventure(interaction) {
 }
 
 async function bossAdventure(interaction, result) {
+	const activeAction = getActiveRpgAction(interaction);
+	if (activeAction) return replyActiveRpgAction(interaction, activeAction);
+
+	setActiveRpgAction(interaction, 'battle');
 	await interaction.deferReply();
 
 	const state = {
@@ -787,7 +825,13 @@ async function bossAdventure(interaction, result) {
 		lastResult: null
 	};
 	const battleId = `rpg-boss:${interaction.id}:${result.encounter.id}`;
-	const responseMessage = await interaction.editReply(await buildBossBattleReply(result.profile, result.encounter, result.region, state, battleId));
+	let responseMessage;
+	try {
+		responseMessage = await interaction.editReply(await buildBossBattleReply(result.profile, result.encounter, result.region, state, battleId));
+	} catch (error) {
+		clearActiveRpgAction(interaction);
+		throw error;
+	}
 	const collector = responseMessage.createMessageComponentCollector({ time: 180_000 });
 
 	collector.on('collect', async (i) => {
@@ -806,13 +850,15 @@ async function bossAdventure(interaction, result) {
 			state.lastResult = { ...resolved, stance };
 
 			if (resolved.done) collector.stop(resolved.won ? 'won' : 'lost');
-			return i.editReply(await buildBossBattleReply(resolved.profile, resolved.encounter, result.region, state, battleId, resolved.done));
+			if (resolved.done) return i.editReply(buildBattleResultReply(resolved, stance));
+			return i.editReply(await buildBossBattleReply(resolved.profile, resolved.encounter, result.region, state, battleId));
 		} catch (error) {
 			return sendRpgIssue(i, error);
 		}
 	});
 
 	collector.on('end', async (_, reason) => {
+		clearActiveRpgAction(interaction);
 		if (reason === 'won' || reason === 'lost') return;
 		await interaction
 			.editReply({
@@ -989,12 +1035,13 @@ async function openTravelPicker(interaction, profile) {
 		}
 
 		try {
+			await i.deferUpdate();
 			const selectedRegion = regions[i.values[0]];
 			const gate = rpg.canTravel(profile, selectedRegion);
-			if (!gate.ok) return i.update({ components: [buildLockedRegionPanel(profile, selectedRegion, gate)] });
+			if (!gate.ok) return i.editReply({ components: [buildLockedRegionPanel(profile, selectedRegion, gate)] });
 
 			const result = await rpg.travel(i.guild.id, i.user.id, selectedRegion.id);
-			return i.update(buildTravelCompleteReply(result, true));
+			return i.editReply(buildTravelCompleteReply(result, true));
 		} catch (error) {
 			return sendRpgIssue(i, error);
 		}
@@ -1151,12 +1198,15 @@ async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephem
 	const state = rpg.getQuestState(profile);
 	const quest = state.quest || state.availableQuest;
 	const activeQuest = state.activeQuest;
-	const questText = quest ? questPageText(quest, activeQuest) : 'No NPC quest is available in this region yet. Travel onward or check back after clearing more gates.';
+	const questText = quest
+		? questPageText(quest, activeQuest)
+		: 'No NPC quest is available in this region yet. Travel onward or check back after clearing more gates.';
 	const fileName = `rpg-quest-${profile.characterId}.png`;
 	const attachment = await createQuestPageCard({
 		profile,
 		region,
 		questText,
+		rewards: quest?.rewards || null,
 		questIndex: Math.max(profile.questStep || 0, 0),
 		totalQuests: npcQuests.length,
 		fileName
@@ -1193,11 +1243,15 @@ async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephem
 
 	if (quest && !activeQuest) {
 		container.addActionRowComponents(
-			new ActionRowBuilder().addComponents(actionButton(`${customIdBase}:${quest.id}:accept`, 'Accept Quest', ButtonStyle.Primary, icon.success).setDisabled(disabled))
+			new ActionRowBuilder().addComponents(
+				actionButton(`${customIdBase}:${quest.id}:accept`, 'Accept Quest', ButtonStyle.Primary, icon.success).setDisabled(disabled)
+			)
 		);
 	} else if (quest && activeQuest?.status === 'ready') {
 		container.addActionRowComponents(
-			new ActionRowBuilder().addComponents(actionButton(`${customIdBase}:${quest.id}:claim`, 'Return To NPC', ButtonStyle.Success, icon.objective).setDisabled(disabled))
+			new ActionRowBuilder().addComponents(
+				actionButton(`${customIdBase}:${quest.id}:claim`, 'Return To NPC', ButtonStyle.Success, icon.objective).setDisabled(disabled)
+			)
 		);
 	}
 
@@ -1214,7 +1268,8 @@ async function buildQuestRewardReply(result, customIdBase = 'rpg-quest:static', 
 	const attachment = await createQuestPageCard({
 		profile: result.profile,
 		region,
-		questText: `${result.quest.npc.name}: "${result.quest.completeText}"\n\nRewards claimed: ${formatQuestRewards(result.rewards)}`,
+		questText: `${result.quest.npc.name}: "${result.quest.completeText}"\n\nRewards claimed.`,
+		rewards: result.rewards,
 		questIndex: Math.max(result.profile.questStep || 0, 0),
 		totalQuests: npcQuests.length,
 		fileName
@@ -1258,7 +1313,8 @@ async function buildQuestRewardReply(result, customIdBase = 'rpg-quest:static', 
 
 function questPageText(quest, activeQuest) {
 	if (!activeQuest) return `${quest.npc.name}: "${quest.intro}"\n\n${quest.objectiveText}`;
-	if (activeQuest.status === 'ready') return `${quest.npc.name}: "You did it. Come back and let me pay what I promised."\n\nReturn to ${quest.npc.name} to claim your reward.`;
+	if (activeQuest.status === 'ready')
+		return `${quest.npc.name}: "You did it. Come back and let me pay what I promised."\n\nReturn to ${quest.npc.name} to claim your reward.`;
 	return `${quest.npc.name}: "${quest.intro}"\n\n${quest.objectiveText}`;
 }
 
@@ -1370,9 +1426,11 @@ async function buildInventoryReply(profile, state) {
 					.setPlaceholder(`Choose ${category.action === 'use' ? 'an item to use' : 'gear to equip'}`)
 					.setDisabled(state.disabled)
 					.addOptions(
-						usableEntries.slice(0, 25).map(({ item, entry }) =>
-							itemSelectOption(item, `${titleCase(item.rarity || 'common')} ${item.slot} - owned x${entry.quantity}`)
-						)
+						usableEntries
+							.slice(0, 25)
+							.map(({ item, entry }) =>
+								itemSelectOption(item, `${titleCase(item.rarity || 'common')} ${item.slot} - owned x${entry.quantity}`)
+							)
 					)
 			)
 		);
@@ -1418,7 +1476,10 @@ function buildInventoryCategoryText(profile, entries, category) {
 	const summary = entries.length
 		? entries
 				.slice(0, 8)
-				.map(({ item, entry }) => `${icon.arrowRight} **${formatItemName(item)}** x${entry.quantity}${equippedItemId === item.id ? ' - Equipped' : ''}`)
+				.map(
+					({ item, entry }) =>
+						`${icon.arrowRight} **${formatItemName(item)}** x${entry.quantity}${equippedItemId === item.id ? ' - Equipped' : ''}`
+				)
 				.join('\n')
 		: `${icon.info} No owned ${category.label.toLowerCase()} in this satchel.`;
 
@@ -1462,7 +1523,7 @@ function buildTravelCompletePanel(result) {
 			story,
 			[
 				`${icon.chapter} **Chapter:** ${result.region.chapter}`,
-				`${icon.level} **Unlock Rank:** ${result.region.unlockRank}`,
+				`${icon.level} **Unlocks at Rank:** ${result.region.unlockRank}`,
 				`${icon.person} **Warden:** ${result.profile.name}`,
 				`${icon.region} **Destination:** ${result.region.name}`
 			]
@@ -1527,9 +1588,9 @@ function buildEquipPickerPanel(profile, equipableEntries, customId) {
 					.setCustomId(customId)
 					.setPlaceholder('Choose gear to equip')
 					.addOptions(
-						equipableEntries.slice(0, 25).map(({ entry, item }) =>
-							itemSelectOption(item, `${titleCase(item.rarity)} ${item.slot} - owned x${entry.quantity}`)
-						)
+						equipableEntries
+							.slice(0, 25)
+							.map(({ entry, item }) => itemSelectOption(item, `${titleCase(item.rarity)} ${item.slot} - owned x${entry.quantity}`))
 					)
 			)
 		);
@@ -1539,7 +1600,9 @@ function buildTravelPickerPanel(profile, travelRegions, customId) {
 	return new ContainerBuilder()
 		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
 		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(`${icon.compass} **Travel**\n-# Choose a destination for ${profile.name}. Locked regions explain how to unlock them.`)
+			new TextDisplayBuilder().setContent(
+				`${icon.compass} **Travel**\n-# Choose a destination for ${profile.name}. Locked regions explain how to unlock them.`
+			)
 		)
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addActionRowComponents(
@@ -1666,6 +1729,10 @@ function encounterRecords() {
 			type: encounter.boss ? 'boss' : 'mob'
 		}))
 	);
+}
+
+function regionForEncounter(encounterId) {
+	return encounterRecordById(encounterId)?.region || null;
 }
 
 function encounterRecordById(encounterId) {
@@ -1990,23 +2057,29 @@ function explorationScene(regionId, encounterName) {
 		],
 		'ashwood-outskirts': [
 			{
+				assetId: 'ashwood-black-snow-trail',
 				text: 'Ash leaves drift across the trail like black snow. The forest bends around you, every root curling away as if it knows where the next ambush waits.'
 			},
 			{
+				assetId: 'ashwood-watch-post',
 				text: 'You push through a half-buried watch post wrapped in living vines. Sap glows along the walls, and the brush ahead starts moving against the wind.'
 			},
 			{
+				assetId: 'ashwood-hunter-camp',
 				text: 'A ruined hunter camp sits under orange moss. The firepit is warm, the tracks are fresh, and something heavy snaps a branch beyond the trees.'
 			}
 		],
 		'glassmine-depths': [
 			{
+				assetId: 'glassmine-reflection-wall',
 				text: 'Your lantern catches a thousand reflections in the mine wall. Each step answers back a second late, until one echo keeps walking after you stop.'
 			},
 			{
+				assetId: 'glassmine-crystal-bridge',
 				text: 'You cross a bridge of pale crystal above a silent drop. Far below, a pickaxe rings against stone even though no miner is there.'
 			},
 			{
+				assetId: 'glassmine-broken-carts',
 				text: 'The tunnel opens into a chamber of broken carts and blue glass dust. The shards tremble first, then the dark between them begins to move.'
 			}
 		]
@@ -2120,6 +2193,43 @@ async function sendRpgIssue(interaction, error) {
 
 	if (interaction.deferred || interaction.replied) return interaction.followUp(response).catch(() => null);
 	return interaction.reply(response).catch(() => null);
+}
+
+function getActiveRpgAction(interaction) {
+	const key = activeRpgActionKey(interaction);
+	const action = activeRpgActions.get(key);
+	if (!action) return null;
+
+	if (action.expiresAt <= Date.now()) {
+		activeRpgActions.delete(key);
+		return null;
+	}
+
+	return action;
+}
+
+function setActiveRpgAction(interaction, type) {
+	activeRpgActions.set(activeRpgActionKey(interaction), {
+		type,
+		expiresAt: Date.now() + (type === 'battle' ? 180_000 : 120_000)
+	});
+}
+
+function clearActiveRpgAction(interaction) {
+	activeRpgActions.delete(activeRpgActionKey(interaction));
+}
+
+function activeRpgActionKey(interaction) {
+	return `${interaction.guild.id}:${interaction.user.id}`;
+}
+
+function replyActiveRpgAction(interaction, action) {
+	const message =
+		action.type === 'battle'
+			? 'You are occupied in a battle and cannot run this command right now.'
+			: 'You are already busy exploring. Finish your current expedition before starting another.';
+
+	return interaction.reply(componentReply(notice(`${icon.warning} **RPG Busy**`, message, color.warning), true));
 }
 
 async function sendInteractiveRpgReply(interaction, payload) {

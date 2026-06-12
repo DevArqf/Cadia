@@ -13,8 +13,14 @@ const gapY = 28;
 const startX = Math.floor((width - columns * cardWidth - (columns - 1) * gapX) / 2);
 const startY = 140;
 const emojiImageCache = new Map();
+const cardBufferCache = new Map();
+const maxCardCacheEntries = 80;
 
 async function createInventoryCard({ profile, category, entries, fileName = 'rpg-inventory.png' }) {
+	const cacheKey = inventoryCardCacheKey(profile, category, entries);
+	const cached = cardBufferCache.get(cacheKey);
+	if (cached) return new AttachmentBuilder(cached, { name: fileName });
+
 	const canvas = createCanvas(width, height);
 	const ctx = canvas.getContext('2d');
 
@@ -22,7 +28,9 @@ async function createInventoryCard({ profile, category, entries, fileName = 'rpg
 	drawHeader(ctx, profile, category, entries);
 	await drawSlots(ctx, entries);
 
-	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
+	const buffer = canvas.toBuffer('image/png');
+	rememberCardBuffer(cacheKey, buffer);
+	return new AttachmentBuilder(buffer, { name: fileName });
 }
 
 function drawBackground(ctx) {
@@ -186,6 +194,23 @@ function initials(name = '?') {
 
 function trim(text, max) {
 	return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
+function inventoryCardCacheKey(profile, category, entries) {
+	return [
+		profile.characterId,
+		profile.updatedAt,
+		category.id,
+		entries.map((entry) => `${entry.item?.id || entry.itemId || entry.entry?.itemId}:${entry.quantity ?? entry.entry?.quantity ?? 0}`).join(',')
+	].join('|');
+}
+
+function rememberCardBuffer(cacheKey, buffer) {
+	cardBufferCache.set(cacheKey, buffer);
+	if (cardBufferCache.size <= maxCardCacheEntries) return;
+
+	const oldestKey = cardBufferCache.keys().next().value;
+	if (oldestKey) cardBufferCache.delete(oldestKey);
 }
 
 function roundRect(ctx, x, y, rectWidth, rectHeight, radius) {

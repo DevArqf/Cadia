@@ -18,6 +18,7 @@ const mobBattlePaths = {
 };
 const width = 1024;
 const height = 1024;
+const imageCache = new Map();
 
 async function createBossBattleCard({ encounter, enemyHp, playerHp, playerMaxHp, playerName, fileName = 'boss-battle.png' }) {
 	const canvas = createCanvas(width, height);
@@ -91,14 +92,31 @@ function hasEncounterBattleCard(encounterId) {
 	return Boolean(mobBattlePaths[encounterId]);
 }
 
+function preloadBattleAssets() {
+	return Promise.allSettled([...Object.values(bossBattlePaths), ...Object.values(mobBattlePaths)].map((imagePath) => loadCachedImage(imagePath)));
+}
+
 async function drawBackground(ctx, imagePath) {
 	try {
-		const background = await loadImage(imagePath);
+		const background = await loadCachedImage(imagePath);
 		ctx.drawImage(background, 0, 0, width, height);
 	} catch {
 		ctx.fillStyle = '#18141e';
 		ctx.fillRect(0, 0, width, height);
 	}
+}
+
+function loadCachedImage(imagePath) {
+	if (!imagePath) return Promise.reject(new Error('Missing battle background.'));
+	if (!imageCache.has(imagePath))
+		imageCache.set(
+			imagePath,
+			loadImage(imagePath).catch(() => null)
+		);
+	return imageCache.get(imagePath).then((image) => {
+		if (!image) throw new Error(`Could not load battle background: ${imagePath}`);
+		return image;
+	});
 }
 
 function drawVignette(ctx) {
@@ -170,5 +188,6 @@ module.exports = {
 	createBossBattleCard,
 	createEncounterBattleCard,
 	createHarlequinBattleCard,
-	hasEncounterBattleCard
+	hasEncounterBattleCard,
+	preloadBattleAssets
 };

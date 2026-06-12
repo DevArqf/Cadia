@@ -1,7 +1,6 @@
 const {
 	ApplicationCommandRegistry,
 	Command,
-	CommandOptionsRunTypeEnum,
 	PreconditionContainerArray,
 	Args: SapphireArgs,
 	UserError
@@ -43,7 +42,6 @@ class CadiaCommand extends Command {
 
 		super(context, {
 			requiredClientPermissions: perms,
-			runIn: [CommandOptionsRunTypeEnum.GuildAny],
 			cooldownDelay: seconds(5),
 			...options
 		});
@@ -89,6 +87,7 @@ class CadiaCommand extends Command {
 	 */
 	parseConstructorPreConditions(options) {
 		super.parseConstructorPreConditions(options);
+		this.preconditions.append('GuildOnly');
 		this.parseConstructorPreConditionsPermissionLevel(options);
 		if (options.community) {
 			this.preconditions.append('Community');

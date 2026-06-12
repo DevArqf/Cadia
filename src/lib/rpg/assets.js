@@ -1,4 +1,5 @@
 const path = require('node:path');
+const fs = require('node:fs');
 const { AttachmentBuilder } = require('discord.js');
 
 const placeholderImage = 'https://placehold.co/900x520/png?text=RPG+Scene+Placeholder';
@@ -7,6 +8,7 @@ const profileImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RP
 const travelImageFileName = 'rpg-travel-bg.png';
 const travelImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Travel BG Image.png');
 const npcPortraitPath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'NPC Portraits');
+const attachmentBufferCache = new Map();
 const adventureStoryImages = {
 	'broken-gate-gatehouse-corridor': {
 		fileName: 'region-1-adventure-story-2.png',
@@ -19,6 +21,30 @@ const adventureStoryImages = {
 	'broken-gate-black-brick-street': {
 		fileName: 'region-1-adventure-story-3.png',
 		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 1 - Adventure Story Image 3.png')
+	},
+	'ashwood-black-snow-trail': {
+		fileName: 'region-2-adventure-story-3.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 2 - Adventure Story Image 3.png')
+	},
+	'ashwood-watch-post': {
+		fileName: 'region-2-adventure-story-1.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 2 - Adventure Story Image 1.png')
+	},
+	'ashwood-hunter-camp': {
+		fileName: 'region-2-adventure-story-2.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 2 - Adventure Story Image 2.png')
+	},
+	'glassmine-reflection-wall': {
+		fileName: 'region-3-adventure-story-2.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 3 - Adventure Story Image 2.png')
+	},
+	'glassmine-crystal-bridge': {
+		fileName: 'region-3-adventure-story-1.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 3 - Adventure Story Image 1.png')
+	},
+	'glassmine-broken-carts': {
+		fileName: 'region-3-adventure-story-3.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Region 3 - Adventure Story Image 3.png')
 	}
 };
 const battleResultImages = {
@@ -72,21 +98,24 @@ const sceneImages = {
 };
 
 function createProfileImageAttachment() {
-	return new AttachmentBuilder(profileImagePath, { name: profileImageFileName });
+	return attachmentFromFile(profileImagePath, profileImageFileName);
 }
 
 function createTravelImageAttachment() {
-	return new AttachmentBuilder(travelImagePath, { name: travelImageFileName });
+	return attachmentFromFile(travelImagePath, travelImageFileName);
 }
 
 function npcPortrait(portrait) {
 	if (!portrait) return null;
 	const extension = path.extname(portrait) || '.png';
-	const baseName = path.basename(portrait, extension).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	const baseName = path
+		.basename(portrait, extension)
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-');
 	const fileName = `rpg-npc-${baseName}${extension}`;
 	return {
 		url: `attachment://${fileName}`,
-		attachment: new AttachmentBuilder(path.join(npcPortraitPath, portrait), { name: fileName })
+		attachment: attachmentFromFile(path.join(npcPortraitPath, portrait), fileName)
 	};
 }
 
@@ -95,7 +124,7 @@ function adventureStoryImage(id) {
 	if (!image) return null;
 	return {
 		url: `attachment://${image.fileName}`,
-		attachment: new AttachmentBuilder(image.path, { name: image.fileName })
+		attachment: attachmentFromFile(image.path, image.fileName)
 	};
 }
 
@@ -104,8 +133,13 @@ function battleResultImage(id) {
 	if (!image) return null;
 	return {
 		url: `attachment://${image.fileName}`,
-		attachment: new AttachmentBuilder(image.path, { name: image.fileName })
+		attachment: attachmentFromFile(image.path, image.fileName)
 	};
+}
+
+function attachmentFromFile(filePath, fileName) {
+	if (!attachmentBufferCache.has(filePath)) attachmentBufferCache.set(filePath, fs.readFileSync(filePath));
+	return new AttachmentBuilder(attachmentBufferCache.get(filePath), { name: fileName });
 }
 
 module.exports = {
