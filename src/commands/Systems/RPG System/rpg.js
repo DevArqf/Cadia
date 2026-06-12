@@ -110,6 +110,14 @@ const adminBossChoices = Object.values(encounters)
 	.flat()
 	.filter((encounter) => encounter.boss)
 	.map((encounter) => ({ name: encounter.name, value: encounter.id }));
+const adminAnalyticsViews = [
+	{ name: 'Summary', value: 'summary' },
+	{ name: 'Progression', value: 'progression' },
+	{ name: 'Combat', value: 'combat' },
+	{ name: 'Economy', value: 'economy' },
+	{ name: 'Leaders', value: 'leaders' },
+	{ name: 'Content', value: 'content' }
+];
 const inventoryCategories = [
 	{ id: 'weapon', label: 'Weapons', action: 'equip' },
 	{ id: 'armor', label: 'Armor', action: 'equip' },
@@ -318,6 +326,18 @@ class UserCommand extends CadiaCommand {
 										.addChoices(...adminBossChoices)
 								)
 						)
+						.addSubcommand((subcommand) =>
+							subcommand
+								.setName('analytics')
+								.setDescription('View developer analytics for the RPG system')
+								.addStringOption((option) =>
+									option
+										.setName('view')
+										.setDescription('The analytics report to open')
+										.setRequired(false)
+										.addChoices(...adminAnalyticsViews)
+								)
+						)
 				)
 		);
 	}
@@ -326,23 +346,23 @@ class UserCommand extends CadiaCommand {
 		try {
 			const group = interaction.options.getSubcommandGroup(false);
 			const subcommand = interaction.options.getSubcommand();
-			if (group === 'admin') return adminPanel(interaction, subcommand);
+			if (group === 'admin') return await adminPanel(interaction, subcommand);
 			if (!(await canUseRpg(interaction.user.id))) return interaction.reply(rpgUnavailableReply());
 			if (subcommand !== 'tutorial' && (await rpg.shouldOfferTutorial(interaction.guild.id, interaction.user.id))) {
-				return offerTutorial(interaction);
+				return await offerTutorial(interaction);
 			}
-			if (subcommand === 'create') return createCharacter(interaction);
-			if (subcommand === 'profile') return showProfile(interaction);
-			if (subcommand === 'id') return showCharacterId(interaction);
-			if (subcommand === 'tutorial') return runTutorial(interaction);
-			if (subcommand === 'quest') return showQuest(interaction);
-			if (subcommand === 'travel') return travel(interaction);
-			if (subcommand === 'adventure') return adventure(interaction);
-			if (subcommand === 'inventory') return inventory(interaction);
-			if (subcommand === 'equip') return equip(interaction);
-			if (subcommand === 'leaderboard') return leaderboard(interaction);
-			if (subcommand === 'bestiary') return bestiary(interaction);
-			if (subcommand === 'delete') return deleteCharacter(interaction);
+			if (subcommand === 'create') return await createCharacter(interaction);
+			if (subcommand === 'profile') return await showProfile(interaction);
+			if (subcommand === 'id') return await showCharacterId(interaction);
+			if (subcommand === 'tutorial') return await runTutorial(interaction);
+			if (subcommand === 'quest') return await showQuest(interaction);
+			if (subcommand === 'travel') return await travel(interaction);
+			if (subcommand === 'adventure') return await adventure(interaction);
+			if (subcommand === 'inventory') return await inventory(interaction);
+			if (subcommand === 'equip') return await equip(interaction);
+			if (subcommand === 'leaderboard') return await leaderboard(interaction);
+			if (subcommand === 'bestiary') return await bestiary(interaction);
+			if (subcommand === 'delete') return await deleteCharacter(interaction);
 		} catch (error) {
 			return sendRpgIssue(interaction, error);
 		}
@@ -615,8 +635,16 @@ async function adminPanel(interaction, subcommand) {
 
 	if (subcommand === 'harlequin') return forceBossFight(interaction, 'harlequin');
 	if (subcommand === 'boss') return forceBossFight(interaction, interaction.options.getString('boss', true));
+	if (subcommand === 'analytics') return showRpgAnalytics(interaction);
 
 	throw new rpg.RpgError('Unknown RPG admin action.');
+}
+
+async function showRpgAnalytics(interaction) {
+	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+	const view = interaction.options.getString('view') || 'summary';
+	const analytics = await rpg.adminAnalytics();
+	return interaction.editReply(componentReply(buildRpgAnalyticsPanel(analytics, view), true));
 }
 
 async function forceBossFight(interaction, bossId) {
@@ -1998,6 +2026,187 @@ function profileAccent(profile) {
 	return '#80848e';
 }
 
+function buildRpgAnalyticsPanel(analytics, view = 'summary') {
+	const sections = {
+		summary: rpgAnalyticsSummarySections,
+		progression: rpgAnalyticsProgressionSections,
+		combat: rpgAnalyticsCombatSections,
+		economy: rpgAnalyticsEconomySections,
+		leaders: rpgAnalyticsLeaderSections,
+		content: rpgAnalyticsContentSections
+	};
+	const selectedView = sections[view] ? view : 'summary';
+
+	return panel({
+		accentColor: color.RPG,
+		title: `${icon.settings} **RPG Analytics - ${titleCase(selectedView)}**`,
+		subtitle: 'Developer system intelligence',
+		sections: sections[selectedView](analytics),
+		footer: `${icon.clock} Generated <t:${Math.floor(analytics.generatedAt / 1000)}:R> - Use /rpg admin analytics view:<report>`
+	});
+}
+
+function rpgAnalyticsSummarySections(analytics) {
+	const summary = analytics.summary;
+	return [
+		[
+			`${icon.person} **Profiles:** ${formatAnalyticsNumber(summary.profiles)}`,
+			`${icon.success} **RPG Access Enabled:** ${formatAnalyticsNumber(summary.accessEnabled)}`,
+			`${icon.warning} **RPG Access Revoked:** ${formatAnalyticsNumber(summary.accessRevoked)}`,
+			`${icon.info} **Tutorials:** ${formatAnalyticsNumber(summary.tutorialCompleted)} completed / ${formatAnalyticsNumber(summary.tutorialSkipped)} skipped / ${formatAnalyticsNumber(summary.tutorialOffered)} offered`
+		],
+		[
+			`${icon.clock} **Active Today:** ${formatAnalyticsNumber(summary.activeToday)}`,
+			`${icon.clock} **Active 7d:** ${formatAnalyticsNumber(summary.active7d)}`,
+			`${icon.clock} **Active 30d:** ${formatAnalyticsNumber(summary.active30d)}`,
+			`${icon.owner} **New Characters:** ${formatAnalyticsNumber(summary.new7d)} in 7d / ${formatAnalyticsNumber(summary.new30d)} in 30d`
+		],
+		rpgAnalyticsSnapshot(analytics)
+	];
+}
+
+function rpgAnalyticsProgressionSections(analytics) {
+	const progression = analytics.progression;
+	return [
+		[
+			`${icon.level} **Average Rank:** ${formatAnalyticsNumber(progression.averageRank, 1)}`,
+			`${icon.rank.s} **Highest Rank:** ${formatAnalyticsNumber(progression.highestRank)}`,
+			`${icon.objective} **Quest Completion:** ${formatAnalyticsPercent(progression.questCompletionRate)}`,
+			`${icon.threat} **Boss Completion:** ${formatAnalyticsPercent(progression.bossCompletionRate)}`,
+			`${icon.objective} **Active NPC Quests:** ${formatAnalyticsNumber(progression.activeQuests)}`
+		],
+		`${icon.compass} **Regions**\n${formatAnalyticsMap(progression.regionCounts, (id) => regions[id]?.name || titleCase(id))}`,
+		`${icon.class} **Classes**\n${formatAnalyticsMap(progression.classCounts, (id) => classes[id]?.name || titleCase(id))}`,
+		`${icon.threat} **Boss Defeats**\n${formatAnalyticsMap(progression.bossDefeats, (id) => rpg.getBossById(id).name)}`
+	];
+}
+
+function rpgAnalyticsCombatSections(analytics) {
+	const combat = analytics.combat;
+	return [
+		[
+			`${icon.threat} **Total Battles:** ${formatAnalyticsNumber(combat.totalBattles)}`,
+			`${icon.success} **Wins:** ${formatAnalyticsNumber(combat.battlesWon)}`,
+			`${icon.fail} **Losses:** ${formatAnalyticsNumber(combat.battlesLost)}`,
+			`${icon.settings} **Win Rate:** ${formatAnalyticsPercent(combat.winRate)}`,
+			`${icon.warning} **No-Battle Profiles:** ${formatAnalyticsNumber(combat.noBattleProfiles)}`
+		],
+		`${icon.info} **Combat Load**\nAverage battles per character: **${formatAnalyticsNumber(combat.averageBattles, 1)}**\nThis helps spot whether users are creating characters but not entering encounters.`
+	];
+}
+
+function rpgAnalyticsEconomySections(analytics) {
+	const economy = analytics.economy;
+	return [
+		[
+			`${icon.coin} **Total Gold:** ${formatAnalyticsNumber(economy.totalGold)}`,
+			`${icon.coin} **Average Gold:** ${formatAnalyticsNumber(economy.averageGold, 1)}`,
+			`${icon.shards} **Total Shards:** ${formatAnalyticsNumber(economy.totalShards)}`,
+			`${icon.shards} **Average Shards:** ${formatAnalyticsNumber(economy.averageShards, 1)}`
+		],
+		[
+			`${icon.folder} **Inventory Items:** ${formatAnalyticsNumber(economy.inventoryItems)}`,
+			`${icon.folder} **Average Inventory:** ${formatAnalyticsNumber(economy.averageInventoryItems, 1)} items per character`
+		],
+		`${icon.loot} **Most Owned Items**\n${formatItemOwnership(economy.itemOwnership)}`,
+		`${icon.equipment} **Equipped Weapons**\n${formatAnalyticsMap(economy.equipped.weapon, itemLabel)}`
+	];
+}
+
+function rpgAnalyticsLeaderSections(analytics) {
+	return [
+		`${icon.rank.s} **Top Rank**\n${formatTopProfiles(analytics.leaders.rank, 'Rank')}`,
+		`${icon.coin} **Top Gold**\n${formatTopProfiles(analytics.leaders.gold, 'Gold')}`,
+		`${icon.success} **Top Wins**\n${formatTopProfiles(analytics.leaders.wins, 'Wins')}`,
+		`${icon.clock} **Recently Active**\n${formatRecentProfiles(analytics.leaders.recent)}`
+	];
+}
+
+function rpgAnalyticsContentSections(analytics) {
+	const content = analytics.content;
+	return [
+		[
+			`${icon.class} **Classes:** ${formatAnalyticsNumber(content.classes)}`,
+			`${icon.compass} **Regions:** ${formatAnalyticsNumber(content.regions)}`,
+			`${icon.loot} **Items:** ${formatAnalyticsNumber(content.items)}`,
+			`${icon.objective} **NPC Quests:** ${formatAnalyticsNumber(content.npcQuests)}`
+		],
+		[
+			`${icon.threat} **Bosses:** ${formatAnalyticsNumber(content.bosses)}`,
+			`${icon.warning} **Mobs:** ${formatAnalyticsNumber(content.mobs)}`,
+			`${icon.chapter} **Story Steps:** ${formatAnalyticsNumber(content.questSteps)}`
+		],
+		`${icon.info} **Runtime Snapshot**\n${rpgAnalyticsSnapshot(analytics)}`
+	];
+}
+
+function rpgAnalyticsSnapshot(analytics) {
+	return [
+		`${icon.level} Average Rank **${formatAnalyticsNumber(analytics.progression.averageRank, 1)}**`,
+		`${icon.settings} Combat Win Rate **${formatAnalyticsPercent(analytics.combat.winRate)}**`,
+		`${icon.coin} Gold In Circulation **${formatAnalyticsNumber(analytics.economy.totalGold)}**`,
+		`${icon.loot} Inventory Items **${formatAnalyticsNumber(analytics.economy.inventoryItems)}**`
+	].join('\n');
+}
+
+function formatAnalyticsMap(counts = {}, labeler = titleCase, limit = 8) {
+	const rows = Object.entries(counts)
+		.sort(([, a], [, b]) => b - a)
+		.slice(0, limit)
+		.map(([key, value]) => `${icon.arrowRight} **${labeler(key)}:** ${formatAnalyticsNumber(value)}`);
+	return rows.length ? rows.join('\n') : 'No data recorded yet.';
+}
+
+function formatItemOwnership(itemOwnership = {}) {
+	const rows = Object.entries(itemOwnership)
+		.sort(([, a], [, b]) => (b.quantity || 0) - (a.quantity || 0))
+		.slice(0, 8)
+		.map(
+			([itemId, data]) =>
+				`${icon.arrowRight} **${itemLabel(itemId)}:** ${formatAnalyticsNumber(data.quantity)} owned by ${formatAnalyticsNumber(data.owners)}`
+		);
+	return rows.length ? rows.join('\n') : 'No items owned yet.';
+}
+
+function formatTopProfiles(profiles = [], valueLabel) {
+	return profiles.length
+		? profiles
+				.map((profile, index) => {
+					const region = regions[profile.region]?.name || titleCase(profile.region);
+					return `#${index + 1} **${profile.name || 'Unknown'}** (<@${profile.userId}>) - ${valueLabel} **${formatAnalyticsNumber(profile.value)}** - ${region}`;
+				})
+				.join('\n')
+		: 'No profile data yet.';
+}
+
+function formatRecentProfiles(profiles = []) {
+	return profiles.length
+		? profiles
+				.map((profile) => {
+					const region = regions[profile.region]?.name || titleCase(profile.region);
+					return `${icon.arrowRight} **${profile.name || 'Unknown'}** (<@${profile.userId}>) - ${region} - <t:${Math.floor((profile.updatedAt || 0) / 1000)}:R>`;
+				})
+				.join('\n')
+		: 'No recent profile activity.';
+}
+
+function itemLabel(itemId) {
+	if (itemId === 'none') return 'None';
+	return items[itemId]?.name || titleCase(itemId);
+}
+
+function formatAnalyticsNumber(value, digits = 0) {
+	const number = Number(value || 0);
+	return number.toLocaleString(undefined, {
+		minimumFractionDigits: digits,
+		maximumFractionDigits: digits
+	});
+}
+
+function formatAnalyticsPercent(value) {
+	return `${Math.round(Number(value || 0) * 100)}%`;
+}
+
 function buildAdminProfilePanel(profile, owner, title, note) {
 	const inventoryCount = (profile.inventory || []).reduce((total, entry) => total + (entry.quantity || 0), 0);
 	return panel({
@@ -2179,20 +2388,31 @@ function titleCase(value) {
 }
 
 async function sendRpgIssue(interaction, error) {
-	const expected = error instanceof rpg.RpgError;
+	const missingCharacter = isMissingCharacterError(error);
+	const expected = error instanceof rpg.RpgError || missingCharacter;
 	if (!expected) console.error(error);
 
 	const response = componentReply(
-		notice(
-			expected ? `${icon.warning} **RPG Notice**` : `${icon.fail} **RPG Error**`,
-			expected ? error.message : 'Something unexpected happened while running the RPG action. The issue was logged.',
-			expected ? color.warning : color.fail
-		),
+		missingCharacter
+			? notice(
+					`${icon.warning} **Start With The Tutorial**`,
+					'You need to learn the RPG basics before using this command. Run `/rpg tutorial` first, then create your character when you are ready.',
+					color.warning
+				)
+			: notice(
+					expected ? `${icon.warning} **RPG Notice**` : `${icon.fail} **RPG Error**`,
+					expected ? error.message : 'Something unexpected happened while running the RPG action. The issue was logged.',
+					expected ? color.warning : color.fail
+				),
 		true
 	);
 
 	if (interaction.deferred || interaction.replied) return interaction.followUp(response).catch(() => null);
 	return interaction.reply(response).catch(() => null);
+}
+
+function isMissingCharacterError(error) {
+	return error?.message === 'Create a character first with `/rpg create`.';
 }
 
 function getActiveRpgAction(interaction) {

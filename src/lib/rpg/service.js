@@ -194,6 +194,108 @@ async function adminMaxCharacter(characterId) {
 	};
 }
 
+async function adminAnalytics() {
+	assertDatabaseReady();
+	const profiles = await RpgProfileSchema.find({});
+	const accessRecords = await RpgAccessSchema.find({});
+	const tutorialRecords = await RpgTutorialSchema.find({});
+	const now = Date.now();
+	const totalBattles = sumBy(profiles, (profile) => (profile.battlesWon || 0) + (profile.battlesLost || 0));
+	const battlesWon = sumBy(profiles, (profile) => profile.battlesWon || 0);
+	const battlesLost = sumBy(profiles, (profile) => profile.battlesLost || 0);
+	const totalGold = sumBy(profiles, (profile) => profile.gold || 0);
+	const totalShards = sumBy(profiles, (profile) => profile.relicShards || 0);
+	const inventoryItems = sumBy(profiles, (profile) => inventoryQuantity(profile));
+	const totalCompletedQuests = sumBy(profiles, (profile) => (profile.completedQuests || []).length);
+	const activeQuests = profiles.filter((profile) => profile.activeQuest?.questId).length;
+	const maxPossibleBossDefeats = Math.max(profiles.length * getBosses().length, 1);
+	const bossDefeats = sumBy(profiles, (profile) => (profile.defeatedBosses || []).length);
+
+	return {
+		generatedAt: now,
+		summary: {
+			profiles: profiles.length,
+			accessEnabled: accessRecords.filter((record) => record.enabled).length,
+			accessRevoked: accessRecords.filter((record) => record.enabled === false).length,
+			tutorialOffered: tutorialRecords.filter((record) => record.offered).length,
+			tutorialCompleted: tutorialRecords.filter((record) => record.completed).length,
+			tutorialSkipped: tutorialRecords.filter((record) => record.skipped).length,
+			activeToday: profiles.filter((profile) => within(profile.updatedAt, now, 1)).length,
+			active7d: profiles.filter((profile) => within(profile.updatedAt, now, 7)).length,
+			active30d: profiles.filter((profile) => within(profile.updatedAt, now, 30)).length,
+			new7d: profiles.filter((profile) => within(profile.createdAt, now, 7)).length,
+			new30d: profiles.filter((profile) => within(profile.createdAt, now, 30)).length
+		},
+		progression: {
+			averageRank: averageBy(profiles, (profile) => profile.level || 1),
+			highestRank: Math.max(0, ...profiles.map((profile) => profile.level || 1)),
+			questCompletionRate: ratio(totalCompletedQuests, Math.max(profiles.length * npcQuests.length, 1)),
+			bossCompletionRate: ratio(bossDefeats, maxPossibleBossDefeats),
+			activeQuests,
+			questStepCounts: countBy(profiles, (profile) => String(profile.questStep || 0)),
+			classCounts: countBy(profiles, (profile) => profile.classId || 'unknown'),
+			originCounts: countBy(profiles, (profile) => profile.origin || 'unknown'),
+			regionCounts: countBy(profiles, (profile) => profile.region || 'unknown'),
+			bossDefeats: Object.fromEntries(
+				getBosses().map((boss) => [boss.id, profiles.filter((profile) => (profile.defeatedBosses || []).includes(boss.id)).length])
+			)
+		},
+		combat: {
+			totalBattles,
+			battlesWon,
+			battlesLost,
+			winRate: ratio(battlesWon, Math.max(totalBattles, 1)),
+			averageBattles: averageBy(profiles, (profile) => (profile.battlesWon || 0) + (profile.battlesLost || 0)),
+			noBattleProfiles: profiles.filter((profile) => !(profile.battlesWon || profile.battlesLost)).length
+		},
+		economy: {
+			totalGold,
+			averageGold: averageBy(profiles, (profile) => profile.gold || 0),
+			totalShards,
+			averageShards: averageBy(profiles, (profile) => profile.relicShards || 0),
+			inventoryItems,
+			averageInventoryItems: averageBy(profiles, inventoryQuantity),
+			itemOwnership: Object.fromEntries(
+				Object.keys(items).map((itemId) => [
+					itemId,
+					{
+						owners: profiles.filter((profile) =>
+							(profile.inventory || []).some((entry) => entry.itemId === itemId && (entry.quantity || 0) > 0)
+						).length,
+						quantity: sumBy(profiles, (profile) => itemQuantity(profile, itemId))
+					}
+				])
+			),
+			equipped: {
+				weapon: countBy(profiles, (profile) => profile.equipment?.weapon || 'none'),
+				armor: countBy(profiles, (profile) => profile.equipment?.armor || 'none'),
+				charm: countBy(profiles, (profile) => profile.equipment?.charm || 'none')
+			}
+		},
+		leaders: {
+			rank: topProfiles(profiles, (profile) => profile.level || 1),
+			gold: topProfiles(profiles, (profile) => profile.gold || 0),
+			wins: topProfiles(profiles, (profile) => profile.battlesWon || 0),
+			shards: topProfiles(profiles, (profile) => profile.relicShards || 0),
+			recent: [...profiles]
+				.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+				.slice(0, 5)
+				.map(profileSnapshot)
+		},
+		content: {
+			regions: Object.keys(regions).length,
+			classes: Object.keys(classes).length,
+			items: Object.keys(items).length,
+			bosses: getBosses().length,
+			mobs: Object.values(encounters)
+				.flat()
+				.filter((encounter) => !encounter.boss).length,
+			npcQuests: npcQuests.length,
+			questSteps: questSteps.length
+		}
+	};
+}
+
 async function travel(guildId, userId, regionId) {
 	const profile = await requireProfile(guildId, userId);
 	const region = regions[regionId];
@@ -256,7 +358,8 @@ async function acceptQuest(guildId, userId, questId) {
 async function claimQuestReward(guildId, userId) {
 	const profile = await requireProfile(guildId, userId);
 	const state = getQuestState(profile);
-	if (!state.activeQuest || state.activeQuest.status !== 'ready') throw new RpgError('Finish the active quest objective before returning for the reward.');
+	if (!state.activeQuest || state.activeQuest.status !== 'ready')
+		throw new RpgError('Finish the active quest objective before returning for the reward.');
 
 	const quest = state.quest;
 	const rewards = quest.rewards || {};
@@ -329,12 +432,11 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
 	const damage = Math.max(
 		Math.round(
-			(
-				stats.attack * stanceDamage * matchup.damage * damageTuning.scale +
+			(stats.attack * stanceDamage * matchup.damage * damageTuning.scale +
 				stats.focus * damageTuning.focus +
 				stats.speed * damageTuning.speed +
-				randomInt(damageTuning.randomMin, damageTuning.randomMax)
-			) * (crit ? damageTuning.crit : 1)
+				randomInt(damageTuning.randomMin, damageTuning.randomMax)) *
+				(crit ? damageTuning.crit : 1)
 		) - encounter.defense,
 		1
 	);
@@ -413,12 +515,11 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
 	const damage = Math.max(
 		Math.round(
-			(
-				stats.attack * stanceDamage * matchup.damage * damageTuning.scale +
+			(stats.attack * stanceDamage * matchup.damage * damageTuning.scale +
 				stats.focus * damageTuning.focus +
 				stats.speed * damageTuning.speed +
-				randomInt(damageTuning.randomMin, damageTuning.randomMax)
-			) * (crit ? damageTuning.crit : 1)
+				randomInt(damageTuning.randomMin, damageTuning.randomMax)) *
+				(crit ? damageTuning.crit : 1)
 		) - encounter.defense,
 		1
 	);
@@ -809,6 +910,56 @@ function validateDiscordUserId(userId) {
 	if (!/^\d{17,20}$/.test(String(userId || ''))) throw new RpgError('Provide a valid Discord user ID.');
 }
 
+function within(timestamp, now, days) {
+	return Number(timestamp || 0) >= now - days * 86_400_000;
+}
+
+function sumBy(entries, selector) {
+	return entries.reduce((total, entry) => total + Number(selector(entry) || 0), 0);
+}
+
+function averageBy(entries, selector) {
+	return entries.length ? sumBy(entries, selector) / entries.length : 0;
+}
+
+function ratio(value, total) {
+	return total > 0 ? value / total : 0;
+}
+
+function countBy(entries, selector) {
+	return entries.reduce((counts, entry) => {
+		const key = selector(entry);
+		counts[key] = (counts[key] || 0) + 1;
+		return counts;
+	}, {});
+}
+
+function inventoryQuantity(profile) {
+	return (profile.inventory || []).reduce((total, entry) => total + (entry.quantity || 0), 0);
+}
+
+function itemQuantity(profile, itemId) {
+	return (profile.inventory || []).find((entry) => entry.itemId === itemId)?.quantity || 0;
+}
+
+function topProfiles(profiles, selector) {
+	return [...profiles]
+		.sort((a, b) => selector(b) - selector(a))
+		.slice(0, 5)
+		.map((profile) => ({ ...profileSnapshot(profile), value: selector(profile) }));
+}
+
+function profileSnapshot(profile) {
+	return {
+		userId: profile.userId,
+		characterId: profile.characterId,
+		name: profile.name,
+		level: profile.level || 1,
+		region: profile.region,
+		updatedAt: profile.updatedAt || profile.createdAt || 0
+	};
+}
+
 function compareProfiles(a, b, type) {
 	const sorters = {
 		level: () => b.level - a.level || b.xp - a.xp || b.battlesWon - a.battlesWon,
@@ -833,6 +984,7 @@ module.exports = {
 	RpgError,
 	acceptQuest,
 	adminAddCurrency,
+	adminAnalytics,
 	adminAddItem,
 	adminMaxCharacter,
 	adminWipeCharacter,
