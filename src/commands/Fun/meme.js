@@ -32,7 +32,7 @@ class UserCommand extends CadiaCommand {
 		try {
 			const response = await axios.get('https://meme-api.com/gimme/memes', {
 				headers: {
-					'User-Agent': 'Cadia-Bot/2.1'
+					'User-Agent': 'Cadia-Bot/v3.7.3'
 				},
 				timeout: 10000
 			});

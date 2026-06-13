@@ -1,4 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
+const { MessageFlags } = require('discord.js');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const {
 	addDraftOptions,
@@ -27,11 +28,27 @@ class UserCommand extends CadiaCommand {
 	}
 
 	async chatInputRun(interaction) {
+		const deferred = await safeDefer(interaction);
+		if (!deferred) return null;
 		const templateKey = interaction.options.getString('template', true);
 		const dmUsers = interaction.options.getBoolean('dm-users') ?? false;
 		const draft = resolveDraftVariables(applyTemplate(templateKey, readDraft(interaction)), interaction.client);
 		return previewTemplate(interaction, draft, dmUsers);
 	}
+}
+
+async function safeDefer(interaction) {
+	try {
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+		return true;
+	} catch (error) {
+		if (isUnknownInteraction(error)) return false;
+		throw error;
+	}
+}
+
+function isUnknownInteraction(error) {
+	return error?.code === 10062 || error?.rawError?.code === 10062;
 }
 
 module.exports = {

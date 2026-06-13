@@ -347,7 +347,6 @@ class UserCommand extends CadiaCommand {
 			const group = interaction.options.getSubcommandGroup(false);
 			const subcommand = interaction.options.getSubcommand();
 			if (group === 'admin') return await adminPanel(interaction, subcommand);
-			if (!(await canUseRpg(interaction.user.id))) return interaction.reply(rpgUnavailableReply());
 			if (subcommand !== 'tutorial' && (await rpg.shouldOfferTutorial(interaction.guild.id, interaction.user.id))) {
 				return await offerTutorial(interaction);
 			}
@@ -2468,26 +2467,11 @@ async function sendInteractiveRpgReply(interaction, payload) {
 	return null;
 }
 
-function rpgUnavailableReply() {
-	return componentReply(
-		notice(
-			`${icon.warning} **RPG System Coming Soon**`,
-			'The RPG System is currently unfinished and not available yet. It will return once the system is ready for testing.',
-			color.warning
-		),
-		true
-	);
-}
-
 function isDeveloper(userId) {
 	return [process.env.DEVELOPERS, process.env.BOT_OWNERS]
 		.flatMap((value) => String(value || '').split(/\s+/))
 		.filter(Boolean)
 		.includes(userId);
-}
-
-async function canUseRpg(userId) {
-	return isDeveloper(userId) || (await rpg.hasRpgAccess(userId));
 }
 
 module.exports = {

@@ -15,6 +15,7 @@ class UserEvent extends Listener {
 
 		// `context: { silent: true }` should make UserError silent.
 		if (Reflect.get(Object(context), 'silent')) return;
+		if (isExpiredInteractionResponse(error)) return;
 
 		await sendDeveloperErrorLog(error, payload);
 		await sendUserErrorReply(interaction);
@@ -127,6 +128,14 @@ function codeBlock(content, maxLength) {
 function shorten(content, maxLength) {
 	if (content.length <= maxLength) return content;
 	return `${content.slice(0, maxLength - 3)}...`;
+}
+
+function isExpiredInteractionResponse(error) {
+	return (
+		error?.code === 10062 ||
+		error?.rawError?.code === 10062 ||
+		(error?.status === 404 && /Unknown interaction/i.test(String(error?.message || error?.rawError?.message || '')))
+	);
 }
 
 module.exports = UserEvent;

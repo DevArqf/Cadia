@@ -8,7 +8,7 @@ function addDraftOptions(builder, { messageRequired = false } = {}) {
 		.addStringOption((option) =>
 			option
 				.setName('message')
-				.setDescription('Alert message. Supports \\n, markdown, emojis, and alert variables.')
+				.setDescription('Alert message. Supports \\n, markdown, -# subtext, emojis, and alert variables.')
 				.setMaxLength(1800)
 				.setRequired(messageRequired)
 		)
@@ -67,12 +67,22 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false) {
 
 async function previewTemplate(interaction, draft, dmUsers) {
 	const componentId = `alert:${interaction.id}`;
-	const response = await interaction.reply({
+	const payload = {
 		components: buildPreviewComponents(draft, componentId, dmUsers),
-		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-		withResponse: true
-	});
-	const message = response.resource?.message ?? (await interaction.fetchReply());
+		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+	};
+	let message;
+	if (interaction.deferred) {
+		await interaction.editReply(payload);
+		message = await interaction.fetchReply();
+	} else if (interaction.replied) {
+		const response = await interaction.followUp({ ...payload, withResponse: true });
+		message = response.resource?.message ?? null;
+	} else {
+		const response = await interaction.reply({ ...payload, withResponse: true });
+		message = response.resource?.message ?? (await interaction.fetchReply());
+	}
+	if (!message) return null;
 	const collector = message.createMessageComponentCollector({ time: 180_000 });
 
 	collector.on('collect', async (i) => {
@@ -195,7 +205,7 @@ function buildEditModal(customId, draft) {
 		.setRequired(false);
 	const messageInput = new TextInputBuilder()
 		.setCustomId('message')
-		.setLabel('Message')
+		.setLabel('Message, supports -# subtext')
 		.setStyle(TextInputStyle.Paragraph)
 		.setMaxLength(1800)
 		.setRequired(true);
@@ -289,13 +299,17 @@ function getCustomEmoji(key) {
 
 function normalizeAlertMessage(message) {
 	if (message === null || message === undefined) return message;
-	return message.replace(/\\n/g, '\n').trim();
+	return normalizeDiscordSubtext(message.replace(/\\n/g, '\n')).trim();
 }
 
 function normalizeOptional(value) {
 	if (value === null || value === undefined) return null;
 	const normalized = value.replace(/\\n/g, '\n').trim();
 	return normalized || null;
+}
+
+function normalizeDiscordSubtext(value) {
+	return value.replace(/(^|\n)\s*\\?-#\s*/g, '$1-# ');
 }
 
 module.exports = {

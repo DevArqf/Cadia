@@ -26,16 +26,17 @@ class UserCommand extends CadiaCommand {
 	}
 
 	async chatInputRun(interaction) {
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 		const alertId = interaction.options.getString('alert-id', true).trim();
 		const alert = await getAlertById(alertId);
 
 		if (!alert) {
-			return interaction.reply(
+			return interaction.editReply(
 				componentReply(notice(`${emojis.custom.warning} **Alert Not Found**`, `No alert exists with ID \`${alertId}\`.`))
 			);
 		}
 
-		return interaction.reply({
+		return interaction.editReply({
 			components: [
 				buildAlertPanel(alert, { viewer: true, showId: true }),
 				panel({

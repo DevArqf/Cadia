@@ -14,9 +14,10 @@ class UserCommand extends CadiaCommand {
 	}
 
 	async chatInputRun(interaction) {
+		await interaction.deferReply();
 		const alert = await getActiveAlert({ fresh: true });
 		if (alert) await markAlertViewed(alert, interaction.user.id);
-		return interaction.reply(componentReply(alert ? buildAlertPanel(alert, { viewer: true }) : buildNoAlertPanel()));
+		return interaction.editReply(componentReply(alert ? buildAlertPanel(alert, { viewer: true }) : buildNoAlertPanel()));
 	}
 }
 

@@ -18,10 +18,11 @@ const {
 } = require('discord.js');
 
 const commandsRoot = path.resolve(__dirname, '..');
-const rpgUnavailableMessage = 'The RPG System is currently unfinished and not available yet. It will return once the system is ready for testing.';
 const rpgCommandNames = [
 	'rpg create',
 	'rpg profile',
+	'rpg id',
+	'rpg tutorial',
 	'rpg quest',
 	'rpg travel',
 	'rpg adventure',
@@ -34,7 +35,10 @@ const rpgCommandNames = [
 	'rpg admin inspect',
 	'rpg admin add-currency',
 	'rpg admin add-item',
-	'rpg admin wipe'
+	'rpg admin wipe',
+	'rpg admin max',
+	'rpg admin boss',
+	'rpg admin analytics'
 ];
 
 class UserCommand extends CadiaCommand {
@@ -118,9 +122,8 @@ class UserCommand extends CadiaCommand {
 function buildHelpComponents(interaction, catalog, selectedCategoryId, componentId, disabled = false) {
 	const selectedCategory = catalog.find((category) => category.id === selectedCategoryId) ?? catalog[0];
 	const totalCommands = catalog.reduce((total, category) => total + category.commands.length, 0);
-	const categoryUnavailable = Boolean(selectedCategory?.unavailable);
-	const visibleCommands = categoryUnavailable ? [] : (selectedCategory?.commands.slice(0, 18) ?? []);
-	const hiddenCount = categoryUnavailable ? 0 : Math.max((selectedCategory?.commands.length ?? 0) - visibleCommands.length, 0);
+	const visibleCommands = selectedCategory?.commands.slice(0, 18) ?? [];
+	const hiddenCount = Math.max((selectedCategory?.commands.length ?? 0) - visibleCommands.length, 0);
 	const inviteUrl = interaction.client.generateInvite({
 		scopes: ['bot', 'applications.commands']
 	});
@@ -141,7 +144,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
 				`${getCategoryIcon(selectedCategory?.name)} **${selectedCategory?.name ?? 'Commands'}**\n` +
-					`${categoryUnavailable ? `${emojis.custom.warning} **RPG System Coming Soon**\n${rpgUnavailableMessage}` : formatCommandList(visibleCommands)}` +
+					`${formatCommandList(visibleCommands)}` +
 					(hiddenCount
 						? `\n\n${emojis.custom.info} Showing the first **${visibleCommands.length}** commands. **${hiddenCount}** more are in this category.`
 						: '')
@@ -210,8 +213,7 @@ function getCommandCatalog() {
 		categories.push({
 			id: 'rpg',
 			name: 'RPG',
-			commands: rpgCommandNames,
-			unavailable: true
+			commands: rpgCommandNames
 		});
 	}
 

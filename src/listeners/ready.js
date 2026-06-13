@@ -62,7 +62,7 @@ class UserEvent extends Listener {
 			String.raw`
 ${line01}
 ${line02}
-${line03} ${pad}${blc('2.1')}
+${line03} ${pad}${blc('v3.7.3')}
 ${line04} ${pad}[${success}] Gateway
 ${line05} ${pad}${db}
 ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}` : ''}
@@ -87,7 +87,7 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		const commandCount = this.container.stores.get('commands').size;
 		const totalMembers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
 		const totalGuilds = client.guilds.cache.size;
-		const botVersion = 'Cadia 2.1';
+		const botVersion = 'Cadia v3.7.3';
 		const botOwner = 'Malik';
 		const developers = 'Oreo & Navin';
 

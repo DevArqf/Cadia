@@ -1,5 +1,6 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');
+const { MessageFlags } = require('discord.js');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { componentReply, getAlertHistory } = require('../../lib/util/globalAlerts');
 const { panel } = require('../../lib/util/components');
@@ -25,9 +26,10 @@ class UserCommand extends CadiaCommand {
 	}
 
 	async chatInputRun(interaction) {
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 		const limit = interaction.options.getInteger('limit') ?? 12;
 		const alerts = await getAlertHistory(limit);
-		return interaction.reply(
+		return interaction.editReply(
 			componentReply(
 				panel({
 					accentColor: color.default,
