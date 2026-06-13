@@ -15,6 +15,8 @@ const auditCategories = {
 	members: { label: 'Members', description: 'Member joins, leaves, and profile changes.' },
 	moderation: { label: 'Moderation', description: 'Bans and unbans.' },
 	channels: { label: 'Channels', description: 'Channel creates, updates, and deletes.' },
+	forums: { label: 'Forums', description: 'Forum channel creates, updates, and deletes.' },
+	threads: { label: 'Threads', description: 'Thread creates, updates, and deletes.' },
 	roles: { label: 'Roles', description: 'Role creates, updates, and deletes.' },
 	voice: { label: 'Voice', description: 'Voice joins, leaves, moves, mute/deafen changes.' },
 	invites: { label: 'Invites', description: 'Invite creates and deletes.' },
@@ -36,6 +38,12 @@ const auditActions = {
 	channelCreate: { category: 'channels', label: 'Channel Creates', description: 'New channels created.' },
 	channelUpdate: { category: 'channels', label: 'Channel Updates', description: 'Channel setting changes.' },
 	channelDelete: { category: 'channels', label: 'Channel Deletes', description: 'Channels removed.' },
+	forumCreate: { category: 'forums', label: 'Forum Creates', description: 'New forum channels created.' },
+	forumUpdate: { category: 'forums', label: 'Forum Updates', description: 'Forum channel setting changes.' },
+	forumDelete: { category: 'forums', label: 'Forum Deletes', description: 'Forum channels removed.' },
+	threadCreate: { category: 'threads', label: 'Thread Creates', description: 'New threads created.' },
+	threadUpdate: { category: 'threads', label: 'Thread Updates', description: 'Thread setting changes.' },
+	threadDelete: { category: 'threads', label: 'Thread Deletes', description: 'Threads removed.' },
 	roleCreate: { category: 'roles', label: 'Role Creates', description: 'New roles created.' },
 	roleUpdate: { category: 'roles', label: 'Role Updates', description: 'Role setting changes.' },
 	roleDelete: { category: 'roles', label: 'Role Deletes', description: 'Roles removed.' },
@@ -69,7 +77,11 @@ async function getAuditConfig(guildId) {
 async function updateAuditConfig(guildId, patch) {
 	const config = await getAuditConfig(guildId);
 	if ('channelId' in patch) config.channelId = patch.channelId;
-	if (patch.channelIds) config.channelIds = { ...normalizeChannelIds(config.channelIds), ...patch.channelIds };
+	if (patch.channelIds) {
+		config.channelIds = Object.keys(patch.channelIds).length
+			? normalizeChannelIds({ ...normalizeChannelIds(config.channelIds), ...patch.channelIds })
+			: {};
+	}
 	if ('enabled' in patch) config.enabled = patch.enabled;
 	if (patch.events) config.events = { ...defaultEvents(), ...(config.events || {}), ...patch.events };
 	config.updatedAt = Date.now();

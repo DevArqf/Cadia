@@ -72,6 +72,14 @@ class UserCommand extends CadiaCommand {
 					nextConfig = await updateAuditConfig(interaction.guild.id, { channelIds: { [state.channelTarget]: channelId } });
 				}
 			}
+			if (action === 'clearChannel') {
+				if (state.channelTarget === 'default') {
+					nextConfig = await updateAuditConfig(interaction.guild.id, { channelId: null });
+				} else {
+					nextConfig = await updateAuditConfig(interaction.guild.id, { channelIds: { [state.channelTarget]: null } });
+				}
+			}
+			if (action === 'clearAllChannels') nextConfig = await updateAuditConfig(interaction.guild.id, { channelId: null, channelIds: {} });
 			if (action === 'category') {
 				state.category = i.values[0];
 				state.channelTarget = 'default';
@@ -110,6 +118,8 @@ function buildLoggingPanel(interaction, config, componentId, selectedCategory = 
 	const targetLabel = target === 'default' ? 'Default fallback' : auditActions[target].label;
 	const targetChannel = targetChannelId ? `<#${targetChannelId}>` : 'No channel selected';
 	const dedicatedCount = Object.keys(config.channelIds || {}).length;
+	const hasSelectedChannel = target === 'default' ? Boolean(config.channelId) : Boolean(config.channelIds?.[target]);
+	const hasAnyChannel = Boolean(config.channelId) || dedicatedCount > 0;
 
 	return new ContainerBuilder()
 		.setAccentColor(Number.parseInt((config.enabled ? color.success : color.warning).replace('#', ''), 16))
@@ -216,6 +226,20 @@ function buildLoggingPanel(interaction, config, componentId, selectedCategory = 
 					.setLabel('Disable Logging')
 					.setStyle(ButtonStyle.Danger)
 					.setDisabled(disabled || !config.enabled)
+			)
+		)
+		.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`${componentId}:clearChannel`)
+					.setLabel('Clear Selected Channel')
+					.setStyle(ButtonStyle.Secondary)
+					.setDisabled(disabled || !hasSelectedChannel),
+				new ButtonBuilder()
+					.setCustomId(`${componentId}:clearAllChannels`)
+					.setLabel('Clear All Channels')
+					.setStyle(ButtonStyle.Danger)
+					.setDisabled(disabled || !hasAnyChannel)
 			)
 		);
 }
