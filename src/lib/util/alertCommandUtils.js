@@ -2,6 +2,13 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder
 const { color, emojis } = require('../../config');
 const { alertStyles, alertTemplates, buildAlertPanel, componentReply, publishAlert, updateAlertDmStats } = require('./globalAlerts');
 const { notice, panel } = require('./components');
+const LevelSchema = require('../schemas/levelSchema');
+const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
+const { RpgAccessSchema } = require('../schemas/RPG System/rpgAccessSchema');
+const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
+const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema');
+const { TicketSchema } = require('../schemas/ticketSchema');
+const { UserSettingsSchema } = require('../schemas/usersettingSchema');
 
 function addDraftOptions(builder, { messageRequired = false } = {}) {
 	return builder
@@ -39,11 +46,13 @@ function addTemplateOption(builder) {
 	);
 }
 
-async function publishDraft(interaction, draft, dmUsers, fromPreview = false) {
+async function publishDraft(interaction, draft, dmUsers, fromPreview = false, options = {}) {
 	if (!fromPreview) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 	const alert = await publishAlert({ ...draft, developer: interaction.user, dmEnabled: dmUsers });
-	const stats = dmUsers ? await sendUserDms(interaction.client, alert) : { sent: 0, failed: 0, total: 0 };
+	const targetData = dmUsers ? await collectBroadcastUserIds(interaction.client) : { userIds: new Set(), sources: {} };
+	if (dmUsers) await options.onTargetsCollected?.(targetData);
+	const stats = dmUsers ? await sendUserDms(interaction.client, alert, targetData) : { sent: 0, failed: 0, total: 0, sources: {} };
 	await updateAlertDmStats(alert, stats);
 
 	const response = componentReply(
@@ -53,9 +62,11 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false) {
 			subtitle: dmUsers ? 'User DM broadcast complete' : 'DM broadcast skipped',
 			sections: [
 				`${emojis.custom.info} **Alert ID:** \`${alert.alertId}\``,
+				`${emojis.custom.success} **Final Status:** Published successfully`,
 				`${emojis.custom.mail} **User DMs Sent:** ${stats.sent}`,
 				`${emojis.custom.warning} **User DMs Failed:** ${stats.failed}`,
 				`${emojis.custom.community} **Unique Users Targeted:** ${stats.total}`,
+				`${emojis.custom.openfolder} **Target Sources:** ${formatTargetSources(stats.sources)}`,
 				`${emojis.custom.info} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`
 			],
 			footer: `${emojis.custom.arrowright} Users will be prompted to run /alert after using Cadia commands.`
@@ -101,8 +112,33 @@ async function previewTemplate(interaction, draft, dmUsers) {
 
 		if (action === 'publish') {
 			collector.stop('published');
-			await i.deferUpdate();
-			return publishDraft(interaction, draft, dmUsers, true);
+			await i.update({
+				components: buildPublishStatusComponents(draft, dmUsers, 'publishing', { etaText: publishEtaText(null, dmUsers) }),
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			});
+
+			try {
+				return await publishDraft(interaction, draft, dmUsers, true, {
+					onTargetsCollected: (targetData) =>
+						interaction
+							.editReply({
+								components: buildPublishStatusComponents(draft, dmUsers, 'publishing', {
+									etaText: publishEtaText(targetData.userIds.size, dmUsers),
+									targetData
+								}),
+								flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+							})
+							.catch(() => null)
+				});
+			} catch (error) {
+				await interaction
+					.editReply({
+						components: buildPublishStatusComponents(draft, dmUsers, 'failed', { error }),
+						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+					})
+					.catch(() => null);
+				throw error;
+			}
 		}
 
 		if (action === 'edit') {
@@ -134,9 +170,10 @@ async function previewTemplate(interaction, draft, dmUsers) {
 	});
 }
 
-async function sendUserDms(client, alert) {
-	const userIds = await collectBroadcastUserIds(client);
-	const stats = { sent: 0, failed: 0, total: userIds.size };
+async function sendUserDms(client, alert, targetData = null) {
+	targetData ??= await collectBroadcastUserIds(client);
+	const userIds = targetData.userIds;
+	const stats = { sent: 0, failed: 0, total: userIds.size, sources: targetData.sources };
 
 	for (const userId of userIds) {
 		const user = await client.users.fetch(userId).catch(() => null);
@@ -158,15 +195,88 @@ async function sendUserDms(client, alert) {
 
 async function collectBroadcastUserIds(client) {
 	const userIds = new Set();
+	const sources = {
+		cachedUsers: 0,
+		cachedMembers: 0,
+		fetchedMembers: 0,
+		guildOwners: 0,
+		database: 0
+	};
+
+	for (const user of client.users.cache.values()) {
+		if (!user.bot && addUserId(userIds, user.id)) sources.cachedUsers += 1;
+	}
 
 	for (const guild of client.guilds.cache.values()) {
-		const members = await guild.members.fetch().catch(() => guild.members.cache);
-		for (const member of members.values()) {
-			if (!member.user?.bot) userIds.add(member.id);
+		if (addUserId(userIds, guild.ownerId)) sources.guildOwners += 1;
+
+		for (const member of guild.members.cache.values()) {
+			if (!member.user?.bot && addUserId(userIds, member.id)) sources.cachedMembers += 1;
+		}
+
+		const fetchedMembers = await guild.members.fetch().catch(() => null);
+		if (fetchedMembers) {
+			for (const member of fetchedMembers.values()) {
+				if (!member.user?.bot && addUserId(userIds, member.id)) sources.fetchedMembers += 1;
+			}
 		}
 	}
 
-	return userIds;
+	sources.database = await collectDatabaseUserIds(userIds);
+
+	return { userIds, sources };
+}
+
+async function collectDatabaseUserIds(userIds) {
+	const documents = (
+		await Promise.all([
+			safeFindAll(LevelSchema),
+			safeFindAll(GlobalAlertReceiptSchema),
+			safeFindAll(RpgAccessSchema),
+			safeFindAll(RpgProfileSchema),
+			safeFindAll(RpgTutorialSchema),
+			safeFindAll(TicketSchema),
+			safeFindAll(UserSettingsSchema)
+		])
+	).flat();
+
+	let added = 0;
+	for (const document of documents) {
+		for (const key of ['userId', 'ownerId', 'claimedById', 'closedById', 'User', 'userID']) {
+			if (addUserId(userIds, document?.[key])) added += 1;
+		}
+		for (const participantId of document?.participants || []) {
+			if (addUserId(userIds, participantId)) added += 1;
+		}
+	}
+	return added;
+}
+
+async function safeFindAll(model) {
+	return model?.find ? model.find({}).catch(() => []) : [];
+}
+
+function addUserId(userIds, userId) {
+	const value = String(userId || '').trim();
+	if (!/^\d{17,20}$/.test(value) || userIds.has(value)) return false;
+	userIds.add(value);
+	return true;
+}
+
+function formatTargetSources(sources = {}) {
+	const entries = [
+		['cache users', sources.cachedUsers],
+		['cache members', sources.cachedMembers],
+		['fetched members', sources.fetchedMembers],
+		['guild owners', sources.guildOwners],
+		['database', sources.database]
+	].filter(([, value]) => value);
+	return entries.length ? entries.map(([label, value]) => `${value} ${label}`).join(', ') : 'No target sources found';
+}
+
+function shorten(value, maxLength) {
+	const text = String(value || '');
+	return text.length <= maxLength ? text : `${text.slice(0, maxLength - 3)}...`;
 }
 
 function buildPreviewComponents(draft, componentId, dmUsers, disabled = false) {
@@ -194,6 +304,65 @@ function buildPreviewComponents(draft, componentId, dmUsers, disabled = false) {
 			]
 		})
 	];
+}
+
+function buildPublishStatusComponents(draft, dmUsers, status, options = {}) {
+	const isPublishing = status === 'publishing';
+	const isFailed = status === 'failed';
+	const title = isPublishing ? 'Publishing Global Alert' : 'Alert Publish Failed';
+	const statusText = isPublishing
+		? 'Cadia is publishing the alert now. This message will update with the final result when it finishes.'
+		: `Cadia could not publish the alert.${options.error?.message ? `\nError: \`${shorten(options.error.message, 900)}\`` : ''}`;
+	const targetData = options.targetData;
+	const etaText = options.etaText || publishEtaText(null, dmUsers);
+	const targetText = targetData
+		? `${emojis.custom.community} **Targets Found:** ${targetData.userIds.size} users`
+		: `${emojis.custom.community} **Targets Found:** ${dmUsers ? 'Calculating...' : 'DM broadcast skipped'}`;
+
+	return [
+		buildAlertPanel(
+			{
+				...draft,
+				developerTag: isPublishing ? 'Publishing...' : 'Publish Failed',
+				createdAt: Date.now()
+			},
+			{ viewer: true }
+		),
+		panel({
+			accentColor: isFailed ? color.fail : color.warning,
+			title: `${isFailed ? emojis.custom.fail : emojis.custom.clock} **${title}**`,
+			sections: [
+				statusText,
+				`${emojis.custom.mail} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
+				targetText,
+				`${emojis.custom.clock} **ETA Left:** ${etaText}`,
+				`${emojis.custom.info} **Final Status:** ${isPublishing ? 'Pending' : 'Failed'}`
+			]
+		})
+	];
+}
+
+function publishEtaText(targetCount, dmUsers) {
+	if (!dmUsers) return 'No DM broadcast selected.';
+	if (typeof targetCount !== 'number') return 'Calculating target count...';
+	if (targetCount <= 0) return 'No DM targets found.';
+
+	const seconds = estimatePublishSeconds(targetCount);
+	const finishAt = Math.floor((Date.now() + seconds * 1000) / 1000);
+	return `about ${formatDuration(seconds)} (finishes <t:${finishAt}:R>)`;
+}
+
+function estimatePublishSeconds(targetCount) {
+	return Math.max(5, Math.ceil(targetCount * 1.5 + 4));
+}
+
+function formatDuration(seconds) {
+	if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+	const minutes = Math.ceil(seconds / 60);
+	if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+	const hours = Math.floor(minutes / 60);
+	const remainingMinutes = minutes % 60;
+	return `${hours} hour${hours === 1 ? '' : 's'}${remainingMinutes ? ` ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}` : ''}`;
 }
 
 function buildEditModal(customId, draft) {
