@@ -1,6 +1,7 @@
 const { Listener, Events } = require('@sapphire/framework');
 const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType } = require('discord.js');
 const { color, emojis } = require('../config');
+const { recordGuildJoin } = require('../lib/util/botAnalytics');
 const { postTopggStats } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
@@ -18,6 +19,7 @@ class UserEvent extends Listener {
 	 */
 	async run(guild) {
 		try {
+			await recordGuildJoin(guild);
 			postTopggStats(guild.client).catch((error) => guild.client.logger?.warn?.(error.message));
 			const owner = await guild.fetchOwner();
 			const avatarURL = guild.client.user.displayAvatarURL({ format: 'png', size: 512 });

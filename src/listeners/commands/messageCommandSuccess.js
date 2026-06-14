@@ -3,6 +3,7 @@ const { cyan } = require('colorette');
 const { Message, EmbedBuilder } = require('discord.js');
 const { channels } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
+const { recordCommandRun } = require('../../lib/util/botAnalytics');
 
 class UserEvent extends Listener {
 	/**
@@ -10,6 +11,14 @@ class UserEvent extends Listener {
 	 * @param {{message: Message, command: Command}} param0
 	 */
 	async run({ message, command }) {
+		await recordCommandRun({
+			client: this.container.client,
+			user: message.author,
+			guild: message.guild,
+			commandName: command?.name,
+			type: 'message'
+		});
+
 		if (isDeveloperCommand(command)) return;
 
 		const shard = this.shard(message.guild?.shardId ?? 0);

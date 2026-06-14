@@ -1,6 +1,7 @@
 const { Listener } = require('@sapphire/framework');
 const { color, emojis } = require('../../config');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
+const { recordMemberLeave } = require('../../lib/util/botAnalytics');
 
 class UserEvent extends Listener {
 	constructor(context) {
@@ -8,6 +9,7 @@ class UserEvent extends Listener {
 	}
 
 	async run(member) {
+		await recordMemberLeave(member);
 		await sendAuditLog(
 			member.guild,
 			'memberRemove',

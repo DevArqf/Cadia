@@ -1,4 +1,5 @@
 const { Listener, Events } = require('@sapphire/framework');
+const { recordGuildLeave } = require('../lib/util/botAnalytics');
 const { postTopggStats } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
@@ -9,6 +10,7 @@ class UserEvent extends Listener {
 	}
 
 	async run(guild) {
+		await recordGuildLeave(guild);
 		postTopggStats(guild.client).catch((error) => guild.client.logger?.warn?.(error.message));
 	}
 }

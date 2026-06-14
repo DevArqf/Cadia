@@ -4,6 +4,7 @@ const { Message, EmbedBuilder } = require('discord.js');
 const { channels, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
+const { recordCommandRun } = require('../../lib/util/botAnalytics');
 const { buildAlertNudge, componentReply, getActiveAlert, markAlertNudged, shouldSendAlertNudge } = require('../../lib/util/globalAlerts');
 
 class UserEvent extends Listener {
@@ -11,6 +12,14 @@ class UserEvent extends Listener {
 	 * @param {import('@sapphire/framework').ChatInputCommandSuccessPayload} payload
 	 */
 	async run(payload) {
+		await recordCommandRun({
+			client: this.container.client,
+			user: payload.interaction.user,
+			guild: payload.interaction.guild,
+			commandName: payload.interaction.commandName,
+			type: 'slash'
+		});
+
 		if (isDeveloperCommand(payload.command)) return;
 
 		const guild = payload.interaction.guild;

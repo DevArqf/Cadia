@@ -1,6 +1,7 @@
 const { Listener, UserError, ChatInputCommandDeniedPayload } = require('@sapphire/framework');
 const { MessageFlags } = require('discord.js');
 const { emojis } = require('../../config');
+const { recordCommandDenied } = require('../../lib/util/botAnalytics');
 
 class UserEvent extends Listener {
 	/**
@@ -16,6 +17,12 @@ class UserEvent extends Listener {
 		// `context: { silent: true }` should make UserError silent:
 		// Use cases for this are for example permissions error when running the `eval` command.
 		if (Reflect.get(Object(context), 'silent')) return;
+
+		await recordCommandDenied({
+			client: interaction.client,
+			interaction,
+			commandName: interaction.commandName
+		});
 
 		if (interaction.deferred || interaction.replied) {
 			if (identifier === 'PermissionError') {
