@@ -9,35 +9,46 @@ const client = new CadiaClient();
 
 // Reminder System //
 const reminderSchema = require('./lib/schemas/reminderSchema');
+let checkingReminders = false;
+
 setInterval(async () => {
-    if (!isMysqlConnected()) return;
+	if (checkingReminders || !isMysqlConnected()) return;
 
-    const reminders = await reminderSchema.find().catch((error) => {
-        client.logger.error(error);
-        return null;
-    });
+	checkingReminders = true;
+	try {
+		const reminders = await reminderSchema.find();
+		const dueReminders = reminders.filter((reminder) => reminder.Time <= Date.now());
 
-    if (!reminders) return;
-
-    else {
-        reminders.forEach(async (reminder) => {
-
-            if (reminder.Time > Date.now()) return;
-
-            const user = await client.users.fetch(reminder.User);
-            
-            user?.send({
-                embeds: [new EmbedBuilder().setColor(`${color.default}`).setDescription(`${emojis.custom.wave} You asked me to **remind** you about "\`${reminder.Remind}\`"`)]
-            }).catch(err => {return;});
-
-            await reminderSchema.deleteMany({
-                Time: reminder.Time,
-                User: user.id,
-                Remind: reminder.Remind
-            });
-        })
-    }
+		for (const reminder of dueReminders) {
+			await sendReminder(reminder).catch((error) => client.logger.warn(`Reminder delivery failed: ${error.message}`));
+		}
+	} catch (error) {
+		client.logger.warn(`Reminder scan skipped: ${error.message}`);
+	} finally {
+		checkingReminders = false;
+	}
 }, 1000 * 5);
+
+async function sendReminder(reminder) {
+	const user = await client.users.fetch(reminder.User).catch(() => null);
+	if (!user) return;
+
+	await user
+		.send({
+			embeds: [
+				new EmbedBuilder()
+					.setColor(`${color.default}`)
+					.setDescription(`${emojis.custom.wave} You asked me to **remind** you about "\`${reminder.Remind}\`"`)
+			]
+		})
+		.catch(() => null);
+
+	await reminderSchema.deleteMany({
+		Time: reminder.Time,
+		User: user.id,
+		Remind: reminder.Remind
+	});
+}
 
 const main = async () => {
 	try {

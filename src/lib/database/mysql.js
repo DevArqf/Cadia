@@ -6,12 +6,14 @@ const pool = connectionString
 	? mysql.createPool({
 			uri: connectionString,
 			waitForConnections: true,
-			connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 10
+			connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 10,
+			connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT) || 15_000
 		})
 	: null;
 
 let connected = false;
 let lastError = null;
+let reconnecting = null;
 
 async function connectMysql() {
 	if (!pool) {
@@ -50,15 +52,39 @@ async function query(sql, params = []) {
 }
 
 async function runWithRetry(operation) {
-	try {
-		return await operation();
-	} catch (error) {
-		if (!isTransientConnectionError(error)) throw error;
+	const attempts = Math.max(Number(process.env.MYSQL_RETRY_ATTEMPTS) || 3, 1);
 
-		lastError = error;
-		await delay(250);
-		return operation();
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		try {
+			if (!connected) await reconnect();
+			const result = await operation();
+			connected = true;
+			lastError = null;
+			return result;
+		} catch (error) {
+			lastError = error;
+			if (!isTransientConnectionError(error) || attempt === attempts) {
+				if (isTransientConnectionError(error)) connected = false;
+				throw error;
+			}
+
+			connected = false;
+			await delay(Math.min(250 * 2 ** (attempt - 1), 2_000));
+		}
 	}
+}
+
+async function reconnect() {
+	if (!pool) throw new Error('DATABASE_URL or MYSQL_URL is not set');
+	if (!reconnecting) {
+		reconnecting = connectMysql().finally(() => {
+			reconnecting = null;
+		});
+	}
+
+	const result = await reconnecting;
+	if (result.error) throw lastError || new Error(result.message);
+	return result;
 }
 
 function isTransientConnectionError(error) {
