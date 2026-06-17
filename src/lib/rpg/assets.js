@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const { AttachmentBuilder } = require('discord.js');
 
 const placeholderImage = 'https://placehold.co/900x520/png?text=RPG+Scene+Placeholder';
+const characterCreationImageFileName = 'rpg-character-creation-bg.png';
+const characterCreationImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Character Creation BG.png');
 const profileImageFileName = 'rpg-profile-bg.png';
 const profileImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Profile BG.png');
 const travelImageFileName = 'rpg-travel-bg.png';
@@ -87,6 +89,7 @@ const battleResultImages = {
 };
 
 const sceneImages = {
+	create: `attachment://${characterCreationImageFileName}`,
 	profile: `attachment://${profileImageFileName}`,
 	quest: placeholderImage,
 	inventory: placeholderImage,
@@ -96,6 +99,10 @@ const sceneImages = {
 	'glassmine-depths': placeholderImage,
 	travel: `attachment://${travelImageFileName}`
 };
+
+function createCharacterCreationImageAttachment() {
+	return attachmentFromFile(characterCreationImagePath, characterCreationImageFileName);
+}
 
 function createProfileImageAttachment() {
 	return attachmentFromFile(profileImagePath, profileImageFileName);
@@ -145,6 +152,7 @@ function attachmentFromFile(filePath, fileName) {
 module.exports = {
 	adventureStoryImage,
 	battleResultImage,
+	createCharacterCreationImageAttachment,
 	createProfileImageAttachment,
 	createTravelImageAttachment,
 	npcPortrait,

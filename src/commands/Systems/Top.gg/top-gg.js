@@ -2,7 +2,6 @@ const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { emojis } = require('../../../config');
 const { postTopggStats, startTopggStatsPoster, syncTopggCommands } = require('../../../lib/util/topgg');
-const { AutoPoster } = require('topgg-autoposter');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -39,10 +38,8 @@ class UserCommand extends CadiaCommand {
 		}
 
 		try {
-			const { poster } = getTopggPoster(interaction.client, process.env.TOPGG_TOKEN || process.env.TOP_GG_TOKEN || process.env.TOPGG_API_TOKEN);
 			const stats = await postTopggStats(interaction.client);
 			const commands = await syncTopggCommands(interaction.client);
-			poster.post();
 			startTopggStatsPoster(interaction.client);
 
 			return interaction.editReply({
@@ -54,26 +51,6 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
-function getTopggPoster(client, token) {
-	if (client.topggPoster) return { created: false, poster: client.topggPoster };
-
-	const poster = AutoPoster(token, client, {
-		postOnStart: false
-	});
-
-	poster.on('posted', () => {
-		client.logger?.info?.('Successfully posted Cadia stats to Top.gg');
-	});
-
-	poster.on('error', (error) => {
-		client.logger?.error?.(error);
-	});
-
-	client.topggPoster = poster;
-	return { created: true, poster };
-}
-
 module.exports = {
-	UserCommand,
-	getTopggPoster
+	UserCommand
 };

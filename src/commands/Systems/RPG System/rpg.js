@@ -20,6 +20,7 @@ const { actionButton, componentReply, notice, panel } = require('../../../lib/ut
 const {
 	adventureStoryImage,
 	battleResultImage,
+	createCharacterCreationImageAttachment,
 	createProfileImageAttachment,
 	createTravelImageAttachment,
 	npcPortrait,
@@ -397,13 +398,13 @@ async function createCharacter(interaction) {
 		interaction.options.getString('origin', true)
 	);
 
-	return interaction.reply(
-		componentReply(
+	return interaction.reply({
+		...componentReply(
 			panel({
 				accentColor: color.RPG,
 				title: `${icon.leaderboard} **Warden Registered**`,
 				subtitle: 'Chapter I - The Broken Gate',
-				image: sceneImages['broken-gate'],
+				image: sceneImages.create,
 				sections: [
 					`${icon.person} **${profile.name}** has stepped into Cadia's relic storm.`,
 					[
@@ -417,8 +418,9 @@ async function createCharacter(interaction) {
 				],
 				footer: `${icon.clock} Created <t:${Math.floor(profile.createdAt / 1000)}:R>`
 			})
-		)
-	);
+		),
+		files: [createCharacterCreationImageAttachment()]
+	});
 }
 
 async function offerTutorial(interaction) {
@@ -1821,7 +1823,7 @@ function buildExplorationPanel(profile, encounter, region, battleId, recoveredHp
 				: `${icon.health.full} **Ready:** HP is full at **${percentage(profile.hp, maxHp)}**.`,
 			`${icon.warning} Something is nearby. Continue forward to reveal the encounter.`
 		],
-		buttons: [actionButton(`${battleId}:continue`, 'Continue', ButtonStyle.Secondary, icon.arrowRight)],
+		buttons: [actionButton(`${battleId}:continue`, 'Continue', ButtonStyle.Secondary)],
 		footer: `${icon.clock} Exploration expires in 2 minutes`
 	});
 }

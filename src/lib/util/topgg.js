@@ -3,6 +3,7 @@ const axios = require('axios');
 const TOPGG_V1_API = 'https://top.gg/api/v1';
 const TOPGG_V0_API = 'https://top.gg/api';
 const TOPGG_STATS_INTERVAL = 1000 * 60 * 30;
+const TOPGG_REQUEST_TIMEOUT = Number(process.env.TOPGG_REQUEST_TIMEOUT) || 15_000;
 
 async function postTopggStats(client) {
 	const token = getTopggToken();
@@ -15,7 +16,8 @@ async function postTopggStats(client) {
 
 	try {
 		await axios.patch(`${TOPGG_V1_API}/projects/@me/metrics`, body, {
-			headers: getTopggV1Headers(token)
+			headers: getTopggV1Headers(token),
+			timeout: TOPGG_REQUEST_TIMEOUT
 		});
 
 		client.logger?.info?.(`Posted Cadia stats to Top.gg: ${body.server_count} servers.`);
@@ -29,7 +31,12 @@ function startTopggStatsPoster(client) {
 	if (client.topggStatsPoster) return client.topggStatsPoster;
 
 	const post = () => {
-		postTopggStats(client).catch((error) => client.logger?.warn?.(error.message));
+		if (client.topggStatsPostInFlight) return;
+		client.topggStatsPostInFlight = postTopggStats(client)
+			.catch((error) => client.logger?.warn?.(error.message))
+			.finally(() => {
+				client.topggStatsPostInFlight = null;
+			});
 	};
 
 	post();
@@ -49,7 +56,8 @@ async function syncTopggCommands(client) {
 		const body = commands.map(formatApplicationCommand);
 
 		await axios.put(`${TOPGG_V1_API}/projects/@me/commands`, body, {
-			headers: getTopggV1Headers(token)
+			headers: getTopggV1Headers(token),
+			timeout: TOPGG_REQUEST_TIMEOUT
 		});
 
 		client.logger?.info?.(`Synced ${body.length} commands to Top.gg.`);
@@ -66,7 +74,8 @@ async function checkTopggVote(userId, client) {
 	try {
 		const response = await axios.get(`${TOPGG_V1_API}/projects/@me/votes/${userId}`, {
 			headers: getTopggV1Headers(token),
-			params: { source: 'discord' }
+			params: { source: 'discord' },
+			timeout: TOPGG_REQUEST_TIMEOUT
 		});
 
 		const expiresAt = response.data?.expires_at ? new Date(response.data.expires_at) : null;
@@ -101,7 +110,8 @@ async function checkTopggVoteV0(userId, client) {
 		headers: {
 			Authorization: token
 		},
-		params: { userId }
+		params: { userId },
+		timeout: TOPGG_REQUEST_TIMEOUT
 	});
 
 	return {
@@ -171,10 +181,15 @@ function throwTopggError(error, prefix) {
 
 function formatTopggError(error, prefix) {
 	const response = error.response;
+	if (isTransientNetworkError(error)) return `${prefix}: temporary network/DNS issue (${error.code || error.message})`;
 	if (!response) return `${prefix}: ${error.message}`;
 
 	const detail = response.data?.detail || response.data?.message || response.statusText;
 	return `${prefix}: ${response.status} ${detail}`;
+}
+
+function isTransientNetworkError(error) {
+	return ['EAI_AGAIN', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND', 'ECONNABORTED'].includes(error?.code);
 }
 
 module.exports = {

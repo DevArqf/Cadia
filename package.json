@@ -29,7 +29,6 @@
 		"mysql2": "^3.22.4",
 		"os": "^0.1.2",
 		"sourcebin_js": "^0.0.3-ignore",
-		"topgg-autoposter": "^2.0.1",
 		"util": "^0.12.5"
 	},
 	"devDependencies": {
