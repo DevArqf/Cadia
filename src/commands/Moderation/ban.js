@@ -1,6 +1,16 @@
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
-const { color, emojis } = require('../../config');
+const { color } = require('../../config/colors');
+const { emojis } = require('../../config/emojis');
+const {
+	DEFAULT_REASON,
+	createModerationEmbed,
+	fetchTargetMember,
+	reject,
+	runModerationAction,
+	sendDmNotice,
+	validateModerationTarget
+} = require('../../lib/moderation/workflow');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -28,102 +38,65 @@ class UserCommand extends CadiaCommand {
 		const selectedUser = interaction.options.getUser('user');
 		const enteredUserId = interaction.options.getString('userid');
 		const targetId = selectedUser?.id || enteredUserId;
-		const reason = interaction.options.getString('reason') || 'No reason provided';
+		const reason = interaction.options.getString('reason') || DEFAULT_REASON;
 		const evidence = interaction.options.getAttachment('evidence');
 
-		if (!targetId) {
-			return interaction.reply({
-				content: `${emojis.custom.fail} Select a user or provide a user ID.`,
-				flags: MessageFlags.Ephemeral
-			});
-		}
-
+		if (!targetId) return reject(interaction, `${emojis.custom.fail} Select a user or provide a user ID.`);
 		if (selectedUser && enteredUserId && selectedUser.id !== enteredUserId) {
-			return interaction.reply({
-				content: `${emojis.custom.fail} Select a user or provide a user ID, not two different targets.`,
-				flags: MessageFlags.Ephemeral
-			});
+			return reject(interaction, `${emojis.custom.fail} Select a user or provide one matching user ID.`);
 		}
+		if (!/^\d{17,20}$/.test(targetId)) return reject(interaction, `${emojis.custom.fail} Enter a valid Discord user ID.`);
 
-		if (!/^\d{17,20}$/.test(targetId)) {
-			return interaction.reply({
-				content: `${emojis.custom.fail} Enter a valid Discord user ID.`,
-				flags: MessageFlags.Ephemeral
-			});
-		}
+		const targetMember = await fetchTargetMember(interaction, targetId);
+		const valid = await validateModerationTarget({
+			interaction,
+			targetMember,
+			action: 'ban',
+			permission: PermissionFlagsBits.BanMembers,
+			capability: 'bannable',
+			allowMissing: true
+		});
+		if (!valid) return;
 
-		if (interaction.user.id === targetId) {
-			return interaction.reply({
-				content: `${emojis.custom.fail} You **cannot** ban yourself.`,
-				flags: MessageFlags.Ephemeral
-			});
-		}
-
-		const targetMember = await interaction.guild.members.fetch(targetId).catch(() => null);
-		if (targetMember?.permissions.has(PermissionFlagsBits.Administrator)) {
-			return interaction.reply({
-				content: `${emojis.custom.forbidden} You **cannot** ban members with the **Administrator** permission.`,
-				flags: MessageFlags.Ephemeral
-			});
-		}
-
-		if (targetMember && !targetMember.bannable) {
-			return interaction.reply({
-				content: `${emojis.custom.forbidden} I cannot ban this member because their role is higher than Cadia's role.`,
-				flags: MessageFlags.Ephemeral
-			});
-		}
-
-		await interaction.deferReply();
-
-		try {
-			const targetUser = selectedUser || targetMember?.user || (await interaction.client.users.fetch(targetId).catch(() => null));
-			if (targetUser) await sendBanNotice(targetUser, interaction, reason, evidence);
-
-			await interaction.guild.members.ban(targetId, {
-				reason: `Banned by ${interaction.user.tag}: ${reason}`
-			});
-
-			const confirmation = new EmbedBuilder()
-				.setColor(color.success)
-				.setDescription(`${emojis.custom.info} **${targetUser?.tag || targetId}** has been **banned**.`)
-				.addFields(
-					{ name: `${emojis.custom.mail} Reason`, value: reason },
-					{ name: `${emojis.custom.person} Moderator`, value: interaction.user.toString() }
-				)
-				.setFooter({ text: `User Banned: ${targetId}` })
-				.setTimestamp();
-
-			if (evidence) confirmation.setImage(evidence.url);
-			return interaction.editReply({ embeds: [confirmation] });
-		} catch (error) {
-			this.container.logger.error(error);
-			const errorEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(`${emojis.custom.fail} Cadia could not ban that user. Check the bot's role position and **Ban Members** permission.`)
-				.setTimestamp();
-
-			return interaction.editReply({ embeds: [errorEmbed] });
-		}
+		const targetUser = selectedUser || targetMember?.user || (await interaction.client.users.fetch(targetId).catch(() => null));
+		return runModerationAction({
+			interaction,
+			logger: this.container.logger,
+			errorMessage: "Cadia could not ban that user. Check the bot's role position and Ban Members permission.",
+			action: async () => {
+				if (targetUser) {
+					const notice = new EmbedBuilder()
+						.setColor(color.fail)
+						.setDescription(`${emojis.custom.info} You have been **banned** from **${interaction.guild.name}**.`)
+						.addFields(
+							{ name: `${emojis.custom.mail} Reason`, value: reason },
+							{ name: `${emojis.custom.person} Moderator`, value: interaction.user.toString() }
+						)
+						.setTimestamp();
+					if (evidence) notice.setImage(evidence.url);
+					await sendDmNotice({
+						user: targetUser,
+						payload: { embeds: [notice] },
+						logger: this.container.logger,
+						action: 'ban'
+					});
+				}
+				await interaction.guild.members.ban(targetId, { reason: `Banned by ${interaction.user.tag}: ${reason}` });
+			},
+			success: () => {
+				const embed = createModerationEmbed({
+					target: targetUser?.tag || targetId,
+					action: 'banned',
+					reason,
+					moderator: interaction.user,
+					colorValue: color.success,
+					footer: `User Banned: ${targetId}`
+				});
+				if (evidence) embed.setImage(evidence.url);
+				return { embeds: [embed] };
+			}
+		});
 	}
 }
 
-async function sendBanNotice(user, interaction, reason, evidence) {
-	const embed = new EmbedBuilder()
-		.setColor(color.fail)
-		.setDescription(`${emojis.custom.info} You have been **banned** from **${interaction.guild.name}**.`)
-		.addFields(
-			{ name: `${emojis.custom.mail} Reason`, value: reason },
-			{ name: `${emojis.custom.person} Moderator`, value: interaction.user.toString() }
-		)
-		.setThumbnail(interaction.guild.iconURL())
-		.setFooter({ text: 'You have been banned' })
-		.setTimestamp();
-
-	if (evidence) embed.setImage(evidence.url);
-	await user.send({ embeds: [embed] }).catch((error) => interaction.client.logger.warn(`Could not DM ${user.tag}: ${error.message}`));
-}
-
-module.exports = {
-	UserCommand
-};
+module.exports = { UserCommand };

@@ -47,9 +47,9 @@ test('activity rotation uses one managed interval and client shutdown clears tim
 test('kick command performs one DM and one moderation action', () => {
 	const source = read('src/commands/Moderation/kick.js');
 
-	assert.equal(countMatches(source, /userToKick\s*\.send\(/g), 1);
-	assert.equal(countMatches(source, /guild\.members\.kick\(/g), 1);
-	assert.match(source, /await interaction\.deferReply\(\)/);
+	assert.equal(countMatches(source, /sendDmNotice\(/g), 1);
+	assert.equal(countMatches(source, /member\.kick\(/g), 1);
+	assert.match(source, /runModerationAction\(/);
 	assert.match(source, /requiredClientPermissions:\s*\['KickMembers'\]/);
 });
 
@@ -68,14 +68,14 @@ test('ban and timeout moderation commands use the correct Discord semantics', ()
 	const muteSource = read('src/commands/Moderation/mute.js');
 	const unmuteSource = read('src/commands/Moderation/unmute.js');
 
-	assert.match(banSource, /targetMember && !targetMember\.bannable/);
-	assert.match(banSource, /if \(evidence\) confirmation\.setImage\(evidence\.url\)/);
+	assert.match(banSource, /capability:\s*'bannable'/);
+	assert.match(banSource, /if \(evidence\) embed\.setImage\(evidence\.url\)/);
 	assert.doesNotMatch(banSource, /Number\.isNaN\(.*userid/);
-	assert.match(moderateNameSource, /memberToModerate\.manageable/);
-	assert.match(moderateNameSource, /await memberToModerate\.setNickname/);
-	assert.match(muteSource, /muteMember\.moderatable/);
-	assert.match(muteSource, /muteMember\.isCommunicationDisabled\(\)/);
-	assert.match(unmuteSource, /unmuteMember\.timeout\(null, reason\)/);
+	assert.match(moderateNameSource, /capability:\s*'manageable'/);
+	assert.match(moderateNameSource, /member\.setNickname/);
+	assert.match(muteSource, /capability:\s*'moderatable'/);
+	assert.match(muteSource, /member\.isCommunicationDisabled\(\)/);
+	assert.match(unmuteSource, /member\.timeout\(null, reason\)/);
 });
 
 test('large command modules delegate to focused feature modules', () => {

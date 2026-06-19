@@ -1,13 +1,19 @@
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
-const { color, emojis } = require('../../config');
+const { color } = require('../../config/colors');
+const { emojis } = require('../../config/emojis');
+const {
+	DEFAULT_REASON,
+	createModerationEmbed,
+	fetchTargetMember,
+	parseTimeoutDuration,
+	reject,
+	runModerationAction,
+	sendDmNotice,
+	validateModerationTarget
+} = require('../../lib/moderation/workflow');
 
 class UserCommand extends CadiaCommand {
-	/**
-	 * @param {CadiaCommand.Context} context
-	 * @param {CadiaCommand.Options} options
-	 */
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -17,145 +23,64 @@ class UserCommand extends CadiaCommand {
 		});
 	}
 
-	/**
-	 * @param {CadiaCommand.Registry} registry
-	 */
 	registerApplicationCommands(registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder //
+			builder
 				.setName('mute')
 				.setDescription(this.description)
 				.addUserOption((option) => option.setName('user').setDescription('The user to mute').setRequired(true))
-				.addStringOption((option) =>
-					option.setName('time').setDescription('The duration to mute the user (e.g., 1m, 1h, 1d)').setRequired(true)
-				)
-				.addStringOption((option) => option.setName('reason').setDescription('Reason for the mute').setRequired(false))
+				.addStringOption((option) => option.setName('time').setDescription('Duration such as 15m, 2h, or 1d').setRequired(true))
+				.addStringOption((option) => option.setName('reason').setDescription('Reason for the mute'))
 		);
 	}
 
-	/**
-	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
-	 */
 	async chatInputRun(interaction) {
+		const user = interaction.options.getUser('user');
+		const reason = interaction.options.getString('reason') || DEFAULT_REASON;
+		let duration;
 		try {
-			// Defining Things
-			const userToMute = interaction.options.getUser('user');
-			const muteMember = interaction.guild.members.cache.get(userToMute.id);
-			const reason = interaction.options.getString('reason') || 'No reason provided';
-			const timeString = interaction.options.getString('time');
-
-			// Error Preventions
-			if (!muteMember) {
-				return await interaction.reply({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(`${color.invis}`)
-							.setDescription(`${emojis.custom.fail} The user **mentioned** is no longer within the **server**!`)
-					],
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
-			if (interaction.member.id === muteMember.id) {
-				return interaction.reply({
-					embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** mute yourself!`)],
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
-			if (muteMember.permissions.has(PermissionFlagsBits.Administrator)) {
-				return interaction.reply({
-					embeds: [
-						new EmbedBuilder()
-							.setColor(`${color.invis}`)
-							.setDescription(
-								`${emojis.custom.fail} You **cannot** mute **staff members** or people with the **Administrator** permission!`
-							)
-					],
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
-			if (!muteMember.moderatable) {
-				return interaction.reply({
-					content: `${emojis.custom.fail} I cannot mute this member because their role is higher than Cadia's role.`,
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
-			if (muteMember.isCommunicationDisabled()) {
-				return interaction.reply({
-					embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} This user is already **muted!**`)],
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
-			// Convert time string to milliseconds
-			const totalMilliseconds = parseTimeStringToMilliseconds(timeString);
-
-			// Mute Logic
-			await muteMember.timeout(totalMilliseconds, reason);
-
-			// Reply with confirmation
-			const muteConfirmationEmbed = new EmbedBuilder()
-				.setColor(color.default)
-				.setDescription(`${emojis.custom.info} \`-\` **${userToMute.tag}** has been **Muted**!`)
-				.addFields(
-					{
-						name: `${emojis.custom.mail} \`-\` **Reason:**`,
-						value: `${emojis.custom.arrowright} **${reason}**`,
-						inline: false
-					},
-					{
-						name: `${emojis.custom.person} \`-\` **Moderator:**`,
-						value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
-						inline: false
-					}
-				)
-				.setFooter({ text: `User Muted: ${userToMute.id}` })
-				.setTimestamp();
-
-			return interaction.reply({ embeds: [muteConfirmationEmbed] });
+			duration = parseTimeoutDuration(interaction.options.getString('time'));
 		} catch (error) {
-			console.error(error);
-			const errorEmbed = new EmbedBuilder()
-				.setColor(color.fail)
-				.setDescription(
-					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
-				)
-				.setTimestamp();
-
-			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-			return;
+			return reject(interaction, `${emojis.custom.fail} ${error.message}`);
 		}
+
+		const member = await fetchTargetMember(interaction, user.id);
+		const valid = await validateModerationTarget({
+			interaction,
+			targetMember: member,
+			action: 'mute',
+			permission: PermissionFlagsBits.ModerateMembers,
+			capability: 'moderatable'
+		});
+		if (!valid) return;
+		if (member.isCommunicationDisabled()) return reject(interaction, `${emojis.custom.fail} This user is already muted.`);
+
+		return runModerationAction({
+			interaction,
+			logger: this.container.logger,
+			errorMessage: "Cadia could not mute that member. Check the bot's role position and Moderate Members permission.",
+			action: async () => {
+				const notice = new EmbedBuilder()
+					.setColor(color.fail)
+					.setDescription(`${emojis.custom.info} You have been **muted** in **${interaction.guild.name}**.`)
+					.addFields({ name: `${emojis.custom.mail} Reason`, value: reason })
+					.setTimestamp();
+				await sendDmNotice({ user, payload: { embeds: [notice] }, logger: this.container.logger, action: 'mute' });
+				await member.timeout(duration, reason);
+			},
+			success: {
+				embeds: [
+					createModerationEmbed({
+						target: user.tag,
+						action: 'muted',
+						reason,
+						moderator: interaction.user,
+						footer: `User Muted: ${user.id}`
+					})
+				]
+			}
+		});
 	}
 }
 
-function parseTimeStringToMilliseconds(timeString) {
-	const regex = /^(\d+)([mhd])$/; // Matches digits followed by 'm', 'h', or 'd'
-	const match = timeString.match(regex);
-	if (!match) throw new Error('Invalid time string format.');
-
-	const amount = parseInt(match[1]);
-	const unit = match[2];
-	let milliseconds;
-	switch (unit) {
-		case 'm':
-			milliseconds = amount * 60 * 1000; // Convert minutes to milliseconds
-			break;
-		case 'h':
-			milliseconds = amount * 60 * 60 * 1000; // Convert hours to milliseconds
-			break;
-		case 'd':
-			milliseconds = amount * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-			break;
-		default:
-			throw new Error('Invalid time unit.');
-	}
-	if (milliseconds > 28 * 24 * 60 * 60 * 1000) throw new Error('Discord timeouts cannot exceed 28 days.');
-	return milliseconds;
-}
-
-module.exports = {
-	UserCommand
-};
+module.exports = { UserCommand };

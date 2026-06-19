@@ -1,6 +1,34 @@
 const { Listener } = require('@sapphire/framework');
-const { EmbedBuilder, ButtonStyle, ButtonBuilder, ActionRowBuilder, MessageFlags } = require('discord.js');
-const { color, emojis } = require('../config');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	EmbedBuilder,
+	MessageFlags,
+	OAuth2Scopes,
+	PermissionFlagsBits
+} = require('discord.js');
+const { branding } = require('../config/branding');
+const { color } = require('../config/colors');
+const { emojis } = require('../config/emojis');
+
+const INVITE_PERMISSIONS = [
+	PermissionFlagsBits.ViewChannel,
+	PermissionFlagsBits.SendMessages,
+	PermissionFlagsBits.EmbedLinks,
+	PermissionFlagsBits.AttachFiles,
+	PermissionFlagsBits.ReadMessageHistory,
+	PermissionFlagsBits.AddReactions,
+	PermissionFlagsBits.UseExternalEmojis,
+	PermissionFlagsBits.ManageMessages,
+	PermissionFlagsBits.KickMembers,
+	PermissionFlagsBits.BanMembers,
+	PermissionFlagsBits.ModerateMembers,
+	PermissionFlagsBits.ManageNicknames,
+	PermissionFlagsBits.ManageChannels,
+	PermissionFlagsBits.ManageRoles,
+	PermissionFlagsBits.ManageGuildExpressions
+];
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -12,69 +40,78 @@ class UserEvent extends Listener {
 	}
 
 	async run(message) {
-		if (message.author.bot) return;
+		const botId = message.client.user?.id;
+		if (message.author.bot || !botId || !message.mentions.users.has(botId)) return;
 
-		if (message.content.includes('<@1200475110235197631>')) {
-			const commands = this.container.stores.get('commands').size;
+		const commands = this.container.stores.get('commands').size;
+		await message.client.guilds.fetch();
+		const members = message.client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
+		const servers = message.client.guilds.cache.size;
+		const inviteUrl = message.client.generateInvite({
+			scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
+			permissions: INVITE_PERMISSIONS
+		});
 
-			await message.client.guilds.fetch();
+		const embed = new EmbedBuilder()
+			.setColor(color.default)
+			.setDescription(
+				`Hey there **${message.author.username}**! Here is some information on how to use me.\n\n${emojis.custom.info} Use </help:${branding.helpCommandId}> to view my commands.`
+			)
+			.addFields(
+				{ name: `${emojis.custom.slash} Commands`, value: `${emojis.custom.arrowright} **${commands}**`, inline: true },
+				{ name: `${emojis.custom.community} Users`, value: `${emojis.custom.arrowright} **${members}**`, inline: true },
+				{ name: `${emojis.custom.compass} Servers`, value: `${emojis.custom.arrowright} **${servers}**`, inline: true }
+			)
+			.setTimestamp()
+			.setFooter({ text: `Requested by ${message.author.username}`, iconURL: message.author.displayAvatarURL() });
 
-			const members = message.client.guilds.cache.reduce((a, b) => a + b.memberCount, 0);
-			const servers = message.client.guilds.cache.size;
+		const buttons = new ActionRowBuilder().addComponents(
+			new ButtonBuilder().setEmoji(emojis.custom.link).setLabel(`Invite ${branding.name}`).setURL(inviteUrl).setStyle(ButtonStyle.Link),
+			new ButtonBuilder().setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
+			new ButtonBuilder().setEmoji(emojis.custom.trash).setLabel('Delete').setStyle(ButtonStyle.Danger).setCustomId('deleteMentionReply')
+		);
 
-			const pingEmbed = new EmbedBuilder()
-				.setColor(color.default)
-				.setDescription(
-					`Hey there **${message.author.username}**! Here is some **information** on how to **use** me!\n\n ${emojis.custom.info} Use the </help:1221554638910787585> command to view a list of all my existing commands!`
-				)
-				.addFields(
-					{ name: `${emojis.custom.slash} \`-\` **Commands:**`, value: `${emojis.custom.arrowright} **${commands}**`, inline: true },
-					{ name: `${emojis.custom.community} \`-\` **Users:**`, value: `${emojis.custom.arrowright} **${members}**`, inline: true },
-					{ name: `${emojis.custom.compass} \`-\` **Servers:**`, value: `${emojis.custom.arrowright} **${servers}**`, inline: true }
-				)
-				.setTimestamp()
-				.setFooter({ text: `Requested by ${message.author.username}`, iconURL: message.author.displayAvatarURL() });
+		const reply = await message.reply({ embeds: [embed], components: [buttons] });
+		const collector = reply.createMessageComponentCollector({
+			time: 300_000,
+			filter: (interaction) => isMentionDeleteInteraction(interaction, reply.id, message.author.id)
+		});
 
-			const buttons = new ActionRowBuilder().addComponents(
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.link)
-					.setLabel('Invite Cadia')
-					.setURL('https://discord.com/api/oauth2/authorize?client_id=1200475110235197631&permissions=8&scope=bot')
-					.setStyle(ButtonStyle.Link),
-				new ButtonBuilder().setLabel('Support Server').setURL('https://discord.gg/26R7kXa6dx').setStyle(ButtonStyle.Link),
-				new ButtonBuilder().setEmoji(emojis.custom.trash).setLabel('Delete').setStyle(ButtonStyle.Danger).setCustomId('deleteEmbed')
-			);
+		collector.on('collect', async (interaction) => {
+			try {
+				await interaction.deferUpdate();
+				await reply.delete();
+				collector.stop('deleted');
+			} catch (error) {
+				this.container.logger.error(error);
+				const errorEmbed = new EmbedBuilder()
+					.setColor(color.fail)
+					.setDescription(
+						`${emojis.custom.fail} I could not delete that message. Try again, or report the problem with </bugreport:${branding.bugReportCommandId}>.`
+					)
+					.setTimestamp();
 
-			const reply = await message.reply({ embeds: [pingEmbed], components: [buttons] });
-
-			const collector = reply.createMessageComponentCollector({ time: 300000 });
-
-			collector.on('collect', async (interaction) => {
-				if (!interaction.isButton() || interaction.message.id !== reply.id) return;
-
-				const { customId } = interaction;
-
-				if (customId === 'deleteEmbed') {
-					try {
-						await interaction.message.delete();
-					} catch (error) {
-						console.error(error);
-						const errorEmbed = new EmbedBuilder()
-							.setColor(color.fail)
-							.setDescription(
-								`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
-							)
-							.setTimestamp();
-
-						await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-						return;
-					}
+				if (interaction.deferred || interaction.replied) {
+					await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
+				} else {
+					await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
 				}
-			});
-		}
+			}
+		});
 	}
 }
 
+function isMentionDeleteInteraction(interaction, replyId, authorId) {
+	return (
+		interaction.isButton() &&
+		interaction.customId === 'deleteMentionReply' &&
+		interaction.message.id === replyId &&
+		interaction.user.id === authorId
+	);
+}
+
 module.exports = {
-	UserEvent
+	INVITE_PERMISSIONS,
+	UserEvent,
+	isMentionDeleteInteraction
 };

@@ -1,0 +1,12 @@
+# Primary owner: DevArqf
+# Backup owner: DevArqf
+* @DevArqf
+
+# High-risk subsystems
+/src/config.js @DevArqf
+/src/config/ @DevArqf
+/src/commands/Moderation/ @DevArqf
+/src/lib/moderation/ @DevArqf
+/src/lib/rpg/ @DevArqf
+/src/commands/Systems/RPG System/ @DevArqf
+/.github/ @DevArqf
