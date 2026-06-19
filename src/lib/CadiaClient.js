@@ -12,11 +12,19 @@ class CadiaClient extends SapphireClient {
 	 * @returns {Promise<string>} The token used to login
 	 */
 	async login(token) {
-		// container.db = prisma;
-
 		return super.login(token);
 	}
+
 	destroy() {
+		if (this.activityRotationTimer) {
+			clearInterval(this.activityRotationTimer);
+			this.activityRotationTimer = null;
+		}
+		if (this.topggStatsPoster) {
+			clearInterval(this.topggStatsPoster);
+			this.topggStatsPoster = null;
+		}
+
 		return super.destroy();
 	}
 }

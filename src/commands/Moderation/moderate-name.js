@@ -1,7 +1,6 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { PermissionLevels } = require('../../lib/types/Enums');
-const { color, emojis } = require('../../config');;
-const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
+const { color, emojis } = require('../../config');
+const { EmbedBuilder, PermissionsBitField, MessageFlags } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -12,7 +11,8 @@ class UserCommand extends CadiaCommand {
 		super(context, {
 			...options,
 			requiredUserPermissions: ['ManageNicknames'],
-			description: 'Moderate a user\'s inappropriate name'
+			requiredClientPermissions: ['ManageNicknames'],
+			description: "Moderate a user's inappropriate name"
 		});
 	}
 
@@ -34,8 +34,8 @@ class UserCommand extends CadiaCommand {
 	 */
 	async chatInputRun(interaction) {
 		// Defining Things
-		const userToModerate = await interaction.options.getUser('user');
-		const ModerateUser = await interaction.guild.members.cache.get(userToModerate.id);
+		const userToModerate = interaction.options.getUser('user');
+		const memberToModerate = interaction.guild.members.cache.get(userToModerate.id);
 		const reason = interaction.options.getString('reason') || 'No reason provided';
 		const nickname = `Moderated Name ${Math.floor(Math.random() * 9999) + 1000}`;
 
@@ -46,54 +46,85 @@ class UserCommand extends CadiaCommand {
 		// 		flags: MessageFlags.Ephemeral
 		// 	});
 
-		if (!ModerateUser)
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} The user **mentioned** is no longer **within** the **server**!`)], flags: MessageFlags.Ephemeral })
+		if (!memberToModerate)
+			return await interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(`${emojis.custom.fail} The user **mentioned** is no longer **within** the **server**!`)
+				],
+				flags: MessageFlags.Ephemeral
+			});
 
-		if (!ModerateUser.kickable)
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} I **cannot** moderate this user\'s name because they are either **higher** than me or you!`)], flags: MessageFlags.Ephemeral });
+		if (!memberToModerate.manageable)
+			return await interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(
+							`${emojis.custom.fail} I **cannot** moderate this user\'s name because they are either **higher** than me or you!`
+						)
+				],
+				flags: MessageFlags.Ephemeral
+			});
 
-		if (interaction.member.id === ModerateUser.id)
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** moderate your own name!`)], flags: MessageFlags.Ephemeral });
+		if (interaction.member.id === memberToModerate.id)
+			return interaction.reply({
+				embeds: [
+					new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** moderate your own name!`)
+				],
+				flags: MessageFlags.Ephemeral
+			});
 
-		if (ModerateUser.permissions.has(PermissionsBitField.Flags.Administrator))
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** moderate **staff members** or people with the **Administrator** permission!`)], flags: MessageFlags.Ephemeral });
+		if (memberToModerate.permissions.has(PermissionsBitField.Flags.Administrator))
+			return interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(
+							`${emojis.custom.forbidden} You **cannot** moderate **staff members** or people with the **Administrator** permission!`
+						)
+				],
+				flags: MessageFlags.Ephemeral
+			});
 
 		try {
-			ModerateUser.setNickname(nickname, reason);
+			await memberToModerate.setNickname(nickname, reason);
 
 			const completed = new EmbedBuilder()
-                .setColor(color.default)
-                .setDescription(`${emojis.custom.info} \`-\` **${userToModerate.tag}**'s name has been **moderated**!`)
-                .addFields(
+				.setColor(color.default)
+				.setDescription(`${emojis.custom.info} \`-\` **${userToModerate.tag}**'s name has been **moderated**!`)
+				.addFields(
 					{
-                        name: `${emojis.custom.pencil} \`-\` **New Nickname:**`,
-                        value: `${emojis.custom.arrowright} **${nickname}**`,
-                        inline: false
-                    },
-                    {
-                        name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.arrowright} **${reason}**`,
-                        inline: false
-                    },
-                    {
-                        name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
-                        inline: false
-                    }
-                )
-                .setFooter({ text: `User Moderated: ${userToModerate.id}` })
-                .setTimestamp();
+						name: `${emojis.custom.pencil} \`-\` **New Nickname:**`,
+						value: `${emojis.custom.arrowright} **${nickname}**`,
+						inline: false
+					},
+					{
+						name: `${emojis.custom.mail} \`-\` **Reason:**`,
+						value: `${emojis.custom.arrowright} **${reason}**`,
+						inline: false
+					},
+					{
+						name: `${emojis.custom.person} \`-\` **Moderator:**`,
+						value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
+						inline: false
+					}
+				)
+				.setFooter({ text: `User Moderated: ${userToModerate.id}` })
+				.setTimestamp();
 
 			return interaction.reply({ embeds: [completed] });
-
 		} catch (error) {
 			console.error(error);
-        	const errorEmbed = new EmbedBuilder()
-            	.setColor(color.fail)
-            	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`)
-            	.setTimestamp();
+			const errorEmbed = new EmbedBuilder()
+				.setColor(color.fail)
+				.setDescription(
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
+				)
+				.setTimestamp();
 
-        	return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+			return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 		}
 	}
 }

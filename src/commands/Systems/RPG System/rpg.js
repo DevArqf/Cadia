@@ -1,6 +1,5 @@
 const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../../config');
-const { PermissionLevels } = require('../../../lib/types/Enums');
 const {
 	ActionRowBuilder,
 	ButtonStyle,
@@ -31,6 +30,11 @@ const { classes, encounters, items, npcQuests, origins, regions } = require('../
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
+const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
+const { createBattleFlow } = require('../../../lib/rpg/command/battleFlow');
+const { registerRpgCommand } = require('../../../lib/rpg/command/register');
+const { dispatchRpgCommand } = require('../../../lib/rpg/command/router');
+const { clearActiveAction, getActiveAction, setActiveAction } = require('../../../lib/rpg/command/sessions');
 const rpg = require('../../../lib/rpg/service');
 
 const icon = {
@@ -94,30 +98,11 @@ const icon = {
 };
 
 const leaderboardPageSize = 6;
-const activeRpgActions = new Map();
 const leaderboardTypes = [
 	{ id: 'level', label: 'Level', description: 'Highest level and XP progress', emoji: icon.rank.s },
 	{ id: 'gold', label: 'Gold', description: 'Richest Wardens', emoji: icon.coin },
 	{ id: 'wins', label: 'Victories', description: 'Most encounters cleared', emoji: icon.success },
 	{ id: 'shards', label: 'Relic Shards', description: 'Most story relic shards', emoji: icon.shards }
-];
-const adminCurrencies = [
-	{ name: 'Gold', value: 'gold' },
-	{ name: 'Relic Shards', value: 'shards' },
-	{ name: 'XP', value: 'xp' },
-	{ name: 'Level', value: 'level' }
-];
-const adminBossChoices = Object.values(encounters)
-	.flat()
-	.filter((encounter) => encounter.boss)
-	.map((encounter) => ({ name: encounter.name, value: encounter.id }));
-const adminAnalyticsViews = [
-	{ name: 'Summary', value: 'summary' },
-	{ name: 'Progression', value: 'progression' },
-	{ name: 'Combat', value: 'combat' },
-	{ name: 'Economy', value: 'economy' },
-	{ name: 'Leaders', value: 'leaders' },
-	{ name: 'Content', value: 'content' }
 ];
 const inventoryCategories = [
 	{ id: 'weapon', label: 'Weapons', action: 'equip' },
@@ -175,6 +160,24 @@ const tutorialSteps = [
 		]
 	}
 ];
+const buildRpgAnalyticsPanel = createAnalyticsView({ classes, color, icon, items, panel, regions, service: rpg, titleCase });
+const battleFlow = createBattleFlow({
+	buildBattleResultReply,
+	buildBossBattleReply,
+	buildEncounterReply,
+	buildExplorationPanel,
+	clearActiveAction: clearActiveRpgAction,
+	color,
+	componentReply,
+	explorationScene,
+	getActiveAction: getActiveRpgAction,
+	icon,
+	notice,
+	replyActiveAction: replyActiveRpgAction,
+	sendIssue: sendRpgIssue,
+	service: rpg,
+	setActiveAction: setActiveRpgAction
+});
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -186,183 +189,31 @@ class UserCommand extends CadiaCommand {
 	}
 
 	registerApplicationCommands(registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder
-				.setName('rpg')
-				.setDescription(this.description)
-				.addSubcommand((subcommand) =>
-					subcommand
-						.setName('create')
-						.setDescription('Create your Warden character')
-						.addStringOption((option) =>
-							option.setName('name').setDescription('Your character name').setMinLength(2).setMaxLength(32).setRequired(true)
-						)
-						.addStringOption((option) =>
-							option
-								.setName('class')
-								.setDescription('Your class')
-								.setRequired(true)
-								.addChoices(...Object.values(classes).map((entry) => ({ name: entry.name, value: entry.id })))
-						)
-						.addStringOption((option) =>
-							option
-								.setName('origin')
-								.setDescription('Your story origin')
-								.setRequired(true)
-								.addChoices(...Object.keys(origins).map((origin) => ({ name: titleCase(origin), value: origin })))
-						)
-				)
-				.addSubcommand((subcommand) =>
-					subcommand
-						.setName('profile')
-						.setDescription('View an RPG profile')
-						.addUserOption((option) => option.setName('user').setDescription('The user to inspect').setRequired(false))
-				)
-				.addSubcommand((subcommand) => subcommand.setName('id').setDescription('Get your RPG character ID'))
-				.addSubcommand((subcommand) => subcommand.setName('tutorial').setDescription('Learn how the RPG system works'))
-				.addSubcommand((subcommand) => subcommand.setName('quest').setDescription('View your current story quest'))
-				.addSubcommand((subcommand) =>
-					subcommand
-						.setName('travel')
-						.setDescription('Travel to an unlocked region')
-						.addStringOption((option) =>
-							option
-								.setName('region')
-								.setDescription('The region to travel to')
-								.setRequired(true)
-								.addChoices(...Object.values(regions).map((region) => ({ name: region.name, value: region.id })))
-						)
-				)
-				.addSubcommand((subcommand) => subcommand.setName('adventure').setDescription('Start a story encounter with RNG combat'))
-				.addSubcommand((subcommand) =>
-					subcommand
-						.setName('inventory')
-						.setDescription('View an RPG inventory')
-						.addUserOption((option) => option.setName('user').setDescription('The user to inspect').setRequired(false))
-				)
-				.addSubcommand((subcommand) =>
-					subcommand
-						.setName('equip')
-						.setDescription('Equip an RPG item')
-						.addStringOption((option) =>
-							option.setName('item').setDescription('The item to equip').setRequired(true).setAutocomplete(true)
-						)
-				)
-				.addSubcommand((subcommand) => subcommand.setName('leaderboard').setDescription('View the RPG leaderboard'))
-				.addSubcommand((subcommand) => subcommand.setName('bestiary').setDescription('Inspect RPG bosses and mobs'))
-				.addSubcommand((subcommand) => subcommand.setName('delete').setDescription('Delete your RPG character'))
-				.addSubcommandGroup((group) =>
-					group
-						.setName('admin')
-						.setDescription('Developer RPG administration')
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('find')
-								.setDescription('Find a character ID from a Discord user')
-								.addUserOption((option) => option.setName('user').setDescription('The character owner').setRequired(true))
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('inspect')
-								.setDescription('Inspect a character by unique ID')
-								.addStringOption((option) => option.setName('id').setDescription('The RPG character ID').setRequired(true))
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('add-currency')
-								.setDescription('Adjust a character currency or progression value')
-								.addStringOption((option) => option.setName('id').setDescription('The RPG character ID').setRequired(true))
-								.addStringOption((option) =>
-									option
-										.setName('currency')
-										.setDescription('The value to adjust')
-										.setRequired(true)
-										.addChoices(...adminCurrencies)
-								)
-								.addIntegerOption((option) => option.setName('amount').setDescription('Amount to add or remove').setRequired(true))
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('add-item')
-								.setDescription('Add an item to a character inventory')
-								.addStringOption((option) => option.setName('id').setDescription('The RPG character ID').setRequired(true))
-								.addStringOption((option) =>
-									option
-										.setName('item')
-										.setDescription('The item to add')
-										.setRequired(true)
-										.addChoices(...Object.values(items).map((item) => ({ name: item.name, value: item.id })))
-								)
-								.addIntegerOption((option) =>
-									option.setName('quantity').setDescription('How many to add').setRequired(false).setMinValue(1).setMaxValue(99)
-								)
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('wipe')
-								.setDescription('Wipe a character by unique ID')
-								.addStringOption((option) => option.setName('id').setDescription('The RPG character ID').setRequired(true))
-								.addBooleanOption((option) =>
-									option.setName('confirm').setDescription('Confirm this destructive action').setRequired(true)
-								)
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('max')
-								.setDescription('Max a character and grant every RPG item')
-								.addStringOption((option) => option.setName('id').setDescription('The RPG character ID').setRequired(true))
-						)
-						.addSubcommand((subcommand) =>
-							subcommand.setName('harlequin').setDescription('Force-start the Harlequin boss fight for yourself')
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('boss')
-								.setDescription('Force-start any RPG boss fight for yourself')
-								.addStringOption((option) =>
-									option
-										.setName('boss')
-										.setDescription('The boss fight to test')
-										.setRequired(true)
-										.addChoices(...adminBossChoices)
-								)
-						)
-						.addSubcommand((subcommand) =>
-							subcommand
-								.setName('analytics')
-								.setDescription('View developer analytics for the RPG system')
-								.addStringOption((option) =>
-									option
-										.setName('view')
-										.setDescription('The analytics report to open')
-										.setRequired(false)
-										.addChoices(...adminAnalyticsViews)
-								)
-						)
-				)
-		);
+		registerRpgCommand(registry, this.description, { classes, encounters, items, origins, regions });
 	}
 
 	async chatInputRun(interaction) {
 		try {
-			const group = interaction.options.getSubcommandGroup(false);
-			const subcommand = interaction.options.getSubcommand();
-			if (group === 'admin') return await adminPanel(interaction, subcommand);
-			if (subcommand !== 'tutorial' && (await rpg.shouldOfferTutorial(interaction.guild.id, interaction.user.id))) {
-				return await offerTutorial(interaction);
-			}
-			if (subcommand === 'create') return await createCharacter(interaction);
-			if (subcommand === 'profile') return await showProfile(interaction);
-			if (subcommand === 'id') return await showCharacterId(interaction);
-			if (subcommand === 'tutorial') return await runTutorial(interaction);
-			if (subcommand === 'quest') return await showQuest(interaction);
-			if (subcommand === 'travel') return await travel(interaction);
-			if (subcommand === 'adventure') return await adventure(interaction);
-			if (subcommand === 'inventory') return await inventory(interaction);
-			if (subcommand === 'equip') return await equip(interaction);
-			if (subcommand === 'leaderboard') return await leaderboard(interaction);
-			if (subcommand === 'bestiary') return await bestiary(interaction);
-			if (subcommand === 'delete') return await deleteCharacter(interaction);
+			return await dispatchRpgCommand(
+				interaction,
+				{
+					admin: adminPanel,
+					offerTutorial,
+					create: createCharacter,
+					profile: showProfile,
+					id: showCharacterId,
+					tutorial: runTutorial,
+					quest: showQuest,
+					travel,
+					adventure: battleFlow.adventure,
+					inventory,
+					equip,
+					leaderboard,
+					bestiary,
+					delete: deleteCharacter
+				},
+				rpg
+			);
 		} catch (error) {
 			return sendRpgIssue(interaction, error);
 		}
@@ -651,7 +502,7 @@ async function showRpgAnalytics(interaction) {
 async function forceBossFight(interaction, bossId) {
 	const { profile } = await rpg.prepareBossFight(interaction.guild.id, interaction.user.id);
 	const encounter = rpg.getBossById(bossId);
-	return bossAdventure(interaction, {
+	return battleFlow.bossAdventure(interaction, {
 		profile,
 		encounter,
 		region: regionForEncounter(encounter.id) || regions[profile.region] || regions['broken-gate']
@@ -764,144 +615,6 @@ async function travel(interaction) {
 
 	const result = await rpg.travel(interaction.guild.id, interaction.user.id, region.id);
 	return interaction.editReply(buildTravelCompleteReply(result, true));
-}
-
-async function adventure(interaction) {
-	const activeAction = getActiveRpgAction(interaction);
-	if (activeAction) return replyActiveRpgAction(interaction, activeAction);
-
-	setActiveRpgAction(interaction, 'exploring');
-	await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-	let result;
-	let battleId;
-
-	try {
-		result = await rpg.startAdventure(interaction.guild.id, interaction.user.id);
-		const exploration = explorationScene(result.region.id, result.encounter.name);
-
-		battleId = `rpg:${interaction.id}:${result.encounter.id}`;
-		await interaction.editReply({
-			...componentReply(buildExplorationPanel(result.profile, result.encounter, result.region, battleId, result.recoveredHp, exploration)),
-			files: exploration.attachment ? [exploration.attachment] : []
-		});
-	} catch (error) {
-		clearActiveRpgAction(interaction);
-		throw error;
-	}
-
-	const responseMessage = await interaction.fetchReply();
-	let discovered = false;
-	let resolvedFight = false;
-	const collector = responseMessage.createMessageComponentCollector({ time: 120_000 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Encounter**`, 'Only the active Warden can resolve this encounter.'), true)
-			);
-		}
-
-		try {
-			if (i.customId === `${battleId}:continue`) {
-				await i.deferUpdate();
-				discovered = true;
-				setActiveRpgAction(interaction, 'battle');
-				return i.editReply(await buildEncounterReply(result.profile, result.encounter, result.region, battleId));
-			}
-
-			if (!discovered) return;
-			await i.deferUpdate();
-			const stance = i.customId.split(':').at(-1);
-			const resolved = await rpg.resolveAdventure(interaction.guild.id, interaction.user.id, result.encounter.id, stance);
-			resolvedFight = true;
-			collector.stop('resolved');
-			return i.editReply(buildBattleResultReply(resolved, stance));
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
-	});
-
-	collector.on('end', async (collected) => {
-		clearActiveRpgAction(interaction);
-		if (resolvedFight) return;
-		await interaction
-			.editReply({
-				components: [
-					notice(
-						discovered ? `${icon.clock} **Encounter Faded**` : `${icon.clock} **Trail Went Quiet**`,
-						discovered
-							? `${result.encounter.name} vanished back into ${result.region.name}. Start another adventure when ready.`
-							: `${result.region.name} fell silent before the encounter began. Start another adventure when ready.`,
-						color.warning
-					)
-				]
-			})
-			.catch(() => null);
-	});
-}
-
-async function bossAdventure(interaction, result) {
-	const activeAction = getActiveRpgAction(interaction);
-	if (activeAction) return replyActiveRpgAction(interaction, activeAction);
-
-	setActiveRpgAction(interaction, 'battle');
-	await interaction.deferReply();
-
-	const state = {
-		encounterId: result.encounter.id,
-		enemyHp: result.encounter.hp,
-		playerHp: result.profile.hp,
-		turn: 0,
-		lastResult: null
-	};
-	const battleId = `rpg-boss:${interaction.id}:${result.encounter.id}`;
-	let responseMessage;
-	try {
-		responseMessage = await interaction.editReply(await buildBossBattleReply(result.profile, result.encounter, result.region, state, battleId));
-	} catch (error) {
-		clearActiveRpgAction(interaction);
-		throw error;
-	}
-	const collector = responseMessage.createMessageComponentCollector({ time: 180_000 });
-
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Boss Fight**`, 'Only the active Warden can fight this boss.'), true));
-		}
-		if (!i.customId.startsWith(battleId)) return;
-
-		try {
-			await i.deferUpdate();
-			const stance = i.customId.split(':').at(-1);
-			const resolved = await rpg.resolveAdventureTurn(interaction.guild.id, interaction.user.id, state, stance);
-			state.enemyHp = resolved.enemyHp;
-			state.playerHp = resolved.playerHp;
-			state.turn += 1;
-			state.lastResult = { ...resolved, stance };
-
-			if (resolved.done) collector.stop(resolved.won ? 'won' : 'lost');
-			if (resolved.done) return i.editReply(buildBattleResultReply(resolved, stance));
-			return i.editReply(await buildBossBattleReply(resolved.profile, resolved.encounter, result.region, state, battleId));
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
-	});
-
-	collector.on('end', async (_, reason) => {
-		clearActiveRpgAction(interaction);
-		if (reason === 'won' || reason === 'lost') return;
-		await interaction
-			.editReply({
-				components: [
-					notice(
-						`${icon.clock} **Boss Fight Faded**`,
-						`${result.encounter.name} vanished into the dungeon dark. Start another adventure when ready.`,
-						color.warning
-					)
-				],
-				files: []
-			})
-			.catch(() => null);
-	});
 }
 
 async function buildBossBattleReply(profile, encounter, region, state, battleId, disabled = false) {
@@ -2027,187 +1740,6 @@ function profileAccent(profile) {
 	return '#80848e';
 }
 
-function buildRpgAnalyticsPanel(analytics, view = 'summary') {
-	const sections = {
-		summary: rpgAnalyticsSummarySections,
-		progression: rpgAnalyticsProgressionSections,
-		combat: rpgAnalyticsCombatSections,
-		economy: rpgAnalyticsEconomySections,
-		leaders: rpgAnalyticsLeaderSections,
-		content: rpgAnalyticsContentSections
-	};
-	const selectedView = sections[view] ? view : 'summary';
-
-	return panel({
-		accentColor: color.RPG,
-		title: `${icon.settings} **RPG Analytics - ${titleCase(selectedView)}**`,
-		subtitle: 'Developer system intelligence',
-		sections: sections[selectedView](analytics),
-		footer: `${icon.clock} Generated <t:${Math.floor(analytics.generatedAt / 1000)}:R> - Use /rpg admin analytics view:<report>`
-	});
-}
-
-function rpgAnalyticsSummarySections(analytics) {
-	const summary = analytics.summary;
-	return [
-		[
-			`${icon.person} **Profiles:** ${formatAnalyticsNumber(summary.profiles)}`,
-			`${icon.success} **RPG Access Enabled:** ${formatAnalyticsNumber(summary.accessEnabled)}`,
-			`${icon.warning} **RPG Access Revoked:** ${formatAnalyticsNumber(summary.accessRevoked)}`,
-			`${icon.info} **Tutorials:** ${formatAnalyticsNumber(summary.tutorialCompleted)} completed / ${formatAnalyticsNumber(summary.tutorialSkipped)} skipped / ${formatAnalyticsNumber(summary.tutorialOffered)} offered`
-		],
-		[
-			`${icon.clock} **Active Today:** ${formatAnalyticsNumber(summary.activeToday)}`,
-			`${icon.clock} **Active 7d:** ${formatAnalyticsNumber(summary.active7d)}`,
-			`${icon.clock} **Active 30d:** ${formatAnalyticsNumber(summary.active30d)}`,
-			`${icon.owner} **New Characters:** ${formatAnalyticsNumber(summary.new7d)} in 7d / ${formatAnalyticsNumber(summary.new30d)} in 30d`
-		],
-		rpgAnalyticsSnapshot(analytics)
-	];
-}
-
-function rpgAnalyticsProgressionSections(analytics) {
-	const progression = analytics.progression;
-	return [
-		[
-			`${icon.level} **Average Rank:** ${formatAnalyticsNumber(progression.averageRank, 1)}`,
-			`${icon.rank.s} **Highest Rank:** ${formatAnalyticsNumber(progression.highestRank)}`,
-			`${icon.objective} **Quest Completion:** ${formatAnalyticsPercent(progression.questCompletionRate)}`,
-			`${icon.threat} **Boss Completion:** ${formatAnalyticsPercent(progression.bossCompletionRate)}`,
-			`${icon.objective} **Active NPC Quests:** ${formatAnalyticsNumber(progression.activeQuests)}`
-		],
-		`${icon.compass} **Regions**\n${formatAnalyticsMap(progression.regionCounts, (id) => regions[id]?.name || titleCase(id))}`,
-		`${icon.class} **Classes**\n${formatAnalyticsMap(progression.classCounts, (id) => classes[id]?.name || titleCase(id))}`,
-		`${icon.threat} **Boss Defeats**\n${formatAnalyticsMap(progression.bossDefeats, (id) => rpg.getBossById(id).name)}`
-	];
-}
-
-function rpgAnalyticsCombatSections(analytics) {
-	const combat = analytics.combat;
-	return [
-		[
-			`${icon.threat} **Total Battles:** ${formatAnalyticsNumber(combat.totalBattles)}`,
-			`${icon.success} **Wins:** ${formatAnalyticsNumber(combat.battlesWon)}`,
-			`${icon.fail} **Losses:** ${formatAnalyticsNumber(combat.battlesLost)}`,
-			`${icon.settings} **Win Rate:** ${formatAnalyticsPercent(combat.winRate)}`,
-			`${icon.warning} **No-Battle Profiles:** ${formatAnalyticsNumber(combat.noBattleProfiles)}`
-		],
-		`${icon.info} **Combat Load**\nAverage battles per character: **${formatAnalyticsNumber(combat.averageBattles, 1)}**\nThis helps spot whether users are creating characters but not entering encounters.`
-	];
-}
-
-function rpgAnalyticsEconomySections(analytics) {
-	const economy = analytics.economy;
-	return [
-		[
-			`${icon.coin} **Total Gold:** ${formatAnalyticsNumber(economy.totalGold)}`,
-			`${icon.coin} **Average Gold:** ${formatAnalyticsNumber(economy.averageGold, 1)}`,
-			`${icon.shards} **Total Shards:** ${formatAnalyticsNumber(economy.totalShards)}`,
-			`${icon.shards} **Average Shards:** ${formatAnalyticsNumber(economy.averageShards, 1)}`
-		],
-		[
-			`${icon.folder} **Inventory Items:** ${formatAnalyticsNumber(economy.inventoryItems)}`,
-			`${icon.folder} **Average Inventory:** ${formatAnalyticsNumber(economy.averageInventoryItems, 1)} items per character`
-		],
-		`${icon.loot} **Most Owned Items**\n${formatItemOwnership(economy.itemOwnership)}`,
-		`${icon.equipment} **Equipped Weapons**\n${formatAnalyticsMap(economy.equipped.weapon, itemLabel)}`
-	];
-}
-
-function rpgAnalyticsLeaderSections(analytics) {
-	return [
-		`${icon.rank.s} **Top Rank**\n${formatTopProfiles(analytics.leaders.rank, 'Rank')}`,
-		`${icon.coin} **Top Gold**\n${formatTopProfiles(analytics.leaders.gold, 'Gold')}`,
-		`${icon.success} **Top Wins**\n${formatTopProfiles(analytics.leaders.wins, 'Wins')}`,
-		`${icon.clock} **Recently Active**\n${formatRecentProfiles(analytics.leaders.recent)}`
-	];
-}
-
-function rpgAnalyticsContentSections(analytics) {
-	const content = analytics.content;
-	return [
-		[
-			`${icon.class} **Classes:** ${formatAnalyticsNumber(content.classes)}`,
-			`${icon.compass} **Regions:** ${formatAnalyticsNumber(content.regions)}`,
-			`${icon.loot} **Items:** ${formatAnalyticsNumber(content.items)}`,
-			`${icon.objective} **NPC Quests:** ${formatAnalyticsNumber(content.npcQuests)}`
-		],
-		[
-			`${icon.threat} **Bosses:** ${formatAnalyticsNumber(content.bosses)}`,
-			`${icon.warning} **Mobs:** ${formatAnalyticsNumber(content.mobs)}`,
-			`${icon.chapter} **Story Steps:** ${formatAnalyticsNumber(content.questSteps)}`
-		],
-		`${icon.info} **Runtime Snapshot**\n${rpgAnalyticsSnapshot(analytics)}`
-	];
-}
-
-function rpgAnalyticsSnapshot(analytics) {
-	return [
-		`${icon.level} Average Rank **${formatAnalyticsNumber(analytics.progression.averageRank, 1)}**`,
-		`${icon.settings} Combat Win Rate **${formatAnalyticsPercent(analytics.combat.winRate)}**`,
-		`${icon.coin} Gold In Circulation **${formatAnalyticsNumber(analytics.economy.totalGold)}**`,
-		`${icon.loot} Inventory Items **${formatAnalyticsNumber(analytics.economy.inventoryItems)}**`
-	].join('\n');
-}
-
-function formatAnalyticsMap(counts = {}, labeler = titleCase, limit = 8) {
-	const rows = Object.entries(counts)
-		.sort(([, a], [, b]) => b - a)
-		.slice(0, limit)
-		.map(([key, value]) => `${icon.arrowRight} **${labeler(key)}:** ${formatAnalyticsNumber(value)}`);
-	return rows.length ? rows.join('\n') : 'No data recorded yet.';
-}
-
-function formatItemOwnership(itemOwnership = {}) {
-	const rows = Object.entries(itemOwnership)
-		.sort(([, a], [, b]) => (b.quantity || 0) - (a.quantity || 0))
-		.slice(0, 8)
-		.map(
-			([itemId, data]) =>
-				`${icon.arrowRight} **${itemLabel(itemId)}:** ${formatAnalyticsNumber(data.quantity)} owned by ${formatAnalyticsNumber(data.owners)}`
-		);
-	return rows.length ? rows.join('\n') : 'No items owned yet.';
-}
-
-function formatTopProfiles(profiles = [], valueLabel) {
-	return profiles.length
-		? profiles
-				.map((profile, index) => {
-					const region = regions[profile.region]?.name || titleCase(profile.region);
-					return `#${index + 1} **${profile.name || 'Unknown'}** (<@${profile.userId}>) - ${valueLabel} **${formatAnalyticsNumber(profile.value)}** - ${region}`;
-				})
-				.join('\n')
-		: 'No profile data yet.';
-}
-
-function formatRecentProfiles(profiles = []) {
-	return profiles.length
-		? profiles
-				.map((profile) => {
-					const region = regions[profile.region]?.name || titleCase(profile.region);
-					return `${icon.arrowRight} **${profile.name || 'Unknown'}** (<@${profile.userId}>) - ${region} - <t:${Math.floor((profile.updatedAt || 0) / 1000)}:R>`;
-				})
-				.join('\n')
-		: 'No recent profile activity.';
-}
-
-function itemLabel(itemId) {
-	if (itemId === 'none') return 'None';
-	return items[itemId]?.name || titleCase(itemId);
-}
-
-function formatAnalyticsNumber(value, digits = 0) {
-	const number = Number(value || 0);
-	return number.toLocaleString(undefined, {
-		minimumFractionDigits: digits,
-		maximumFractionDigits: digits
-	});
-}
-
-function formatAnalyticsPercent(value) {
-	return `${Math.round(Number(value || 0) * 100)}%`;
-}
-
 function buildAdminProfilePanel(profile, owner, title, note) {
 	const inventoryCount = (profile.inventory || []).reduce((total, entry) => total + (entry.quantity || 0), 0);
 	return panel({
@@ -2417,31 +1949,15 @@ function isMissingCharacterError(error) {
 }
 
 function getActiveRpgAction(interaction) {
-	const key = activeRpgActionKey(interaction);
-	const action = activeRpgActions.get(key);
-	if (!action) return null;
-
-	if (action.expiresAt <= Date.now()) {
-		activeRpgActions.delete(key);
-		return null;
-	}
-
-	return action;
+	return getActiveAction(interaction.guild.id, interaction.user.id);
 }
 
 function setActiveRpgAction(interaction, type) {
-	activeRpgActions.set(activeRpgActionKey(interaction), {
-		type,
-		expiresAt: Date.now() + (type === 'battle' ? 180_000 : 120_000)
-	});
+	return setActiveAction(interaction.guild.id, interaction.user.id, type);
 }
 
 function clearActiveRpgAction(interaction) {
-	activeRpgActions.delete(activeRpgActionKey(interaction));
-}
-
-function activeRpgActionKey(interaction) {
-	return `${interaction.guild.id}:${interaction.user.id}`;
+	return clearActiveAction(interaction.guild.id, interaction.user.id);
 }
 
 function replyActiveRpgAction(interaction, action) {

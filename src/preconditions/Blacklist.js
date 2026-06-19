@@ -1,12 +1,7 @@
-const { AllFlowsPrecondition, Result } = require('@sapphire/framework');
-const Guild = require('../lib/schemas/blacklistSchema');
-const { ChatInputCommandInteraction, Message } = require('discord.js');
-const { Developers } = require('../lib/util/constants');
-const { emojis } =require('../config');
+const { AllFlowsPrecondition } = require('@sapphire/framework');
+const { blacklistMessage, getGuildBlacklist } = require('../lib/policies/blacklist');
 
 class UserPrecondition extends AllFlowsPrecondition {
-	#message = `${emojis.custom.forbidden} Sorry but your server is **blacklisted** from using Cadia's commands. Contact <@899385550585364481> or join our [Support Server](https://discord.gg/26R7kXa6dx) for more information.`;
-
 	constructor(context, options) {
 		super(context, {
 			...options,
@@ -15,40 +10,24 @@ class UserPrecondition extends AllFlowsPrecondition {
 	}
 
 	chatInputRun(interaction) {
-		if (!interaction.guildId) return this.ok();
-		return this.doBanlistCheck(interaction);
+		return this.runCheck(interaction.guildId, interaction.user.id);
 	}
 
 	contextMenuRun(interaction) {
-		if (!interaction.guildId) return this.ok();
-		return this.doBanlistCheck(interaction);
+		return this.runCheck(interaction.guildId, interaction.user.id);
 	}
 
 	messageRun(message) {
-		if (!message.guildId) return this.ok();
-		return this.doBanlistCheck(message);
+		return this.runCheck(message.guildId, message.author.id);
 	}
 
-	/**
-	 * @param {import('../lib/types/Discord').GuildInteraction | Message | import('../lib/types/Discord').GuildContextMenuInteraction} iom
-	 * @returns
-	 */
-	async doBanlistCheck(iom) {
-		if (Developers.includes(iom.member.id)) return this.ok(); // Should ignore commands by bot devs
-
-		const guildId = iom.guildId;
-		if (guildId === null) return this.ok();
-
-		const find = await Guild.findOne({ guildId: guildId });
-
-		let banned = find ? true : false;
-
-		if (!banned) return this.ok();
-
-		// Guild was found, therefore it is banned.
-		return this.error({ identifier: 'GuildBlacklisted', message: this.#message });
+	async runCheck(guildId, userId) {
+		const blacklistedGuild = await getGuildBlacklist(guildId, userId);
+		if (!blacklistedGuild) return this.ok();
+		return this.error({ identifier: 'GuildBlacklisted', message: blacklistMessage });
 	}
 }
+
 module.exports = {
 	UserPrecondition
 };

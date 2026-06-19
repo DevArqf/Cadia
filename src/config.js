@@ -18,7 +18,6 @@ const config = {
 		GatewayIntentBits.GuildModeration,
 		GatewayIntentBits.GuildMembers,
 		GatewayIntentBits.DirectMessages,
-		GatewayIntentBits.DirectMessageReactions,
 		GatewayIntentBits.DirectMessageTyping
 	],
 	cooldown_options: {

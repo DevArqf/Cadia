@@ -88,7 +88,7 @@ async function reconnect() {
 }
 
 function isTransientConnectionError(error) {
-	return ['ECONNRESET', 'PROTOCOL_CONNECTION_LOST', 'ETIMEDOUT', 'EPIPE'].includes(error?.code);
+	return ['EAI_AGAIN', 'ECONNRESET', 'ENOTFOUND', 'PROTOCOL_CONNECTION_LOST', 'ETIMEDOUT', 'EPIPE'].includes(error?.code);
 }
 
 function delay(ms) {

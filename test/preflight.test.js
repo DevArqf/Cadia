@@ -125,7 +125,9 @@ function getExplicitCommandName(file) {
 	if (registrationStart === -1) return null;
 
 	const registrationSource = sourceCode.slice(registrationStart);
-	const nextNestedBuilder = registrationSource.search(/\.(?:addSubcommand|addSubcommandGroup|addStringOption|addUserOption|addIntegerOption|addChannelOption|addAttachmentOption|addBooleanOption|addRoleOption|addNumberOption)\(/);
+	const nextNestedBuilder = registrationSource.search(
+		/\.(?:addSubcommand|addSubcommandGroup|addStringOption|addUserOption|addIntegerOption|addChannelOption|addAttachmentOption|addBooleanOption|addRoleOption|addNumberOption)\(/
+	);
 	const topLevelBuilder = nextNestedBuilder === -1 ? registrationSource : registrationSource.slice(0, nextNestedBuilder);
 	const match = topLevelBuilder.match(/\.setName\(['"]([^'"]+)['"]\)/);
 	return match?.[1] ?? null;

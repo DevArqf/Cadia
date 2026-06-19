@@ -1,5 +1,5 @@
 const { emojis, color } = require('../../config');
-const { EmbedBuilder, PermissionsBitField , MessageFlags} = require('discord.js');
+const { EmbedBuilder, PermissionsBitField, MessageFlags } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 
 class UserCommand extends CadiaCommand {
@@ -7,7 +7,8 @@ class UserCommand extends CadiaCommand {
 		super(context, {
 			...options,
 			requiredUserPermissions: ['KickMembers'],
-			description: 'Kick a member from the server',
+			requiredClientPermissions: ['KickMembers'],
+			description: 'Kick a member from the server'
 		});
 	}
 	/**
@@ -29,8 +30,8 @@ class UserCommand extends CadiaCommand {
 	 */
 	async chatInputRun(interaction) {
 		// Defining Things
-		const userToKick = interaction.options.getUser('user'); 	
-		const kickMember = await interaction.guild.members.cache.get(userToKick.id);
+		const userToKick = interaction.options.getUser('user');
+		const kickMember = interaction.guild.members.cache.get(userToKick.id);
 		const reason = interaction.options.getString('reason') || 'No reason provided';
 
 		// Permissions
@@ -54,72 +55,83 @@ class UserCommand extends CadiaCommand {
 				flags: MessageFlags.Ephemeral
 			});
 		}
-		
-		if (interaction.member.id === kickMember.id) {
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** kick yourself!`)], flags: MessageFlags.Ephemeral });
-		}
 
-		if (kickMember.permissions.has(PermissionsBitField.Flags.Administrator)) {
+		if (interaction.member.id === kickMember.id) {
 			return interaction.reply({
-				embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** kick **staff members** or people with the **Administrator** permission!`)],
+				embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** kick yourself!`)],
 				flags: MessageFlags.Ephemeral
 			});
 		}
 
-		// DM Message
+		if (kickMember.permissions.has(PermissionsBitField.Flags.Administrator)) {
+			return interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(
+							`${emojis.custom.forbidden} You **cannot** kick **staff members** or people with the **Administrator** permission!`
+						)
+				],
+				flags: MessageFlags.Ephemeral
+			});
+		}
+
+		await interaction.deferReply();
+
 		try {
 			const dmEmbed = new EmbedBuilder()
 				.setColor(color.default)
 				.setDescription(`${emojis.custom.info} \`-\` You have been **kicked** from **${interaction.guild.name}**!`)
-                .addFields(
-                    {
-                        name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.arrowright} **${reason}**`,
-                        inline: false
-                    },
-                    {
-                        name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
-                        inline: false
-                    }
-                )
-                .setFooter({ text: `User Kicked: ${userToKick.id}` })
-                .setTimestamp();
+				.addFields(
+					{
+						name: `${emojis.custom.mail} \`-\` **Reason:**`,
+						value: `${emojis.custom.arrowright} **${reason}**`,
+						inline: false
+					},
+					{
+						name: `${emojis.custom.person} \`-\` **Moderator:**`,
+						value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
+						inline: false
+					}
+				)
+				.setFooter({ text: `User Kicked: ${userToKick.id}` })
+				.setTimestamp();
 
-			await userToKick.send({ embeds: [dmEmbed] }).catch((error) => console.error(`I couldn\`t send a DM to ${userToKick.tag}.`, error));
-			await userToKick.send({ embeds: [dmEmbed] }).catch((error) => console.error(`I **cannot** send a Direct Message to ${userToKick.tag}.`, error));
+			await userToKick
+				.send({ embeds: [dmEmbed] })
+				.catch((error) => this.container.logger.warn(`Could not DM ${userToKick.tag}: ${error.message}`));
 
 			// Kick Successful
 			const kickConfirmationEmbed = new EmbedBuilder()
 				.setColor(color.default)
-                .setDescription(`${emojis.custom.info} \`-\` **${userToKick.tag}** has been **kicked**!`)
-                .addFields(
-                    {
-                        name: `${emojis.custom.mail} \`-\` **Reason:**`,
-                        value: `${emojis.custom.arrowright} **${reason}**`,
-                        inline: false
-                    },
-                    {
-                        name: `${emojis.custom.person} \`-\` **Moderator:**`,
-                        value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
-                        inline: false
-                    }
-                )
-                .setFooter({ text: `User Kicked: ${userToKick.id}` })
-                .setTimestamp();
+				.setDescription(`${emojis.custom.info} \`-\` **${userToKick.tag}** has been **kicked**!`)
+				.addFields(
+					{
+						name: `${emojis.custom.mail} \`-\` **Reason:**`,
+						value: `${emojis.custom.arrowright} **${reason}**`,
+						inline: false
+					},
+					{
+						name: `${emojis.custom.person} \`-\` **Moderator:**`,
+						value: `${emojis.custom.arrowright} **${interaction.user.displayName}**`,
+						inline: false
+					}
+				)
+				.setFooter({ text: `User Kicked: ${userToKick.id}` })
+				.setTimestamp();
 
-			// Kick Failed
 			await interaction.guild.members.kick(userToKick, { reason: `**Kicked** by ${interaction.user.tag}: ${reason}` });
-			await interaction.guild.members.kick(userToKick, { reason: `${userToKick.id}: ${reason}` });
-			await interaction.reply({ embeds: [kickConfirmationEmbed] });
+			await interaction.editReply({ embeds: [kickConfirmationEmbed] });
 		} catch (error) {
-			console.error(error);
-        	const errorEmbed = new EmbedBuilder()
-            	.setColor(color.fail)
-            	.setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`)
-            	.setTimestamp();
+			this.container.logger.error(error);
+			const errorEmbed = new EmbedBuilder()
+				.setColor(color.fail)
+				.setDescription(
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
+				)
+				.setTimestamp();
 
-			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });	
+			await interaction.editReply({ embeds: [errorEmbed] });
 		}
 	}
 }

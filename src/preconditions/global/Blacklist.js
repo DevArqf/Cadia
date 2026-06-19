@@ -1,12 +1,6 @@
 const { Precondition } = require('@sapphire/framework');
-const { ChatInputCommandInteraction } = require('discord.js');
-const { envParseArray } = require('@skyra/env-utilities');
-const { GuildMessage } = require('../../lib/types/Discord');
+const { blacklistMessage, getGuildBlacklist } = require('../../lib/policies/blacklist');
 
-/**
- * @class
- * @extends {Precondition}
- */
 class BlacklistPrecondition extends Precondition {
 	constructor(context, options) {
 		super(context, {
@@ -16,36 +10,26 @@ class BlacklistPrecondition extends Precondition {
 		});
 	}
 
-	/**
-	 * @param {GuildMessage} message
-	 * @returns {import('@sapphire/framework').PreconditionResult}
-	 */
 	messageRun(message) {
-		return this.isNotBlacklisted(message.guildId) ? this.ok() : this.error({ context: { silent: false }, identifier: 'PermissionError' });
+		return this.checkGuild(message.guildId, message.author.id);
 	}
 
-	/**
-	 * @param {ChatInputCommandInteraction<'cached'>} interaction
-	 * @returns {import('@sapphire/framework').PreconditionResult}
-	 */
 	chatInputRun(interaction) {
-		return this.isNotBlacklisted(interaction.guildId) ? this.ok() : this.error({ context: { silent: false }, identifier: 'PermissionError' });
+		return this.checkGuild(interaction.guildId, interaction.user.id);
 	}
 
-	/**
-	 * @param {import('../../lib/types/Discord').GuildContextMenuInteraction} interaction
-	 * @returns {import('@sapphire/framework').PreconditionResult}
-	 */
 	contextMenuRun(interaction) {
-		return this.isNotBlacklisted(interaction.guildId) ? this.ok() : this.error({ context: { silent: false }, identifier: 'PermissionError' });
+		return this.checkGuild(interaction.guildId, interaction.user.id);
 	}
 
-	/**
-	 *
-	 * @param {import('discord.js').Snowflake} guildId The id of the guild you want to check
-	 */
-	isNotBlacklisted(guildId) {
-		return true; // TODO: Implement this
+	async checkGuild(guildId, userId) {
+		const blacklistedGuild = await getGuildBlacklist(guildId, userId);
+		if (!blacklistedGuild) return this.ok();
+
+		return this.error({
+			identifier: 'GuildBlacklisted',
+			message: blacklistMessage
+		});
 	}
 }
 

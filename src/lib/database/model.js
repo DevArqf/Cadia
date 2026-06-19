@@ -55,6 +55,22 @@ function matchesFilter(document, filter = {}) {
 	});
 }
 
+function splitFilter(filter = {}) {
+	const databaseFilter = {};
+	const memoryFilter = {};
+
+	for (const [key, expected] of Object.entries(filter)) {
+		if (isDatabaseComparable(expected)) databaseFilter[key] = expected;
+		else memoryFilter[key] = expected;
+	}
+
+	return { databaseFilter, memoryFilter };
+}
+
+function isDatabaseComparable(value) {
+	return value === null || ['string', 'number', 'boolean'].includes(typeof value);
+}
+
 function normalizeUpdate(document, update = {}) {
 	if (update.$set || update.$inc) {
 		const next = { ...(update.$set || {}) };
@@ -95,22 +111,39 @@ function createModel(modelName, defaults = {}) {
 		static async _allRows() {
 			if (!isMysqlConnected()) return [];
 			const [rows] = await execute('SELECT id, data FROM cadia_documents WHERE model = ? ORDER BY id ASC', [modelName]);
-			return rows.map((row) => ({
-				id: row.id,
-				data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data
-			}));
+			return deserializeRows(rows);
+		}
+
+		static async _matchingRows(filter = {}, limit = null) {
+			if (!isMysqlConnected()) return [];
+			const { databaseFilter, memoryFilter } = splitFilter(filter);
+			const hasDatabaseFilter = Object.keys(databaseFilter).length > 0;
+			const canLimitInDatabase = Object.keys(memoryFilter).length === 0 && Number.isInteger(limit);
+			const sql = [
+				'SELECT id, data FROM cadia_documents WHERE model = ?',
+				hasDatabaseFilter ? 'AND JSON_CONTAINS(data, ?)' : '',
+				'ORDER BY id ASC',
+				canLimitInDatabase ? `LIMIT ${Math.max(limit, 0)}` : ''
+			]
+				.filter(Boolean)
+				.join(' ');
+			const params = [modelName];
+			if (hasDatabaseFilter) params.push(JSON.stringify(databaseFilter));
+
+			const [rows] = await execute(sql, params);
+			const documents = deserializeRows(rows).filter((row) => matchesFilter(row.data, memoryFilter));
+			return Number.isInteger(limit) ? documents.slice(0, limit) : documents;
 		}
 
 		static find(filter = {}) {
 			return new DbQuery(async () => {
-				const rows = await this._allRows();
-				return rows.filter((row) => matchesFilter(row.data, filter)).map((row) => createDocument(this, row.id, row.data));
+				const rows = await this._matchingRows(filter);
+				return rows.map((row) => createDocument(this, row.id, row.data));
 			});
 		}
 
 		static async findOne(filter = {}) {
-			const rows = await this._allRows();
-			const row = rows.find((entry) => matchesFilter(entry.data, filter));
+			const [row] = await this._matchingRows(filter, 1);
 			return row ? createDocument(this, row.id, row.data) : null;
 		}
 
@@ -159,7 +192,10 @@ function createModel(modelName, defaults = {}) {
 			if (!documents.length) return { deletedCount: 0 };
 
 			const placeholders = documents.map(() => '?').join(',');
-			await execute(`DELETE FROM cadia_documents WHERE id IN (${placeholders})`, documents.map((document) => document.__db_id));
+			await execute(
+				`DELETE FROM cadia_documents WHERE id IN (${placeholders})`,
+				documents.map((document) => document.__db_id)
+			);
 			return { deletedCount: documents.length };
 		}
 	}
@@ -173,6 +209,13 @@ function toPlainObject(document) {
 	return data;
 }
 
+function deserializeRows(rows) {
+	return rows.map((row) => ({
+		id: row.id,
+		data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data
+	}));
+}
+
 function resolveDefaults(defaults) {
 	const resolved = {};
 	for (const [key, value] of Object.entries(defaults)) {
@@ -182,5 +225,6 @@ function resolveDefaults(defaults) {
 }
 
 module.exports = {
-	createModel
+	createModel,
+	splitFilter
 };

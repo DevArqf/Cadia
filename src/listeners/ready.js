@@ -114,43 +114,29 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		logger.info(this._styleStore(last, true));
 	}
 
-	async _setBotActivities(client) {
+	_setBotActivities(client) {
 		if (client.disableActivityRotation) return;
 
 		const totalServers = client.guilds.cache.size;
 		const totalMembers = client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
 		const totalCommands = this.container.stores.get('commands').size;
+		const activities = [
+			{ type: ActivityType.Listening, name: `${totalServers} Guilds` },
+			{ type: ActivityType.Listening, name: '/help' },
+			{ type: ActivityType.Playing, name: `with ${totalCommands} Commands` },
+			{ type: ActivityType.Listening, name: `${totalMembers} Users` }
+		];
+		let activityIndex = 0;
 
-		client.user.setActivity({
-			type: ActivityType.Listening,
-			name: `${totalServers} Guilds`
-		});
+		const updateActivity = () => {
+			if (client.disableActivityRotation || !client.user) return;
+			client.user.setActivity(activities[activityIndex]);
+			activityIndex = (activityIndex + 1) % activities.length;
+		};
 
-		setTimeout(() => {
-			client.user.setActivity({
-				type: ActivityType.Listening,
-				name: '/help'
-			});
-
-			setTimeout(() => {
-				client.user.setActivity({
-					type: ActivityType.Playing,
-					name: `with ${totalCommands} Commands`
-				});
-
-				setTimeout(() => {
-					client.user.setActivity({
-						type: ActivityType.Listening,
-						name: `${totalMembers} Users`
-					});
-
-					setTimeout(() => {
-						if (client.disableActivityRotation) return;
-						this._setBotActivities(client);
-					}, 5000);
-				}, 5000);
-			}, 5000);
-		}, 5000);
+		if (client.activityRotationTimer) clearInterval(client.activityRotationTimer);
+		updateActivity();
+		client.activityRotationTimer = setInterval(updateActivity, 5000);
 	}
 
 	/**

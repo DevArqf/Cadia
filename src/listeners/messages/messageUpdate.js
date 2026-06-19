@@ -12,7 +12,7 @@ class UserEvent extends Listener {
 		if (message.system) return;
 
 		// If the message was sent by a bot, return:
-		if (message.author.bot) return;
+		if (!message.author || message.author.bot) return;
 
 		// Run the message parser.
 		this.container.client.emit('preMessageParsed', message);

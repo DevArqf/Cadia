@@ -1,7 +1,7 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
-const { PermissionFlagsBits, EmbedBuilder , MessageFlags} = require('discord.js');
-const { color, emojis } = require('../../config');;
+const { PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
+const { color, emojis } = require('../../config');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -11,7 +11,8 @@ class UserCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
-			requiredUserPermissions: ['ManageRoles'],
+			requiredUserPermissions: ['ModerateMembers'],
+			requiredClientPermissions: ['ModerateMembers'],
 			description: 'Unmute a user within the server, allowing them to speak again.'
 		});
 	}
@@ -35,20 +36,53 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		// Defining Things
 		const userToUnmute = interaction.options.getUser('user');
-		const unmuteMember = await interaction.guild.members.cache.get(userToUnmute.id);
+		const unmuteMember = interaction.guild.members.cache.get(userToUnmute.id);
 		const reason = interaction.options.getString('reason') || 'No reason provided';
 
 		// Error Prvention
 		if (!unmuteMember) {
-			return await interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} The user **mentioned** is no longer within the **server**!`)], flags: MessageFlags.Ephemeral });
+			return await interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(`${emojis.custom.fail} The user **mentioned** is no longer within the **server**!`)
+				],
+				flags: MessageFlags.Ephemeral
+			});
 		}
 
 		if (interaction.member.id === unmuteMember.id) {
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** unmute yourself!`)], flags: MessageFlags.Ephemeral });
+			return interaction.reply({
+				embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.fail} You **cannot** unmute yourself!`)],
+				flags: MessageFlags.Ephemeral
+			});
 		}
 
 		if (unmuteMember.permissions.has(PermissionFlagsBits.Administrator)) {
-			return interaction.reply({ embeds: [new EmbedBuilder().setColor(`${color.invis}`).setDescription(`${emojis.custom.forbidden} You **cannot** mute **staff members** or people with the **Administrator** permission!`)], flags: MessageFlags.Ephemeral });
+			return interaction.reply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(`${color.invis}`)
+						.setDescription(
+							`${emojis.custom.forbidden} You **cannot** mute **staff members** or people with the **Administrator** permission!`
+						)
+				],
+				flags: MessageFlags.Ephemeral
+			});
+		}
+
+		if (!unmuteMember.moderatable) {
+			return interaction.reply({
+				content: `${emojis.custom.fail} I cannot unmute this member because their role is higher than Cadia's role.`,
+				flags: MessageFlags.Ephemeral
+			});
+		}
+
+		if (!unmuteMember.isCommunicationDisabled()) {
+			return interaction.reply({
+				content: `${emojis.custom.fail} This user is not currently muted.`,
+				flags: MessageFlags.Ephemeral
+			});
 		}
 
 		// Handle Unmute
@@ -59,7 +93,7 @@ class UserCommand extends CadiaCommand {
 async function handleUnmute(interaction, userToUnmute, unmuteMember, reason) {
 	try {
 		// Clear timeout for the user
-		await unmuteMember.timeout(1000, reason);
+		await unmuteMember.timeout(null, reason);
 
 		// Reply with confirmation
 		const unmuteConfirmationEmbed = new EmbedBuilder()
@@ -83,12 +117,14 @@ async function handleUnmute(interaction, userToUnmute, unmuteMember, reason) {
 		return interaction.reply({ embeds: [unmuteConfirmationEmbed] });
 	} catch (error) {
 		console.error(error);
-        const errorEmbed = new EmbedBuilder()
-            .setColor(color.fail)
-            .setDescription(`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`)
-            .setTimestamp();
+		const errorEmbed = new EmbedBuilder()
+			.setColor(color.fail)
+			.setDescription(
+				`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1219050295770742934>*`
+			)
+			.setTimestamp();
 
-        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+		await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
 		return;
 	}
 }
