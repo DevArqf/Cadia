@@ -1,81 +1,128 @@
-const { Listener, Events } = require('@sapphire/framework');
-const { ButtonStyle, ActionRowBuilder, ButtonBuilder, Guild, EmbedBuilder, ChannelType } = require('discord.js');
-const { color, emojis } = require('../config');
-const { recordGuildJoin } = require('../lib/util/botAnalytics');
+const { Events, Listener } = require('@sapphire/framework');
+const {
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	ChannelType,
+	EmbedBuilder,
+	PermissionFlagsBits
+} = require('discord.js');
+const { branding } = require('../config/branding');
+const { color } = require('../config/colors');
+const { emojis } = require('../config/emojis');
+const { createInviteUrl } = require('../config/invite');
+const { selectOnboardingVariant } = require('../lib/analytics/growth');
+const { recordGuildJoin, recordOnboardingOutcome } = require('../lib/util/botAnalytics');
 const { postTopggStats } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
-	/**
-	 * @param {Listener.LoaderContext} context
-	 */
 	constructor(context) {
-		super(context, {
-			event: Events.GuildCreate
-		});
+		super(context, { event: Events.GuildCreate });
 	}
 
-	/**
-	 * @param {Guild} guild
-	 */
 	async run(guild) {
-		try {
-			await recordGuildJoin(guild);
-			postTopggStats(guild.client).catch((error) => guild.client.logger?.warn?.(error.message));
-			const owner = await guild.fetchOwner();
-			const avatarURL = guild.client.user.displayAvatarURL({ format: 'png', size: 512 });
-			const topChannel = guild.channels.cache
-				.filter((c) => c.type === ChannelType.GuildText)
-				.sort((a, b) => a.rawPosition - b.rawPosition || a.id - b.id)
-				.first();
-			const embed = new EmbedBuilder()
-				.setColor(color.default)
-				.setDescription(
-					`${emojis.custom.heart1} **Thank you for adding me to your server!**\n ${emojis.custom.arrowright} If you need any help, please feel free to join\n ${emojis.custom.arrowright} our support server.\n\n ${emojis.custom.warning} **Important**\n ${emojis.custom.arrowright} Make sure the bot's role is at the highest position\n ${emojis.custom.arrowright} in the role hierarchy to prevent any bugs or issues.`
-				)
-				.setThumbnail(avatarURL);
+		await recordGuildJoin(guild);
+		postTopggStats(guild.client).catch((error) => guild.client.logger?.warn?.(error.message));
 
-			const channel = new ActionRowBuilder().addComponents(
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.home)
-					.setLabel('Support Server')
-					.setURL('https://discord.gg/26R7kXa6dx')
-					.setStyle(ButtonStyle.Link),
+		const variant = selectOnboardingVariant(guild.id);
+		const result = await deliverOnboarding(guild, variant);
+		await recordOnboardingOutcome(guild, {
+			variant,
+			delivered: result.targets.length > 0,
+			target: result.targets.join('+') || null,
+			error: result.error
+		});
 
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.link)
-					.setLabel('Invite bot')
-					.setURL('https://discord.com/api/oauth2/authorize?client_id=1200475110235197631&scope=applications.commands+bot&permissions=8')
-					.setStyle(ButtonStyle.Link),
-
-				new ButtonBuilder()
-					.setEmoji(emojis.custom.gem)
-					.setLabel('Vote')
-					.setURL('https://top.gg/bot/1200475110235197631')
-					.setStyle(ButtonStyle.Link)
-			);
-
-			const dmbot = new ActionRowBuilder().addComponents(
-				new ButtonBuilder()
-					.setEmoji(`${emojis.custom.home}`)
-					.setLabel('Support Server')
-					.setURL('https://discord.gg/26R7kXa6dx')
-					.setStyle(ButtonStyle.Link),
-
-				new ButtonBuilder()
-					.setEmoji(`${emojis.custom.chart}`)
-					.setLabel('Vote')
-					.setURL('https://top.gg/bot/1200475110235197631')
-					.setStyle(ButtonStyle.Link)
-			);
-
-			owner.send({ embeds: [embed], components: [dmbot] });
-			topChannel.send({ embeds: [embed], components: [channel] });
-		} catch (error) {
-			guild.client.logger?.error?.(error);
-		}
+		if (result.error) guild.client.logger?.warn?.(`Onboarding delivery for ${guild.id}: ${result.error.message}`);
 	}
 }
 
+async function deliverOnboarding(guild, variant) {
+	const client = guild.client;
+	const embed = buildOnboardingEmbed(guild, variant);
+	const inviteUrl = createInviteUrl(client);
+	const applicationId = client.application?.id || client.user.id;
+	const voteUrl = `https://top.gg/bot/${applicationId}`;
+	const channelRow = buildChannelButtons(inviteUrl, voteUrl);
+	const ownerRow = buildOwnerButtons(voteUrl);
+	const targets = [];
+	const errors = [];
+
+	const [ownerResult, channelResult] = await Promise.allSettled([
+		guild.fetchOwner().then((owner) => owner.send({ embeds: [embed], components: [ownerRow] })),
+		Promise.resolve(findOnboardingChannel(guild)).then((channel) => {
+			if (!channel) throw new Error('No eligible text channel');
+			return channel.send({ embeds: [embed], components: [channelRow] });
+		})
+	]);
+
+	if (ownerResult.status === 'fulfilled') targets.push('owner');
+	else errors.push(ownerResult.reason);
+	if (channelResult.status === 'fulfilled') targets.push('channel');
+	else errors.push(channelResult.reason);
+
+	return {
+		targets,
+		error: errors[0] || (targets.length ? null : new Error('Onboarding was not delivered'))
+	};
+}
+
+function buildOnboardingEmbed(guild, variant) {
+	const guided =
+		`${emojis.custom.heart1} **Thanks for adding ${branding.name}!**\n\n` +
+		`${emojis.custom.settings} **Start with server setup**\n` +
+		`${emojis.custom.arrowright} Run \`/help\` to browse commands.\n` +
+		`${emojis.custom.arrowright} Try \`/logging\`, \`/welcome\`, or \`/ticket\` to configure your community.\n` +
+		`${emojis.custom.arrowright} Test moderation with \`/mute\` or \`/kick\` on a lower-role test account.\n\n` +
+		`${emojis.custom.rpguser} **Optional RPG path**\n` +
+		`${emojis.custom.arrowright} Run \`/rpg tutorial\`, then \`/rpg create\` when you want to play.\n\n` +
+		`${emojis.custom.warning} Keep ${branding.name}'s role above roles it needs to moderate.`;
+	const control =
+		`${emojis.custom.heart1} **Thank you for adding ${branding.name} to ${guild.name}!**\n` +
+		`${emojis.custom.arrowright} Run \`/help\` to browse commands or join the support server if you need assistance.\n\n` +
+		`${emojis.custom.warning} Keep ${branding.name}'s role above roles it needs to moderate.`;
+
+	return new EmbedBuilder()
+		.setColor(color.default)
+		.setDescription(variant === 'guided' ? guided : control)
+		.setThumbnail(guild.client.user.displayAvatarURL({ extension: 'png', size: 256 }))
+		.setFooter({ text: `Onboarding: ${variant}` })
+		.setTimestamp();
+}
+
+function buildChannelButtons(inviteUrl, voteUrl) {
+	return new ActionRowBuilder().addComponents(
+		new ButtonBuilder().setEmoji(emojis.custom.home).setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
+		new ButtonBuilder().setEmoji(emojis.custom.link).setLabel(`Invite ${branding.name}`).setURL(inviteUrl).setStyle(ButtonStyle.Link),
+		new ButtonBuilder().setEmoji(emojis.custom.gem).setLabel('Vote').setURL(voteUrl).setStyle(ButtonStyle.Link)
+	);
+}
+
+function buildOwnerButtons(voteUrl) {
+	return new ActionRowBuilder().addComponents(
+		new ButtonBuilder().setEmoji(emojis.custom.home).setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
+		new ButtonBuilder().setEmoji(emojis.custom.gem).setLabel('Vote').setURL(voteUrl).setStyle(ButtonStyle.Link)
+	);
+}
+
+function findOnboardingChannel(guild) {
+	const botMember = guild.members.me;
+	const eligible = (channel) => {
+		if (!botMember || !channel || channel.type !== ChannelType.GuildText || !channel.isTextBased?.()) return false;
+		const permissions = channel.permissionsFor?.(botMember);
+		return permissions?.has(PermissionFlagsBits.ViewChannel) && permissions.has(PermissionFlagsBits.SendMessages) && permissions.has(PermissionFlagsBits.EmbedLinks);
+	};
+
+	if (eligible(guild.systemChannel)) return guild.systemChannel;
+	return guild.channels.cache
+		.filter(eligible)
+		.sort((left, right) => left.rawPosition - right.rawPosition || left.id.localeCompare(right.id))
+		.first();
+}
+
 module.exports = {
-	UserEvent
+	UserEvent,
+	buildOnboardingEmbed,
+	deliverOnboarding,
+	findOnboardingChannel
 };

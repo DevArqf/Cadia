@@ -2,6 +2,7 @@ const { Listener, UserError, ChatInputCommandDeniedPayload } = require('@sapphir
 const { MessageFlags } = require('discord.js');
 const { emojis } = require('../../config');
 const { recordCommandDenied } = require('../../lib/util/botAnalytics');
+const { commandPathFromInteraction } = require('../../lib/analytics/growth');
 
 class UserEvent extends Listener {
 	/**
@@ -21,7 +22,7 @@ class UserEvent extends Listener {
 		await recordCommandDenied({
 			client: interaction.client,
 			interaction,
-			commandName: interaction.commandName
+			commandName: commandPathFromInteraction(interaction)
 		});
 
 		if (interaction.deferred || interaction.replied) {

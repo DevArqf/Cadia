@@ -2,6 +2,7 @@ const { Listener, UserError, ChatInputCommandErrorPayload } = require('@sapphire
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const { emojis, channels, color } = require('../../config');
 const { recordCommandError } = require('../../lib/util/botAnalytics');
+const { commandPathFromInteraction } = require('../../lib/analytics/growth');
 
 class UserEvent extends Listener {
 	/**
@@ -21,7 +22,7 @@ class UserEvent extends Listener {
 		await recordCommandError({
 			client: interaction.client,
 			interaction,
-			commandName: command?.name || interaction.commandName
+			commandName: commandPathFromInteraction(interaction)
 		});
 
 		await sendDeveloperErrorLog(error, payload);

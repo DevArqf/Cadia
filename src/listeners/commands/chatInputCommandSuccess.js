@@ -5,6 +5,7 @@ const { channels, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
 const { recordCommandRun } = require('../../lib/util/botAnalytics');
+const { commandCategory, commandPathFromInteraction, isMeaningfulCommand } = require('../../lib/analytics/growth');
 const { buildAlertNudge, componentReply, getActiveAlert, markAlertNudged, shouldSendAlertNudge } = require('../../lib/util/globalAlerts');
 
 class UserEvent extends Listener {
@@ -12,15 +13,20 @@ class UserEvent extends Listener {
 	 * @param {import('@sapphire/framework').ChatInputCommandSuccessPayload} payload
 	 */
 	async run(payload) {
+		const commandPath = commandPathFromInteraction(payload.interaction);
+		const category = commandCategory(payload.command, commandPath);
+		const developerCommand = isDeveloperCommand(payload.command);
 		await recordCommandRun({
 			client: this.container.client,
 			user: payload.interaction.user,
 			guild: payload.interaction.guild,
-			commandName: payload.interaction.commandName,
+			commandName: commandPath,
+			commandCategory: category,
+			meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
 			type: 'slash'
 		});
 
-		if (isDeveloperCommand(payload.command)) return;
+		if (developerCommand) return;
 
 		const guild = payload.interaction.guild;
 		const channel = payload.interaction.channel.name;

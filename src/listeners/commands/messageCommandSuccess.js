@@ -4,6 +4,7 @@ const { Message, EmbedBuilder } = require('discord.js');
 const { channels } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { recordCommandRun } = require('../../lib/util/botAnalytics');
+const { commandCategory, isMeaningfulCommand, normalizeCommandPath } = require('../../lib/analytics/growth');
 
 class UserEvent extends Listener {
 	/**
@@ -11,15 +12,20 @@ class UserEvent extends Listener {
 	 * @param {{message: Message, command: Command}} param0
 	 */
 	async run({ message, command }) {
+		const commandPath = normalizeCommandPath(command?.name);
+		const category = commandCategory(command, commandPath);
+		const developerCommand = isDeveloperCommand(command);
 		await recordCommandRun({
 			client: this.container.client,
 			user: message.author,
 			guild: message.guild,
-			commandName: command?.name,
+			commandName: commandPath,
+			commandCategory: category,
+			meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
 			type: 'message'
 		});
 
-		if (isDeveloperCommand(command)) return;
+		if (developerCommand) return;
 
 		const shard = this.shard(message.guild?.shardId ?? 0);
 		const commandName = this.command(command);

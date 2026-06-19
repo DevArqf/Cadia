@@ -9,6 +9,7 @@ const analyticsViews = [
 	{ name: 'Overview', value: 'overview' },
 	{ name: 'Daily Activity', value: 'daily' },
 	{ name: 'Growth', value: 'growth' },
+	{ name: 'Growth Funnel', value: 'funnel' },
 	{ name: 'Commands', value: 'commands' },
 	{ name: 'Guilds', value: 'guilds' },
 	{ name: 'Users', value: 'users' }
@@ -69,6 +70,7 @@ function buildSections(analytics, view) {
 		overview: overviewSections,
 		daily: dailySections,
 		growth: growthSections,
+		funnel: funnelSections,
 		commands: commandSections,
 		guilds: guildSections,
 		users: userSections
@@ -89,6 +91,8 @@ function overviewSections(analytics) {
 		].join('\n'),
 		[
 			`${emojis.custom.slash} **Commands Ran:** ${formatNumber(analytics.totals.commandRuns)}`,
+			`${emojis.custom.community} **Weekly Active Guilds:** ${formatNumber(analytics.growth.weeklyActiveGuilds)}`,
+			`${emojis.custom.success} **Meaningful Runs:** ${formatNumber(analytics.totals.meaningfulCommandRuns)}`,
 			`${emojis.custom.person} **Unique Command Users:** ${formatNumber(analytics.totals.uniqueCommandUsers)}`,
 			`${emojis.custom.success} **Slash Commands:** ${formatNumber(analytics.totals.slashCommandRuns)}`,
 			`${emojis.custom.pencil} **Message Commands:** ${formatNumber(analytics.totals.messageCommandRuns)}`,
@@ -108,7 +112,16 @@ function dailySections(analytics) {
 }
 
 function growthSections(analytics) {
+	const growth = analytics.growth;
 	return [
+		[
+			`${emojis.custom.community} **Weekly Active Guilds:** ${formatNumber(growth.weeklyActiveGuilds)}`,
+			`${emojis.custom.success} **Activation Rate:** ${formatRatio(growth.activationRate)}`,
+			`${emojis.custom.clock} **Median Time to First Meaningful Command:** ${formatMetricDuration(growth.medianTimeToFirstCommandMs)}`,
+			`${emojis.custom.update} **7-Day Retention:** ${formatRetention(growth.retention7)}`,
+			`${emojis.custom.calendar} **30-Day Retention:** ${formatRetention(growth.retention30)}`,
+			`${emojis.custom.trash} **Removal Rate:** ${formatRatio(growth.removalRate)}`
+		].join('\n'),
 		[
 			`${emojis.custom.person} **New Users Tracked:** ${formatNumber(analytics.totals.newUsers)}`,
 			`${emojis.custom.success} **Member Joins:** ${formatNumber(analytics.totals.memberJoins)}`,
@@ -117,14 +130,36 @@ function growthSections(analytics) {
 			`${emojis.custom.trash} **Guild Leaves:** ${formatNumber(analytics.totals.guildLeaves)}`,
 			`${emojis.custom.settings} **Net Guild Growth:** ${formatSigned(analytics.totals.guildJoins - analytics.totals.guildLeaves)}`
 		].join('\n'),
-		`${emojis.custom.calendar} **Daily Growth**\n${formatDailyRows(analytics.daily, (day) => `${day.day}: +${formatNumber(day.newUsers)} users, +${formatNumber(day.guildJoins)} guilds, -${formatNumber(day.guildLeaves)} guilds`)}`,
-		snapshotSection(analytics)
+		`${emojis.custom.calendar} **Daily Growth**\n${formatDailyRows(analytics.daily, (day) => `${day.day}: +${formatNumber(day.guildJoins)} guilds, -${formatNumber(day.guildLeaves)} guilds, ${formatNumber(day.meaningfulCommandRuns)} meaningful run(s)`)}`,
+		baselineSection(growth)
+	];
+}
+
+function funnelSections(analytics) {
+	const growth = analytics.growth;
+	return [
+		[
+			`${emojis.custom.openfolder} **Joined:** ${formatNumber(growth.joinedGuilds)}`,
+			`${emojis.custom.mail} **Onboarding Delivered:** ${formatNumber(growth.onboardingDelivered)} (${formatRatio(growth.onboardingDeliveryRate)})`,
+			`${emojis.custom.slash} **First Meaningful Command:** ${formatNumber(growth.firstMeaningfulGuilds)} (${formatRatio(growth.firstMeaningfulRate)})`,
+			`${emojis.custom.success} **Activated (2 distinct commands):** ${formatNumber(growth.activatedGuilds)} (${formatRatio(growth.activationRate)})`,
+			`${emojis.custom.update} **Retained at 7 Days:** ${formatRetention(growth.retention7)}`,
+			`${emojis.custom.calendar} **Retained at 30 Days:** ${formatRetention(growth.retention30)}`
+		].join('\n'),
+		`${emojis.custom.settings} **Experiment Variants**\n${growth.variants
+			.map(
+				(variant) =>
+					`${variant.variant}: ${formatNumber(variant.joined)} joined, ${formatRatio(variant.activationRate)} activated, ${formatRatio(variant.removalRate)} removed`
+			)
+			.join('\n')}`,
+		baselineSection(growth)
 	];
 }
 
 function commandSections(analytics) {
 	return [
 		`${emojis.custom.slash} **Top Commands**\n${formatTopList(analytics.topCommands, (entry) => `/${entry.key} - ${formatNumber(entry.count)} run(s)`)}`,
+		`${emojis.custom.openfolder} **Meaningful Activity by Category**\n${formatCountMap(analytics.totals.commandCategories)}`,
 		[
 			`${emojis.custom.success} **Successful Runs:** ${formatNumber(analytics.totals.commandRuns)}`,
 			`${emojis.custom.fail} **Errors:** ${formatNumber(analytics.totals.commandErrors)}`,
@@ -162,6 +197,16 @@ function snapshotSection(analytics) {
 		`Commands/day **${formatNumber(average(analytics.totals.commandRuns, analytics.days), 1)}**`,
 		`New users/day **${formatNumber(average(analytics.totals.newUsers, analytics.days), 1)}**`,
 		`Member joins/day **${formatNumber(average(analytics.totals.memberJoins, analytics.days), 1)}**`
+	].join('\n');
+}
+
+function baselineSection(growth) {
+	return [
+		`${emojis.custom.info} **Growth Baseline**`,
+		`Instrumented days: **${formatNumber(growth.instrumentedDays)}/14**`,
+		growth.baselineReady
+			? `${emojis.custom.success} The initial baseline window is complete.`
+			: `${emojis.custom.warning} Targets remain intentionally unset until 14 instrumented days are collected.`
 	].join('\n');
 }
 
@@ -203,6 +248,28 @@ function formatSigned(value) {
 function formatPercent(part, total) {
 	if (!total) return '0%';
 	return `${formatNumber((part / total) * 100, 1)}%`;
+}
+
+function formatRatio(value) {
+	return `${formatNumber((value || 0) * 100, 1)}%`;
+}
+
+function formatRetention(retention) {
+	return `${formatRatio(retention.rate)} (${formatNumber(retention.retained)}/${formatNumber(retention.eligible)} eligible)`;
+}
+
+function formatMetricDuration(ms) {
+	if (ms === null || ms === undefined) return 'No data';
+	if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))}s`;
+	if (ms < 3_600_000) return `${formatNumber(ms / 60_000, 1)}m`;
+	if (ms < 86_400_000) return `${formatNumber(ms / 3_600_000, 1)}h`;
+	return `${formatNumber(ms / 86_400_000, 1)}d`;
+}
+
+function formatCountMap(counts = {}) {
+	const entries = Object.entries(counts).sort(([, left], [, right]) => right - left);
+	if (!entries.length) return 'No meaningful activity has been tracked yet.';
+	return entries.map(([category, count]) => `${category}: ${formatNumber(count)}`).join('\n');
 }
 
 function formatTimestamp(value) {

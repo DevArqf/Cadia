@@ -7,6 +7,7 @@ const BotAnalyticsDailySchema = createModel('BotAnalyticsDailySchema', {
 	messageCommandRuns: 0,
 	commandErrors: 0,
 	commandDenied: 0,
+	meaningfulCommandRuns: 0,
 	newUsers: 0,
 	memberJoins: 0,
 	memberLeaves: 0,
@@ -15,6 +16,14 @@ const BotAnalyticsDailySchema = createModel('BotAnalyticsDailySchema', {
 	uniqueCommandUsers: () => ({}),
 	commands: () => ({}),
 	guilds: () => ({}),
+	meaningfulGuilds: () => ({}),
+	commandCategories: () => ({}),
+	commandErrorsByName: () => ({}),
+	commandDeniedByName: () => ({}),
+	onboardingDelivered: 0,
+	onboardingFailed: 0,
+	onboardingVariants: () => ({}),
+	growthInstrumentedAt: null,
 	createdAt: () => Date.now(),
 	updatedAt: () => Date.now()
 });

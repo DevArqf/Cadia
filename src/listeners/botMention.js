@@ -4,31 +4,12 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	EmbedBuilder,
-	MessageFlags,
-	OAuth2Scopes,
-	PermissionFlagsBits
+	MessageFlags
 } = require('discord.js');
 const { branding } = require('../config/branding');
 const { color } = require('../config/colors');
 const { emojis } = require('../config/emojis');
-
-const INVITE_PERMISSIONS = [
-	PermissionFlagsBits.ViewChannel,
-	PermissionFlagsBits.SendMessages,
-	PermissionFlagsBits.EmbedLinks,
-	PermissionFlagsBits.AttachFiles,
-	PermissionFlagsBits.ReadMessageHistory,
-	PermissionFlagsBits.AddReactions,
-	PermissionFlagsBits.UseExternalEmojis,
-	PermissionFlagsBits.ManageMessages,
-	PermissionFlagsBits.KickMembers,
-	PermissionFlagsBits.BanMembers,
-	PermissionFlagsBits.ModerateMembers,
-	PermissionFlagsBits.ManageNicknames,
-	PermissionFlagsBits.ManageChannels,
-	PermissionFlagsBits.ManageRoles,
-	PermissionFlagsBits.ManageGuildExpressions
-];
+const { createInviteUrl, invitePermissions } = require('../config/invite');
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -47,10 +28,7 @@ class UserEvent extends Listener {
 		await message.client.guilds.fetch();
 		const members = message.client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
 		const servers = message.client.guilds.cache.size;
-		const inviteUrl = message.client.generateInvite({
-			scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
-			permissions: INVITE_PERMISSIONS
-		});
+		const inviteUrl = createInviteUrl(message.client);
 
 		const embed = new EmbedBuilder()
 			.setColor(color.default)
@@ -111,7 +89,7 @@ function isMentionDeleteInteraction(interaction, replyId, authorId) {
 }
 
 module.exports = {
-	INVITE_PERMISSIONS,
+	INVITE_PERMISSIONS: invitePermissions,
 	UserEvent,
 	isMentionDeleteInteraction
 };
