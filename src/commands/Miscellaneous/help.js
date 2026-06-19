@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');
+const { createInviteUrl } = require('../../config/invite');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -70,7 +71,7 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		try {
 			const catalog = getCommandCatalog();
-			const selectedCategory = catalog[0]?.id ?? 'overview';
+			const selectedCategory = catalog.find((category) => category.id === 'rpg')?.id ?? catalog[0]?.id ?? 'overview';
 			const componentId = `help:${interaction.id}:category`;
 
 			const message = await interaction.reply({
@@ -104,10 +105,9 @@ class UserCommand extends CadiaCommand {
 			});
 
 			collector.on('end', async () => {
-				const currentCategory = catalog[0]?.id ?? 'overview';
 				await interaction
 					.editReply({
-						components: buildHelpComponents(interaction, catalog, currentCategory, componentId, true),
+						components: buildHelpComponents(interaction, catalog, selectedCategory, componentId, true),
 						flags: MessageFlags.IsComponentsV2
 					})
 					.catch(() => null);
@@ -124,9 +124,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 	const totalCommands = catalog.reduce((total, category) => total + category.commands.length, 0);
 	const visibleCommands = selectedCategory?.commands.slice(0, 18) ?? [];
 	const hiddenCount = Math.max((selectedCategory?.commands.length ?? 0) - visibleCommands.length, 0);
-	const inviteUrl = interaction.client.generateInvite({
-		scopes: ['bot', 'applications.commands']
-	});
+	const inviteUrl = createInviteUrl(interaction.client);
 
 	const container = new ContainerBuilder()
 		.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
@@ -135,7 +133,8 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 				.addTextDisplayComponents(
 					new TextDisplayBuilder().setContent(
 						`${emojis.custom.openfolder} **Cadia Command Center**\n` +
-							`Browse **${totalCommands} commands** across **${catalog.length} categories**. Use the menu below to jump between command groups.`
+							`${emojis.custom.rpguser} Begin with \`/rpg tutorial\`, \`/rpg create\`, and \`/rpg adventure\`.\n` +
+							`Browse **${totalCommands} commands** across the RPG and **Community Tools** categories below.`
 					)
 				)
 				.setThumbnailAccessory(new ThumbnailBuilder().setURL(interaction.client.user.displayAvatarURL({ extension: 'png', size: 128 })))
@@ -210,9 +209,9 @@ function getCommandCatalog() {
 		.sort((a, b) => a.name.localeCompare(b.name));
 
 	if (fs.existsSync(path.join(commandsRoot, 'Systems', 'RPG System', 'rpg.js'))) {
-		categories.push({
+		categories.unshift({
 			id: 'rpg',
-			name: 'RPG',
+			name: 'RPG - Start Here',
 			commands: rpgCommandNames
 		});
 	}
@@ -246,7 +245,7 @@ function getCategoryIcon(name = '') {
 		Information: emojis.custom.info,
 		Miscellaneous: emojis.custom.compass,
 		Moderation: emojis.custom.ban,
-		RPG: emojis.custom.rpguser,
+		'RPG - Start Here': emojis.custom.rpguser,
 		Systems: emojis.custom.settings,
 		Utility: emojis.custom.gem
 	};
@@ -262,7 +261,7 @@ function getCategoryEmojiName(name = '') {
 		Information: emojis.custom.info,
 		Miscellaneous: emojis.custom.compass,
 		Moderation: emojis.custom.ban,
-		RPG: emojis.custom.rpguser,
+		'RPG - Start Here': emojis.custom.rpguser,
 		Systems: emojis.custom.settings,
 		Utility: emojis.custom.gem
 	};

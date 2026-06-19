@@ -15,6 +15,8 @@ const {
 	version
 } = require('discord.js');
 const { isMysqlConnected } = require('../../lib/database/mysql');
+const { branding } = require('../../config/branding');
+const { createInviteUrl } = require('../../config/invite');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -51,9 +53,7 @@ class UserCommand extends CadiaCommand {
 		const commandCount = this.container.stores.get('commands').size;
 		const uptime = formatUptime(interaction.client.uptime);
 		const system = os.type().replace('Windows_NT', 'Windows').replace('Darwin', 'macOS');
-		const inviteUrl = interaction.client.generateInvite({
-			scopes: ['bot', 'applications.commands']
-		});
+		const inviteUrl = createInviteUrl(interaction.client);
 
 		const container = new ContainerBuilder()
 			.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
@@ -61,7 +61,8 @@ class UserCommand extends CadiaCommand {
 				new SectionBuilder()
 					.addTextDisplayComponents(
 						new TextDisplayBuilder().setContent(
-							`## ${emojis.custom.info} Cadia Overview\n` + `A compact snapshot of Cadia's runtime, platform, and community reach.`
+							`## ${emojis.custom.rpguser} Cadia RPG\n` +
+								`${branding.tagline}. Begin with \`/rpg tutorial\`; moderation and utilities support the communities playing it.`
 						)
 					)
 					.setThumbnailAccessory(new ThumbnailBuilder().setURL(interaction.client.user.displayAvatarURL({ extension: 'png', size: 128 })))

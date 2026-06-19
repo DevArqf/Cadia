@@ -68,14 +68,14 @@ async function deliverOnboarding(guild, variant) {
 }
 
 function buildOnboardingEmbed(guild, variant) {
-	const guided =
-		`${emojis.custom.heart1} **Thanks for adding ${branding.name}!**\n\n` +
-		`${emojis.custom.settings} **Start with server setup**\n` +
-		`${emojis.custom.arrowright} Run \`/help\` to browse commands.\n` +
-		`${emojis.custom.arrowright} Try \`/logging\`, \`/welcome\`, or \`/ticket\` to configure your community.\n` +
-		`${emojis.custom.arrowright} Test moderation with \`/mute\` or \`/kick\` on a lower-role test account.\n\n` +
-		`${emojis.custom.rpguser} **Optional RPG path**\n` +
-		`${emojis.custom.arrowright} Run \`/rpg tutorial\`, then \`/rpg create\` when you want to play.\n\n` +
+	const rpgFirst =
+		`${emojis.custom.rpguser} **Your server has entered the world of ${branding.name}.**\n\n` +
+		`${emojis.custom.rpgInfo} **Begin the RPG**\n` +
+		`${emojis.custom.arrowright} Run \`/rpg tutorial\` for the one-minute introduction.\n` +
+		`${emojis.custom.arrowright} Create your Warden with \`/rpg create\`.\n` +
+		`${emojis.custom.arrowright} Enter your first encounter with \`/rpg adventure\`.\n\n` +
+		`${emojis.custom.settings} **Community Tools**\n` +
+		`${emojis.custom.arrowright} Moderation, logging, welcome messages, tickets, utilities, and games remain available through \`/help\`.\n\n` +
 		`${emojis.custom.warning} Keep ${branding.name}'s role above roles it needs to moderate.`;
 	const control =
 		`${emojis.custom.heart1} **Thank you for adding ${branding.name} to ${guild.name}!**\n` +
@@ -84,7 +84,7 @@ function buildOnboardingEmbed(guild, variant) {
 
 	return new EmbedBuilder()
 		.setColor(color.default)
-		.setDescription(variant === 'guided' ? guided : control)
+		.setDescription(variant === 'rpg-first' || variant === 'guided' ? rpgFirst : control)
 		.setThumbnail(guild.client.user.displayAvatarURL({ extension: 'png', size: 256 }))
 		.setFooter({ text: `Onboarding: ${variant}` })
 		.setTimestamp();

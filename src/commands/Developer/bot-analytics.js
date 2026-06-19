@@ -4,12 +4,14 @@ const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
 const { componentReply, panel } = require('../../lib/util/components');
 const { getBotAnalytics } = require('../../lib/util/botAnalytics');
+const { getRpgGrowthAnalytics } = require('../../lib/rpg/growth');
 
 const analyticsViews = [
 	{ name: 'Overview', value: 'overview' },
 	{ name: 'Daily Activity', value: 'daily' },
 	{ name: 'Growth', value: 'growth' },
 	{ name: 'Growth Funnel', value: 'funnel' },
+	{ name: 'RPG Funnel', value: 'rpg-funnel' },
 	{ name: 'Commands', value: 'commands' },
 	{ name: 'Guilds', value: 'guilds' },
 	{ name: 'Users', value: 'users' }
@@ -47,7 +49,11 @@ class UserCommand extends CadiaCommand {
 
 		const view = interaction.options.getString('view') || 'overview';
 		const days = interaction.options.getInteger('days') || 14;
-		const analytics = await getBotAnalytics(interaction.client, days);
+		const [analytics, rpgGrowth] = await Promise.all([
+			getBotAnalytics(interaction.client, days),
+			getRpgGrowthAnalytics(days)
+		]);
+		analytics.rpgGrowth = rpgGrowth;
 
 		return interaction.editReply(componentReply(buildAnalyticsPanel(analytics, view), true));
 	}
@@ -71,6 +77,7 @@ function buildSections(analytics, view) {
 		daily: dailySections,
 		growth: growthSections,
 		funnel: funnelSections,
+		'rpg-funnel': rpgFunnelSections,
 		commands: commandSections,
 		guilds: guildSections,
 		users: userSections
@@ -91,7 +98,7 @@ function overviewSections(analytics) {
 		].join('\n'),
 		[
 			`${emojis.custom.slash} **Commands Ran:** ${formatNumber(analytics.totals.commandRuns)}`,
-			`${emojis.custom.community} **Weekly Active Guilds:** ${formatNumber(analytics.growth.weeklyActiveGuilds)}`,
+			`${emojis.custom.rpguser} **Weekly RPG-Active Guilds:** ${formatNumber(analytics.rpgGrowth.weeklyActiveGuilds)}`,
 			`${emojis.custom.success} **Meaningful Runs:** ${formatNumber(analytics.totals.meaningfulCommandRuns)}`,
 			`${emojis.custom.person} **Unique Command Users:** ${formatNumber(analytics.totals.uniqueCommandUsers)}`,
 			`${emojis.custom.success} **Slash Commands:** ${formatNumber(analytics.totals.slashCommandRuns)}`,
@@ -154,6 +161,51 @@ function funnelSections(analytics) {
 			.join('\n')}`,
 		baselineSection(growth)
 	];
+}
+
+function rpgFunnelSections(analytics) {
+	const rpg = analytics.rpgGrowth;
+	const stageRows = rpg.stages.map((stage, index) => {
+		const previous = rpg.stages[index - 1];
+		const conversion = previous ? formatRatio(previous.count ? stage.count / previous.count : 0) : '100.0%';
+		return `${emojis.custom.arrowright} **${stage.label}:** ${formatNumber(stage.count)}${previous ? ` (${conversion} from previous)` : ''}`;
+	});
+	const loss = rpg.largestLoss;
+
+	return [
+		[
+			`${emojis.custom.rpguser} **Weekly RPG-Active Guilds:** ${formatNumber(rpg.weeklyActiveGuilds)}`,
+			`${emojis.custom.person} **Active RPG Users (7d):** ${formatNumber(rpg.activeUsers7d)}`,
+			`${emojis.custom.success} **Tutorial Completed Users:** ${formatNumber(rpg.users.tutorialCompleted)}`,
+			`${emojis.custom.warning} **Tutorial Skipped Users:** ${formatNumber(rpg.users.tutorialSkipped)}`
+		].join('\n'),
+		`${emojis.custom.compass} **RPG Activation Funnel**\n${stageRows.join('\n')}`,
+		`${emojis.custom.settings} **Onboarding Experiment**\n${rpg.variants
+			.map(
+				(variant) =>
+					`${variant.variant}: ${formatNumber(variant.joined)} joined, ${formatRatio(variant.characterRate)} created a character, ${formatRatio(variant.adventureRate)} began an adventure, ${formatRatio(variant.removalRate)} removed`
+			)
+			.join('\n')}`,
+		loss
+			? `${emojis.custom.warning} **Largest Measured Loss:** ${labelRpgStage(loss.from)} → ${labelRpgStage(loss.to)} (${formatRatio(loss.rate)}, ${formatNumber(loss.loss)} guilds)\n` +
+				(rpg.decisionReady
+					? `${emojis.custom.success} Decision gate met after ${formatNumber(rpg.experimentDays)} days and at least 30 guilds per variant.`
+					: `${emojis.custom.forbidden} Content and balance changes remain blocked: ${formatNumber(rpg.experimentDays)}/28 days and ${rpg.variants.map((variant) => `${variant.variant} ${formatNumber(variant.joined)}/30`).join(', ')}.`)
+			: `${emojis.custom.info} No RPG funnel loss can be identified yet. Keep collecting data before changing RPG content.`
+	];
+}
+
+function labelRpgStage(key) {
+	const labels = {
+		joined: 'Guild Joined',
+		tutorialStarted: 'Tutorial Started',
+		characterCreated: 'Character Created',
+		firstAdventure: 'First Adventure',
+		firstVictory: 'First Victory',
+		secondActiveDay: 'Second Active Day',
+		retained7: 'Seven-Day Return'
+	};
+	return labels[key] || key;
 }
 
 function commandSections(analytics) {

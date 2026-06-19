@@ -33,7 +33,9 @@ class UserEvent extends Listener {
 		const embed = new EmbedBuilder()
 			.setColor(color.default)
 			.setDescription(
-				`Hey there **${message.author.username}**! Here is some information on how to use me.\n\n${emojis.custom.info} Use </help:${branding.helpCommandId}> to view my commands.`
+				`${emojis.custom.rpguser} Hey **${message.author.username}**! ${branding.name} is a story-driven Discord RPG.\n\n` +
+					`${emojis.custom.arrowright} Start with \`/rpg tutorial\`, create a Warden with \`/rpg create\`, then begin with \`/rpg adventure\`.\n` +
+					`${emojis.custom.settings} Moderation and utility features are available under **Community Tools** in </help:${branding.helpCommandId}>.`
 			)
 			.addFields(
 				{ name: `${emojis.custom.slash} Commands`, value: `${emojis.custom.arrowright} **${commands}**`, inline: true },

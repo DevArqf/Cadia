@@ -121,10 +121,10 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		const totalMembers = client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
 		const totalCommands = this.container.stores.get('commands').size;
 		const activities = [
-			{ type: ActivityType.Listening, name: `${totalServers} Guilds` },
-			{ type: ActivityType.Listening, name: '/help' },
-			{ type: ActivityType.Playing, name: `with ${totalCommands} Commands` },
-			{ type: ActivityType.Listening, name: `${totalMembers} Users` }
+			{ type: ActivityType.Playing, name: '/rpg tutorial' },
+			{ type: ActivityType.Playing, name: 'Cadia RPG' },
+			{ type: ActivityType.Watching, name: `${totalMembers} Wardens` },
+			{ type: ActivityType.Listening, name: `${totalServers} RPG communities` }
 		];
 		let activityIndex = 0;
 

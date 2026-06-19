@@ -1,70 +1,80 @@
-# Cadia Growth Roadmap
+# Cadia RPG Growth Roadmap
 
-## Growth Foundation
+## Product purpose
 
-Primary target: increase active servers.
+Cadia is a story-driven Discord RPG. Moderation, logging, welcome messages, tickets, games, and utilities are supporting Community Tools rather than competing product identities.
 
-North-star metric: weekly active guilds that complete at least one meaningful command during the trailing seven days.
+Primary growth target: increase guilds that actively play the RPG.
 
-Supporting metrics:
+North-star metric: weekly RPG-active guilds, defined as guilds with at least one non-admin RPG activity during the trailing seven days.
 
-- Guild activation rate.
-- Median time from installation to first meaningful command.
-- Seven-day and thirty-day guild retention.
-- Guild removal rate.
-- Unique command users.
-- Meaningful command runs by category, including RPG adoption.
+## RPG activation funnel
 
-## Definitions
-
-A meaningful command is a successful, non-developer command other than `/help`, `/ping`, or `/invite`.
-
-A guild is activated after completing two distinct meaningful command paths. Subcommands are distinct paths, so `/rpg tutorial` and `/rpg create` satisfy activation together while two runs of `/rpg tutorial` do not.
-
-Denied commands and command errors are reliability signals, not successful activity. Member joins do not create tracked command users.
-
-Test and development guilds must be listed in `GROWTH_EXCLUDED_GUILDS`.
-
-Retention cohorts begin only after this instrumentation records a guild installation. Historical guild records are intentionally excluded because their prior activity days cannot be reconstructed reliably.
-
-## Funnel
-
-The developer `/bot-analytics view:funnel` report measures:
+The developer `/bot-analytics view:rpg-funnel` report measures:
 
 1. Guild joined.
-2. Onboarding delivered to the owner or an eligible channel.
-3. First meaningful command.
-4. Activation through two distinct meaningful commands.
-5. Meaningful activity at or after seven days.
-6. Meaningful activity at or after thirty days.
+2. RPG tutorial started.
+3. Character created.
+4. First adventure started.
+5. First victory completed.
+6. Second RPG-active day reached.
+7. RPG activity at least seven days after first engagement.
 
-The first fourteen instrumented calendar days are the baseline window. Numerical 30-, 60-, and 90-day targets must not be assigned until that window is complete.
+Supporting measurements include tutorial offers, completions and skips, active RPG users, character conversion, first-adventure conversion, onboarding delivery, and guild removal rate.
+
+RPG admin commands are excluded from engagement. Test and development guilds must be listed in `GROWTH_EXCLUDED_GUILDS`.
+
+## Product positioning
+
+Public onboarding, `/help`, bot mentions, `/bot-info`, README content, and presence rotation lead with:
+
+1. `/rpg tutorial`
+2. `/rpg create`
+3. `/rpg adventure`
+
+Community Tools remain discoverable in `/help`, but are described as supporting the communities playing Cadia RPG.
 
 ## Onboarding experiment
 
-The control message introduces `/help` and support. The guided message leads with general server setup and moderation, then presents RPG as an optional path.
+The control message is the previous generic onboarding. The `rpg-first` variant introduces the RPG loop and keeps Community Tools secondary.
 
 Configuration:
 
-- `GROWTH_ONBOARDING_EXPERIMENT=control`: collect the baseline.
-- `GROWTH_ONBOARDING_EXPERIMENT=guided`: deliver only the guided variant.
-- `GROWTH_ONBOARDING_EXPERIMENT=split`: assign guilds deterministically 50/50.
+- `GROWTH_ONBOARDING_EXPERIMENT=control`: generic baseline.
+- `GROWTH_ONBOARDING_EXPERIMENT=rpg-first`: RPG-first onboarding.
+- `GROWTH_ONBOARDING_EXPERIMENT=split`: deterministic 50/50 assignment.
 
-Start the split experiment only after the fourteen-day baseline. Evaluate after at least 30 joined guilds per variant or 28 days, whichever takes longer.
+Experiment success requires:
 
-Success requires:
+- Higher character-creation conversion.
+- Higher first-adventure conversion.
+- Onboarding delivery at or above 95%.
+- Seven-day guild removal no more than two percentage points above control.
 
-- Guided activation rate improves by at least 10% relative to control.
-- Guided seven-day removal rate is no more than 2 percentage points above control.
-- Onboarding delivery remains at or above 95%.
+Rollback to `control` if onboarding delivery drops below 95% or RPG-first removal exceeds control by five percentage points after both variants have eligible cohorts.
 
-Rollback to `control` if onboarding delivery drops below 95%, delivery errors materially increase, or the guided removal rate exceeds control by 5 percentage points after both variants have eligible seven-day cohorts.
+## Content decision gate
 
-## Next milestone
+Do not redesign RPG encounters, classes, progression, rewards, economy, bosses, quests, or story content until the funnel identifies the largest production loss with an adequate sample.
 
-After the baseline and onboarding experiment, select the next roadmap milestone from the largest measured funnel loss:
+Use the measured loss to select work:
 
-- Poor onboarding delivery: improve destination selection and owner messaging.
-- Poor first-command conversion: improve setup calls to action.
-- Poor activation: add task-oriented setup guidance.
-- Poor retention: improve recurring value in the highest-adoption command category.
+- Joined → tutorial: improve RPG positioning and call to action.
+- Tutorial → character: simplify character-entry guidance, not character mechanics.
+- Character → adventure: improve the post-creation next step.
+- Adventure → victory: investigate usability and difficulty separately before changing balance.
+- Victory → second day: improve return prompts and recurring goals.
+- Second day → seven-day return: improve long-term objectives only after confirming the retention loss.
+
+An adequate experiment sample is at least 30 joined guilds per onboarding variant or 28 elapsed days, whichever takes longer.
+
+## Completed milestones
+
+- RPG-first guild onboarding.
+- RPG-first help, mention, bot information, README, and presence positioning.
+- Tutorial offered, started, completed, and skipped tracking.
+- Character creation, first adventure, first victory, second active day, and seven-day return tracking.
+- RPG admin exclusion from engagement.
+- RPG funnel and onboarding variant reporting.
+- Community Tools retained as supporting functionality.
+- Explicit content-change gate based on measured funnel loss.

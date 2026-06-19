@@ -46,10 +46,10 @@ function isExcludedGuild(guildId, value) {
 	return Boolean(guildId && excludedGuildIds(value).has(guildId));
 }
 
-function selectOnboardingVariant(guildId, mode = process.env.GROWTH_ONBOARDING_EXPERIMENT || 'control') {
-	if (mode === 'guided') return 'guided';
+function selectOnboardingVariant(guildId, mode = process.env.GROWTH_ONBOARDING_EXPERIMENT || 'rpg-first') {
+	if (mode === 'guided' || mode === 'rpg-first') return 'rpg-first';
 	if (mode !== 'split') return 'control';
-	return stableBucket(guildId) % 2 === 0 ? 'control' : 'guided';
+	return stableBucket(guildId) % 2 === 0 ? 'control' : 'rpg-first';
 }
 
 function calculateGrowthMetrics({ dailyRows = [], guildRows = [], now = Date.now(), days = 14, excludedIds = new Set() }) {
@@ -108,8 +108,8 @@ function retentionRate(guildRows, days, now) {
 }
 
 function variantMetrics(cohort) {
-	return ['control', 'guided'].map((variant) => {
-		const rows = cohort.filter((guild) => (guild.onboardingVariant || 'control') === variant);
+	return ['control', 'rpg-first'].map((variant) => {
+		const rows = cohort.filter((guild) => normalizeOnboardingVariant(guild.onboardingVariant) === variant);
 		const activated = rows.filter((guild) => guild.activatedAt).length;
 		const removed = rows.filter((guild) => guild.leftAt && guild.leftAt >= cohortJoinTime(guild)).length;
 		return {
@@ -121,6 +121,10 @@ function variantMetrics(cohort) {
 			removalRate: ratio(removed, rows.length)
 		};
 	});
+}
+
+function normalizeOnboardingVariant(variant) {
+	return variant === 'guided' ? 'rpg-first' : variant || 'control';
 }
 
 function markRetention(guildDocument, now) {

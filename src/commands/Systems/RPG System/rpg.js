@@ -298,6 +298,7 @@ async function offerTutorial(interaction) {
 }
 
 async function runTutorial(interaction, fromComponent = false) {
+	await rpg.markTutorialStarted(interaction.guild.id, interaction.user.id);
 	const customIdBase = `rpg-tutorial:${interaction.id}`;
 	let page = 0;
 	const reply = {

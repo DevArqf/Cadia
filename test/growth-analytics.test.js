@@ -89,21 +89,22 @@ test('cohort boundaries, activation, and retention use only instrumented joins',
 
 test('onboarding experiment assignment is stable and invite permissions exclude Administrator', () => {
 	assert.equal(selectOnboardingVariant('123', 'split'), selectOnboardingVariant('123', 'split'));
-	assert.ok(['control', 'guided'].includes(selectOnboardingVariant('123', 'split')));
+	assert.ok(['control', 'rpg-first'].includes(selectOnboardingVariant('123', 'split')));
 	assert.equal(invitePermissions.includes(PermissionFlagsBits.Administrator), false);
 });
 
-test('guided onboarding emphasizes setup and keeps RPG optional', () => {
+test('RPG-first onboarding leads with the tutorial and keeps community tools secondary', () => {
 	const embed = buildOnboardingEmbed(
 		{
 			name: 'Test Guild',
 			client: { user: { displayAvatarURL: () => 'https://example.com/avatar.png' } }
 		},
-		'guided'
+		'rpg-first'
 	).toJSON();
 
-	assert.match(embed.description, /Start with server setup/);
-	assert.match(embed.description, /Optional RPG path/);
+	assert.match(embed.description, /Begin the RPG/);
+	assert.match(embed.description, /\/rpg tutorial/);
+	assert.match(embed.description, /Community Tools/);
 });
 
 test('onboarding channel selection prefers an eligible system channel', () => {

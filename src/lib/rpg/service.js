@@ -4,6 +4,7 @@ const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
 const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema');
 const { getMysqlError, isMysqlConnected } = require('../database/mysql');
 const { classes, encounters, items, npcQuests, questSteps, regions } = require('./data');
+const { recordRpgEvent } = require('./growth');
 
 const xpPerLevel = 100;
 const adminMaxRank = 100;
@@ -64,6 +65,10 @@ async function markTutorialOffered(guildId, userId) {
 	return updateTutorialState(guildId, userId, { offered: true });
 }
 
+async function markTutorialStarted(guildId, userId) {
+	return updateTutorialState(guildId, userId, { offered: true, started: true });
+}
+
 async function markTutorialSkipped(guildId, userId) {
 	return updateTutorialState(guildId, userId, { offered: true, skipped: true, completed: false });
 }
@@ -79,6 +84,10 @@ async function updateTutorialState(guildId, userId, patch) {
 	if (!state.guildId) state.guildId = guildId;
 	Object.assign(state, patch, { updatedAt: Date.now() });
 	await state.save();
+	if (patch.completed) await recordRpgEvent({ guildId, userId, event: 'tutorial_completed' });
+	else if (patch.skipped) await recordRpgEvent({ guildId, userId, event: 'tutorial_skipped' });
+	else if (patch.started) await recordRpgEvent({ guildId, userId, event: 'tutorial_started' });
+	else if (patch.offered) await recordRpgEvent({ guildId, userId, event: 'tutorial_offered' });
 	return state;
 }
 
@@ -113,6 +122,7 @@ async function createProfile(guildId, userId, name, classId, origin) {
 		inventory: [{ itemId: 'star_salve', quantity: 1 }],
 		equipment: { weapon: null, armor: null, charm: null }
 	});
+	await recordRpgEvent({ guildId, userId, event: 'character_created' });
 
 	return profile;
 }
@@ -382,6 +392,7 @@ async function startAdventure(guildId, userId) {
 	const regionEncounters = (encounters[profile.region] || encounters['broken-gate']).filter((encounter) => !encounter.boss);
 	const encounter = rollEncounter(regionEncounters);
 	await saveProfile(profile);
+	await recordRpgEvent({ guildId, userId, event: 'first_adventure' });
 	return { profile, encounter, region: regions[profile.region], recoveredHp };
 }
 
@@ -482,6 +493,7 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	}
 
 	await saveProfile(profile);
+	if (won) await recordRpgEvent({ guildId, userId, event: 'first_victory' });
 	return result;
 }
 
@@ -539,6 +551,7 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 		progressQuestKill(profile, encounter.id);
 		advanceQuest(profile, loot);
 		await saveProfile(profile);
+		await recordRpgEvent({ guildId, userId, event: 'first_victory' });
 		return { profile, encounter, won, crit, damage, enemyDamage: Math.floor(enemyDamage / 2), gold, xp: encounter.xp, loot };
 	}
 
@@ -1008,6 +1021,7 @@ module.exports = {
 	leaderboard,
 	markTutorialCompleted,
 	markTutorialOffered,
+	markTutorialStarted,
 	markTutorialSkipped,
 	questSteps,
 	regions,

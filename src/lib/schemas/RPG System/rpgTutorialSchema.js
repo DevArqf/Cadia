@@ -4,6 +4,7 @@ const RpgTutorialSchema = createModel('rpgTutorialSchema', {
 	guildId: null,
 	userId: null,
 	offered: false,
+	started: false,
 	skipped: false,
 	completed: false,
 	step: 0,

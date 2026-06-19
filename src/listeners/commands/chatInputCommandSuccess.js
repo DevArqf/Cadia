@@ -6,6 +6,7 @@ const { PermissionLevels } = require('../../lib/types/Enums');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
 const { recordCommandRun } = require('../../lib/util/botAnalytics');
 const { commandCategory, commandPathFromInteraction, isMeaningfulCommand } = require('../../lib/analytics/growth');
+const { recordRpgEvent } = require('../../lib/rpg/growth');
 const { buildAlertNudge, componentReply, getActiveAlert, markAlertNudged, shouldSendAlertNudge } = require('../../lib/util/globalAlerts');
 
 class UserEvent extends Listener {
@@ -25,6 +26,12 @@ class UserEvent extends Listener {
 			meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
 			type: 'slash'
 		});
+		if (category === 'rpg' && !commandPath.startsWith('rpg admin')) {
+			await recordRpgEvent({
+				guildId: payload.interaction.guild?.id,
+				userId: payload.interaction.user.id
+			});
+		}
 
 		if (developerCommand) return;
 
