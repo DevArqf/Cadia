@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { DAY_MS } = require('../src/lib/analytics/growth');
+const { getGrowthConfig, validateGrowthConfig } = require('../src/config/growth');
 
 test('RPG growth events mark second active day and seven-day return', async () => {
 	const firstDay = Date.parse('2026-06-01T12:00:00.000Z');
@@ -69,6 +70,80 @@ test('RPG funnel identifies the largest conversion loss and compares onboarding 
 		);
 		assert.equal(analytics.variants.find((variant) => variant.variant === 'rpg-first').adventureRate, 1);
 		assert.equal(analytics.decisionReady, false);
+		assert.equal(analytics.expectedDecisionAt, joinedAt + 28 * DAY_MS);
+	} finally {
+		loaded.restore();
+	}
+});
+
+test('growth configuration rejects invalid modes and malformed excluded guild IDs', () => {
+	const config = getGrowthConfig({
+		GROWTH_ONBOARDING_EXPERIMENT: 'unknown',
+		GROWTH_EXCLUDED_GUILDS: '123456789012345678,not-an-id'
+	});
+
+	assert.equal(config.experimentMode, 'rpg-first');
+	assert.deepEqual(config.excludedGuildIds, ['123456789012345678']);
+	assert.deepEqual(config.invalidGuildIds, ['not-an-id']);
+	assert.equal(config.warnings.length, 2);
+	assert.match(validateGrowthConfig({ databaseConnected: false, env: {} }).warnings.at(-1), /database is disconnected/i);
+});
+
+test('RPG export contains aggregate metrics without guild, user, or character identifiers', async () => {
+	const now = Date.parse('2026-06-20T12:00:00.000Z');
+	const joinedAt = now - DAY_MS;
+	const loaded = loadRpgGrowth({
+		records: [
+			{
+				guildId: '123456789012345678',
+				userId: '987654321098765432',
+				firstSeenAt: joinedAt,
+				lastActiveAt: now,
+				activeDays: { '2026-06-20': true },
+				characterCreatedAt: now
+			}
+		],
+		guildRows: [{ guildId: '123456789012345678', cohortTrackedAt: joinedAt, onboardingVariant: 'rpg-first' }]
+	});
+
+	try {
+		const analytics = await loaded.growth.getRpgGrowthAnalytics(14, now);
+		const exported = loaded.growth.buildRpgGrowthExport(analytics);
+		const serialized = JSON.stringify(exported);
+
+		assert.doesNotMatch(serialized, /123456789012345678/);
+		assert.doesNotMatch(serialized, /987654321098765432/);
+		assert.equal(exported.schemaVersion, 1);
+		assert.ok(Array.isArray(exported.daily));
+	} finally {
+		loaded.restore();
+	}
+});
+
+test('RPG data-quality diagnostics identify impossible lifecycle ordering', () => {
+	const loaded = loadRpgGrowth({ records: [], guildRows: [] });
+	try {
+		const diagnostics = loaded.growth.diagnoseRpgGrowthData({
+			records: [
+				{
+					guildId: 'guild',
+					firstSeenAt: 100,
+					firstAdventureAt: 200,
+					firstVictoryAt: 150,
+					secondActiveDayAt: 300,
+					activeDays: { '2026-01-01': true },
+					retained7At: 400
+				}
+			],
+			guildRows: [{ guildId: 'guild' }],
+			cohortRecords: [{}]
+		});
+
+		assert.equal(diagnostics.healthy, false);
+		assert.equal(diagnostics.issues.adventureBeforeCharacter, 1);
+		assert.equal(diagnostics.issues.victoryBeforeAdventure, 1);
+		assert.equal(diagnostics.issues.invalidSecondActiveDay, 1);
+		assert.equal(diagnostics.issues.earlyRetention, 1);
 	} finally {
 		loaded.restore();
 	}

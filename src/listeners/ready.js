@@ -8,6 +8,7 @@ const { ActivityType, Events } = require('discord.js');
 const { syncDiscordBotListCommands } = require('../lib/util/discordBotListCommands');
 const { startTopggStatsPoster, syncTopggCommands } = require('../lib/util/topgg');
 const { preloadRpgAssets } = require('../lib/rpg/preload');
+const { validateGrowthConfig } = require('../config/growth');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -24,6 +25,7 @@ class UserEvent extends Listener {
 		this.container.client = client;
 
 		const info = await this._connectDb();
+		this._reportGrowthConfiguration(info);
 
 		this._printBanner(info);
 		this._printStoreDebugInformation();
@@ -33,6 +35,14 @@ class UserEvent extends Listener {
 		await syncTopggCommands(client).catch((error) => client.logger.warn(error.message));
 		startTopggStatsPoster(client);
 		preloadRpgAssets(client).catch((error) => client.logger.warn(`RPG asset preload failed: ${error.message}`));
+	}
+
+	_reportGrowthConfiguration(dbInfo) {
+		const config = validateGrowthConfig({ databaseConnected: !dbInfo.error });
+		this.container.logger.info(
+			`RPG growth experiment: ${config.experimentMode}; excluded guilds: ${config.excludedGuildIds.length}`
+		);
+		for (const warning of config.warnings) this.container.logger.warn(`RPG growth configuration: ${warning}`);
 	}
 
 	/**

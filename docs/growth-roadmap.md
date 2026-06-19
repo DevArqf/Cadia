@@ -68,6 +68,31 @@ Use the measured loss to select work:
 
 An adequate experiment sample is at least 30 joined guilds per onboarding variant or 28 elapsed days, whichever takes longer.
 
+## Experiment operations
+
+Before launch:
+
+1. Set `GROWTH_EXCLUDED_GUILDS` to every development, staging, support, and test guild ID.
+2. Set `GROWTH_ONBOARDING_EXPERIMENT=split`.
+3. Confirm startup logs report the split mode, the expected exclusion count, and no malformed guild IDs.
+4. Confirm MySQL is connected; no RPG growth events are persisted without it.
+5. Smoke-test tutorial start, character creation, adventure start, and victory tracking in an excluded test guild.
+
+During the experiment:
+
+1. Review `/bot-analytics view:rpg-funnel days:90` daily for data-quality warnings and onboarding delivery.
+2. Export aggregate evidence with `/bot-analytics view:rpg-funnel days:90 export:true`.
+3. Keep the JSON exports in a private release/operations location. Exports contain aggregate data only and omit guild, user, and character IDs.
+4. Return to `control` if onboarding delivery falls below 95% or the documented removal-rate rollback threshold is reached.
+
+At review:
+
+1. Wait until the report marks the decision gate ready: at least 28 elapsed days and 30 joined guilds in each variant.
+2. Verify data quality is healthy before accepting the largest-loss result.
+3. Compare character creation, first adventure, and removal rates between control and RPG-first.
+4. Select only the roadmap response corresponding to the largest measured funnel loss.
+5. Do not change RPG content or balance when the decision gate is blocked.
+
 ## Completed milestones
 
 - RPG-first guild onboarding.

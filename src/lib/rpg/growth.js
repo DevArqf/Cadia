@@ -2,6 +2,7 @@ const { isMysqlConnected } = require('../database/mysql');
 const { BotAnalyticsGuildSchema } = require('../schemas/botAnalyticsGuildSchema');
 const { RpgGrowthSchema } = require('../schemas/rpgGrowthSchema');
 const { DAY_MS, excludedGuildIds, isExcludedGuild } = require('../analytics/growth');
+const { getGrowthConfig } = require('../../config/growth');
 
 const EVENT_FIELDS = {
 	tutorial_offered: 'tutorialOfferedAt',
@@ -36,6 +37,7 @@ async function getRpgGrowthAnalytics(days = 14, now = Date.now()) {
 	const since = now - Math.max(days, 1) * DAY_MS;
 	const excludedIds = excludedGuildIds();
 	const [records, guildRows] = await Promise.all([RpgGrowthSchema.find(), BotAnalyticsGuildSchema.find()]);
+	const excludedRecordCount = records.filter((record) => excludedIds.has(record.guildId)).length;
 	const includedRecords = records.filter((record) => !excludedIds.has(record.guildId));
 	const includedGuilds = guildRows.filter((guild) => !excludedIds.has(guild.guildId));
 	const cohortGuilds = includedGuilds.filter((guild) => cohortTime(guild) >= since && cohortTime(guild) <= now);
@@ -56,6 +58,12 @@ async function getRpgGrowthAnalytics(days = 14, now = Date.now()) {
 	const variants = variantMetrics(cohortGuilds, cohortRecords);
 	const experimentStartAt = cohortGuilds.length ? Math.min(...cohortGuilds.map(cohortTime)) : null;
 	const experimentDays = experimentStartAt ? Math.floor((now - experimentStartAt) / DAY_MS) : 0;
+	const diagnostics = diagnoseRpgGrowthData({
+		records: includedRecords,
+		guildRows: includedGuilds,
+		cohortRecords,
+		excludedRecordCount
+	});
 
 	return {
 		generatedAt: now,
@@ -76,9 +84,94 @@ async function getRpgGrowthAnalytics(days = 14, now = Date.now()) {
 		},
 		variants,
 		experimentStartAt,
+		expectedDecisionAt: experimentStartAt ? experimentStartAt + 28 * DAY_MS : null,
 		experimentDays,
 		decisionReady: experimentDays >= 28 && variants.every((variant) => variant.joined >= 30),
-		largestLoss: largestFunnelLoss(stages)
+		largestLoss: largestFunnelLoss(stages),
+		daily: dailyRpgTotals(cohortRecords),
+		diagnostics,
+		configuration: {
+			experimentMode: getGrowthConfig().experimentMode,
+			excludedGuildCount: excludedIds.size
+		}
+	};
+}
+
+function diagnoseRpgGrowthData({ records, guildRows, cohortRecords, excludedRecordCount = 0 }) {
+	const guildIds = new Set(guildRows.map((guild) => guild.guildId));
+	const issues = {
+		orphanRecords: records.filter((record) => !guildIds.has(record.guildId)).length,
+		adventureBeforeCharacter: records.filter(
+			(record) => record.firstAdventureAt && (!record.characterCreatedAt || record.firstAdventureAt < record.characterCreatedAt)
+		).length,
+		victoryBeforeAdventure: records.filter(
+			(record) => record.firstVictoryAt && (!record.firstAdventureAt || record.firstVictoryAt < record.firstAdventureAt)
+		).length,
+		invalidSecondActiveDay: records.filter(
+			(record) => record.secondActiveDayAt && Object.keys(record.activeDays || {}).length < 2
+		).length,
+		earlyRetention: records.filter(
+			(record) => record.retained7At && record.retained7At < Number(record.firstSeenAt || 0) + 7 * DAY_MS
+		).length,
+		excludedRecordCount
+	};
+	const warnings = [];
+	if (!cohortRecords.length) warnings.push('No RPG cohort activity exists for this reporting window.');
+	for (const [key, count] of Object.entries(issues)) {
+		if (count) warnings.push(`${key}: ${count}`);
+	}
+	return {
+		healthy: warnings.length === 0,
+		issues,
+		warnings
+	};
+}
+
+function dailyRpgTotals(records) {
+	const eventFields = [
+		'tutorialStartedAt',
+		'tutorialCompletedAt',
+		'tutorialSkippedAt',
+		'characterCreatedAt',
+		'firstAdventureAt',
+		'firstVictoryAt',
+		'secondActiveDayAt',
+		'retained7At'
+	];
+	const rows = new Map();
+	for (const record of records) {
+		for (const field of eventFields) {
+			if (!record[field]) continue;
+			const day = new Date(record[field]).toISOString().slice(0, 10);
+			if (!rows.has(day)) rows.set(day, { day });
+			rows.get(day)[field] = (rows.get(day)[field] || 0) + 1;
+		}
+	}
+	return [...rows.values()].sort((left, right) => left.day.localeCompare(right.day));
+}
+
+function buildRpgGrowthExport(analytics) {
+	return {
+		schemaVersion: 1,
+		generatedAt: analytics.generatedAt,
+		reportingDays: analytics.days,
+		configuration: analytics.configuration,
+		experiment: {
+			startAt: analytics.experimentStartAt,
+			expectedDecisionAt: analytics.expectedDecisionAt,
+			elapsedDays: analytics.experimentDays,
+			decisionReady: analytics.decisionReady
+		},
+		northStar: {
+			weeklyRpgActiveGuilds: analytics.weeklyActiveGuilds,
+			activeUsers7d: analytics.activeUsers7d
+		},
+		stages: analytics.stages,
+		users: analytics.users,
+		variants: analytics.variants,
+		largestLoss: analytics.largestLoss,
+		daily: analytics.daily,
+		dataQuality: analytics.diagnostics
 	};
 }
 
@@ -148,6 +241,8 @@ function hydrate(record) {
 
 module.exports = {
 	EVENT_FIELDS,
+	buildRpgGrowthExport,
+	diagnoseRpgGrowthData,
 	getRpgGrowthAnalytics,
 	largestFunnelLoss,
 	recordRpgEvent

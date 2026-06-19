@@ -1,6 +1,7 @@
 const DAY_MS = 86_400_000;
 const ACTIVATION_COMMAND_COUNT = 2;
 const LOW_INTENT_COMMANDS = new Set(['help', 'invite', 'ping']);
+const { getGrowthConfig } = require('../../config/growth');
 
 function commandPathFromInteraction(interaction) {
 	const parts = [interaction?.commandName];
@@ -34,6 +35,7 @@ function isMeaningfulCommand({ commandPath, category, isDeveloper = false }) {
 }
 
 function excludedGuildIds(value = process.env.GROWTH_EXCLUDED_GUILDS) {
+	if (value === process.env.GROWTH_EXCLUDED_GUILDS) return new Set(getGrowthConfig().excludedGuildIds);
 	return new Set(
 		String(value || '')
 			.split(/[,\s]+/)
@@ -47,6 +49,7 @@ function isExcludedGuild(guildId, value) {
 }
 
 function selectOnboardingVariant(guildId, mode = process.env.GROWTH_ONBOARDING_EXPERIMENT || 'rpg-first') {
+	if (mode === process.env.GROWTH_ONBOARDING_EXPERIMENT || mode === undefined) mode = getGrowthConfig().experimentMode;
 	if (mode === 'guided' || mode === 'rpg-first') return 'rpg-first';
 	if (mode !== 'split') return 'control';
 	return stableBucket(guildId) % 2 === 0 ? 'control' : 'rpg-first';

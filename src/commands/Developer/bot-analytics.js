@@ -1,10 +1,10 @@
-const { MessageFlags } = require('discord.js');
+const { AttachmentBuilder, MessageFlags } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { color, emojis } = require('../../config');
 const { componentReply, panel } = require('../../lib/util/components');
 const { getBotAnalytics } = require('../../lib/util/botAnalytics');
-const { getRpgGrowthAnalytics } = require('../../lib/rpg/growth');
+const { buildRpgGrowthExport, getRpgGrowthAnalytics } = require('../../lib/rpg/growth');
 
 const analyticsViews = [
 	{ name: 'Overview', value: 'overview' },
@@ -41,6 +41,9 @@ class UserCommand extends CadiaCommand {
 				.addIntegerOption((option) =>
 					option.setName('days').setDescription('How many days to include').setMinValue(1).setMaxValue(90).setRequired(false)
 				)
+				.addBooleanOption((option) =>
+					option.setName('export').setDescription('Attach a privacy-safe RPG growth JSON report').setRequired(false)
+				)
 		);
 	}
 
@@ -49,13 +52,23 @@ class UserCommand extends CadiaCommand {
 
 		const view = interaction.options.getString('view') || 'overview';
 		const days = interaction.options.getInteger('days') || 14;
+		const shouldExport = interaction.options.getBoolean('export') || false;
 		const [analytics, rpgGrowth] = await Promise.all([
 			getBotAnalytics(interaction.client, days),
 			getRpgGrowthAnalytics(days)
 		]);
 		analytics.rpgGrowth = rpgGrowth;
 
-		return interaction.editReply(componentReply(buildAnalyticsPanel(analytics, view), true));
+		const response = componentReply(buildAnalyticsPanel(analytics, view), true);
+		if (shouldExport) {
+			response.files = [
+				new AttachmentBuilder(Buffer.from(JSON.stringify(buildRpgGrowthExport(rpgGrowth), null, 2), 'utf8'), {
+					name: `cadia-rpg-growth-${new Date(rpgGrowth.generatedAt).toISOString().slice(0, 10)}.json`
+				})
+			];
+		}
+
+		return interaction.editReply(response);
 	}
 }
 
@@ -186,6 +199,17 @@ function rpgFunnelSections(analytics) {
 					`${variant.variant}: ${formatNumber(variant.joined)} joined, ${formatRatio(variant.characterRate)} created a character, ${formatRatio(variant.adventureRate)} began an adventure, ${formatRatio(variant.removalRate)} removed`
 			)
 			.join('\n')}`,
+		[
+			`${emojis.custom.calendar} **Experiment Window**`,
+			`Mode: **${rpg.configuration.experimentMode}**`,
+			`Started: **${formatTimestamp(rpg.experimentStartAt)}**`,
+			`Earliest decision: **${formatTimestamp(rpg.expectedDecisionAt)}**`,
+			`Excluded guilds: **${formatNumber(rpg.configuration.excludedGuildCount)}**`,
+			`Data quality: **${rpg.diagnostics.healthy ? 'Healthy' : `${rpg.diagnostics.warnings.length} warning(s)`}**`
+		].join('\n'),
+		rpg.diagnostics.healthy
+			? `${emojis.custom.success} **Data Quality:** No impossible funnel states detected.`
+			: `${emojis.custom.warning} **Data Quality Warnings**\n${rpg.diagnostics.warnings.map((warning) => `${emojis.custom.arrowright} ${warning}`).join('\n')}`,
 		loss
 			? `${emojis.custom.warning} **Largest Measured Loss:** ${labelRpgStage(loss.from)} → ${labelRpgStage(loss.to)} (${formatRatio(loss.rate)}, ${formatNumber(loss.loss)} guilds)\n` +
 				(rpg.decisionReady
