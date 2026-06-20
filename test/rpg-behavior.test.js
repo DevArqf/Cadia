@@ -22,7 +22,8 @@ test('RPG registration preserves public and developer subcommands', () => {
 	const names = command.options.map((option) => option.name);
 	assert.ok(names.includes('adventure'));
 	assert.ok(names.includes('inventory'));
-	assert.ok(names.includes('global-leaderboard'));
+	assert.ok(names.includes('leaderboard'));
+	assert.ok(!names.includes('global-leaderboard'));
 	assert.ok(names.includes('share'));
 	assert.ok(names.includes('server-boss'));
 	assert.ok(names.includes('season'));

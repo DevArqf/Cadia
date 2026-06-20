@@ -67,22 +67,6 @@ function registerRpgCommand(registry, description, { classes, encounters, items,
 			.addSubcommand((subcommand) => subcommand.setName('leaderboard').setDescription('View the RPG leaderboard'))
 			.addSubcommand((subcommand) =>
 				subcommand
-					.setName('global-leaderboard')
-					.setDescription('View global Cadia RPG standings')
-					.addStringOption((option) =>
-						option
-							.setName('type')
-							.setDescription('The global ranking to view')
-							.addChoices(
-								{ name: 'Rank', value: 'level' },
-								{ name: 'Gold', value: 'gold' },
-								{ name: 'Victories', value: 'wins' },
-								{ name: 'Relic Shards', value: 'shards' }
-							)
-					)
-			)
-			.addSubcommand((subcommand) =>
-				subcommand
 					.setName('share')
 					.setDescription('Share your Warden or an achievement card')
 					.addStringOption((option) =>

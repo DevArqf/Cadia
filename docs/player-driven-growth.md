@@ -4,7 +4,7 @@ Cadia now provides social growth loops that reward participation and sharing wit
 
 ## Global competition
 
-`/rpg global-leaderboard` displays global Rank, Gold, Victory, or Relic Shard standings across Cadia communities. The existing `/rpg leaderboard` remains scoped to the current server.
+`/rpg leaderboard` displays Rank, Gold, Victory, or Relic Shard standings. Its scope button switches the same interactive panel between the current server and all Cadia communities.
 
 ## Shareable progress
 

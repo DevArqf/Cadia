@@ -3,8 +3,6 @@ const {
 	MediaGalleryBuilder,
 	MediaGalleryItemBuilder,
 	MessageFlags,
-	SeparatorBuilder,
-	SeparatorSpacingSize,
 	TextDisplayBuilder
 } = require('discord.js');
 
@@ -13,11 +11,8 @@ function createPlayerGrowthHandlers({
 	componentReply,
 	createAchievementShareCard,
 	createCharacterShareCard,
-	createRpgLeaderboardCard,
 	growth,
 	icon,
-	leaderboardPageSize,
-	leaderboardTypes,
 	notice,
 	panel,
 	service
@@ -28,36 +23,6 @@ function createPlayerGrowthHandlers({
 		} catch (error) {
 			throw new service.RpgError(error.message);
 		}
-	}
-
-	async function globalLeaderboard(interaction) {
-		const type = interaction.options.getString('type') || 'level';
-		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
-		const leaders = await growth.globalLeaderboard(type, leaderboardPageSize);
-		const selectedType = leaderboardTypes.find((entry) => entry.id === type) || leaderboardTypes[0];
-		const fileName = `cadia-global-${type}.png`;
-		const attachment = await createRpgLeaderboardCard({
-			guildName: 'Global Cadia',
-			leaders,
-			type,
-			page: 0,
-			totalPages: 1,
-			fileName,
-			resolveUser: (userId) => interaction.client.users.cache.get(userId)
-		});
-		const container = new ContainerBuilder()
-			.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
-			.addTextDisplayComponents(
-				new TextDisplayBuilder().setContent(
-					`${icon.leaderboard} **Global RPG Leaderboard**\n-# ${selectedType.label} standings across every Cadia community`
-				)
-			)
-			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-			.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
-			.addTextDisplayComponents(
-				new TextDisplayBuilder().setContent(`${icon.info} Share this board and challenge another server to climb the global standings.`)
-			);
-		return interaction.editReply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
 	}
 
 	async function share(interaction) {
@@ -196,7 +161,7 @@ function createPlayerGrowthHandlers({
 		);
 	}
 
-	return { globalLeaderboard, refer, season, serverBoss, share };
+	return { refer, season, serverBoss, share };
 }
 
 module.exports = { createPlayerGrowthHandlers };

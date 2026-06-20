@@ -186,11 +186,8 @@ const playerGrowthHandlers = createPlayerGrowthHandlers({
 	componentReply,
 	createAchievementShareCard,
 	createCharacterShareCard,
-	createRpgLeaderboardCard,
 	growth,
 	icon,
-	leaderboardPageSize,
-	leaderboardTypes,
 	notice,
 	panel,
 	service: rpg
@@ -226,7 +223,6 @@ class UserCommand extends CadiaCommand {
 					inventory,
 					equip,
 					leaderboard,
-					'global-leaderboard': playerGrowthHandlers.globalLeaderboard,
 					share: playerGrowthHandlers.share,
 					'server-boss': playerGrowthHandlers.serverBoss,
 					season: playerGrowthHandlers.season,
@@ -814,7 +810,7 @@ async function openTravelPicker(interaction, profile) {
 }
 
 async function leaderboard(interaction) {
-	const state = { type: 'level', page: 0 };
+	const state = { type: 'level', scope: 'guild', page: 0 };
 	const customIdBase = `rpg-lb:${interaction.id}`;
 	await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
 	const message = await interaction.editReply(await buildLeaderboardReply(interaction, state, customIdBase));
@@ -834,6 +830,10 @@ async function leaderboard(interaction) {
 		const action = i.customId.split(':').at(-1);
 		if (action === 'type') {
 			state.type = i.values[0];
+			state.page = 0;
+		}
+		if (action === 'scope') {
+			state.scope = state.scope === 'guild' ? 'global' : 'guild';
 			state.page = 0;
 		}
 		if (action === 'prev') state.page = Math.max(state.page - 1, 0);
@@ -875,15 +875,20 @@ async function bestiary(interaction) {
 }
 
 async function buildLeaderboardReply(interaction, state, customIdBase, disabled = false) {
-	const allLeaders = await rpg.leaderboard(interaction.guild.id, state.type);
+	const isGlobal = state.scope === 'global';
+	const allLeaders = isGlobal
+		? await growth.globalLeaderboard(state.type)
+		: await rpg.leaderboard(interaction.guild.id, state.type);
 	const totalPages = Math.max(Math.ceil(allLeaders.length / leaderboardPageSize), 1);
 	state.page = Math.min(Math.max(state.page, 0), totalPages - 1);
 
 	const pageLeaders = allLeaders.slice(state.page * leaderboardPageSize, (state.page + 1) * leaderboardPageSize);
 	const selectedType = leaderboardTypes.find((type) => type.id === state.type) ?? leaderboardTypes[0];
-	const fileName = `rpg-leaderboard-${state.type}-${state.page + 1}.png`;
+	const scopeName = isGlobal ? 'Global Cadia' : interaction.guild.name;
+	const scopeLabel = isGlobal ? 'Global' : 'Server';
+	const fileName = `rpg-leaderboard-${state.scope}-${state.type}-${state.page + 1}.png`;
 	const attachment = await createRpgLeaderboardCard({
-		guildName: interaction.guild.name,
+		guildName: scopeName,
 		leaders: pageLeaders,
 		type: state.type,
 		page: state.page,
@@ -897,7 +902,7 @@ async function buildLeaderboardReply(interaction, state, customIdBase, disabled 
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
 				`${icon.leaderboard} **RPG Leaderboard**\n` +
-					`-# ${interaction.guild.name} - ${selectedType.label} standings - ${allLeaders.length} registered Wardens`
+					`-# ${scopeName} - ${selectedType.label} standings - ${allLeaders.length} registered Wardens`
 			)
 		)
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
@@ -905,7 +910,7 @@ async function buildLeaderboardReply(interaction, state, customIdBase, disabled 
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`${icon.info} Showing **${selectedType.label}** leaderboard page **${state.page + 1}/${totalPages}**.`
+				`${icon.info} Showing the **${scopeLabel} ${selectedType.label}** leaderboard, page **${state.page + 1}/${totalPages}**.`
 			)
 		)
 		.addActionRowComponents(
@@ -927,6 +932,11 @@ async function buildLeaderboardReply(interaction, state, customIdBase, disabled 
 		)
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
+				actionButton(
+					`${customIdBase}:scope`,
+					isGlobal ? 'View Server Leaderboard' : 'View Global Leaderboard',
+					ButtonStyle.Primary
+				).setDisabled(disabled),
 				actionButton(`${customIdBase}:prev`, 'Previous', ButtonStyle.Secondary).setDisabled(disabled || state.page <= 0),
 				actionButton(`${customIdBase}:next`, 'Next', ButtonStyle.Secondary).setDisabled(disabled || state.page >= totalPages - 1)
 			)
