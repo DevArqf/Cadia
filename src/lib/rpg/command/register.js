@@ -65,6 +65,82 @@ function registerRpgCommand(registry, description, { classes, encounters, items,
 					.addStringOption((option) => option.setName('item').setDescription('The item to equip').setRequired(true).setAutocomplete(true))
 			)
 			.addSubcommand((subcommand) => subcommand.setName('leaderboard').setDescription('View the RPG leaderboard'))
+			.addSubcommand((subcommand) =>
+				subcommand
+					.setName('global-leaderboard')
+					.setDescription('View global Cadia RPG standings')
+					.addStringOption((option) =>
+						option
+							.setName('type')
+							.setDescription('The global ranking to view')
+							.addChoices(
+								{ name: 'Rank', value: 'level' },
+								{ name: 'Gold', value: 'gold' },
+								{ name: 'Victories', value: 'wins' },
+								{ name: 'Relic Shards', value: 'shards' }
+							)
+					)
+			)
+			.addSubcommand((subcommand) =>
+				subcommand
+					.setName('share')
+					.setDescription('Share your Warden or an achievement card')
+					.addStringOption((option) =>
+						option
+							.setName('type')
+							.setDescription('What to share')
+							.setRequired(true)
+							.addChoices({ name: 'Character', value: 'character' }, { name: 'Achievement', value: 'achievement' })
+					)
+					.addStringOption((option) =>
+						option
+							.setName('achievement')
+							.setDescription('Achievement to share')
+							.addChoices(
+								{ name: 'First Blood', value: 'first-blood' },
+								{ name: 'Veteran Warden', value: 'veteran' },
+								{ name: 'Boss Breaker', value: 'boss-breaker' },
+								{ name: 'Relic Vanguard', value: 'rank-ten' }
+							)
+					)
+			)
+			.addSubcommand((subcommand) =>
+				subcommand
+					.setName('server-boss')
+					.setDescription('Join your server cooperative boss event')
+					.addStringOption((option) =>
+						option
+							.setName('action')
+							.setDescription('View or attack the cooperative boss')
+							.setRequired(true)
+							.addChoices({ name: 'View', value: 'view' }, { name: 'Attack', value: 'attack' })
+					)
+			)
+			.addSubcommand((subcommand) =>
+				subcommand
+					.setName('season')
+					.setDescription('View or claim the current seasonal quest')
+					.addStringOption((option) =>
+						option
+							.setName('action')
+							.setDescription('View progress or claim the limited cosmetic')
+							.setRequired(true)
+							.addChoices({ name: 'View', value: 'view' }, { name: 'Claim', value: 'claim' })
+					)
+			)
+			.addSubcommand((subcommand) =>
+				subcommand
+					.setName('refer')
+					.setDescription('Share or redeem an RPG referral code')
+					.addStringOption((option) =>
+						option
+							.setName('action')
+							.setDescription('View your code or redeem a code')
+							.setRequired(true)
+							.addChoices({ name: 'My Code', value: 'code' }, { name: 'Redeem', value: 'redeem' })
+					)
+					.addStringOption((option) => option.setName('code').setDescription('Referral code to redeem'))
+			)
 			.addSubcommand((subcommand) => subcommand.setName('bestiary').setDescription('Inspect RPG bosses and mobs'))
 			.addSubcommand((subcommand) => subcommand.setName('delete').setDescription('Delete your RPG character'))
 			.addSubcommandGroup((group) =>
@@ -160,7 +236,8 @@ function registerRpgCommand(registry, description, { classes, encounters, items,
 										{ name: 'Combat', value: 'combat' },
 										{ name: 'Economy', value: 'economy' },
 										{ name: 'Leaders', value: 'leaders' },
-										{ name: 'Content', value: 'content' }
+										{ name: 'Content', value: 'content' },
+										{ name: 'Player Growth', value: 'growth' }
 									)
 							)
 					)

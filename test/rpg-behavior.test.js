@@ -22,10 +22,18 @@ test('RPG registration preserves public and developer subcommands', () => {
 	const names = command.options.map((option) => option.name);
 	assert.ok(names.includes('adventure'));
 	assert.ok(names.includes('inventory'));
+	assert.ok(names.includes('global-leaderboard'));
+	assert.ok(names.includes('share'));
+	assert.ok(names.includes('server-boss'));
+	assert.ok(names.includes('season'));
+	assert.ok(names.includes('refer'));
 	assert.ok(names.includes('admin'));
 	const admin = command.options.find((option) => option.name === 'admin');
 	assert.ok(admin.options.some((option) => option.name === 'boss'));
 	assert.ok(admin.options.some((option) => option.name === 'analytics'));
+	const analytics = admin.options.find((option) => option.name === 'analytics');
+	const view = analytics.options.find((option) => option.name === 'view');
+	assert.ok(view.choices.some((choice) => choice.value === 'growth'));
 });
 
 test('RPG router offers the tutorial before dispatching other commands', async () => {

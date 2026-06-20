@@ -2,9 +2,12 @@ const { randomBytes } = require('node:crypto');
 const { RpgAccessSchema } = require('../schemas/RPG System/rpgAccessSchema');
 const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
 const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema');
+const { RpgPlayerGrowthSchema } = require('../schemas/rpgPlayerGrowthSchema');
+const { RpgServerBossSchema } = require('../schemas/rpgServerBossSchema');
 const { getMysqlError, isMysqlConnected } = require('../database/mysql');
 const { classes, encounters, items, npcQuests, questSteps, regions } = require('./data');
 const { recordRpgEvent } = require('./growth');
+const { recordSeasonVictory, syncAchievements } = require('./playerGrowth');
 
 const xpPerLevel = 100;
 const adminMaxRank = 100;
@@ -123,6 +126,7 @@ async function createProfile(guildId, userId, name, classId, origin) {
 		equipment: { weapon: null, armor: null, charm: null }
 	});
 	await recordRpgEvent({ guildId, userId, event: 'character_created' });
+	await syncAchievements(profile);
 
 	return profile;
 }
@@ -209,6 +213,8 @@ async function adminAnalytics() {
 	const profiles = await RpgProfileSchema.find({});
 	const accessRecords = await RpgAccessSchema.find({});
 	const tutorialRecords = await RpgTutorialSchema.find({});
+	const playerGrowthRecords = await RpgPlayerGrowthSchema.find({});
+	const serverBossRecords = await RpgServerBossSchema.find({});
 	const now = Date.now();
 	const totalBattles = sumBy(profiles, (profile) => (profile.battlesWon || 0) + (profile.battlesLost || 0));
 	const battlesWon = sumBy(profiles, (profile) => profile.battlesWon || 0);
@@ -302,6 +308,16 @@ async function adminAnalytics() {
 				.filter((encounter) => !encounter.boss).length,
 			npcQuests: npcQuests.length,
 			questSteps: questSteps.length
+		},
+		growth: {
+			shares: sumBy(playerGrowthRecords, (record) => record.shareCount || 0),
+			referrals: sumBy(playerGrowthRecords, (record) => record.referrals || 0),
+			cosmeticsOwned: sumBy(playerGrowthRecords, (record) => (record.cosmetics || []).length),
+			achievementUnlocks: sumBy(playerGrowthRecords, (record) => (record.achievements || []).length),
+			seasonClaims: sumBy(playerGrowthRecords, (record) => (record.seasonClaims || []).length),
+			activeServerBosses: serverBossRecords.filter((record) => record.status === 'active').length,
+			defeatedServerBosses: serverBossRecords.filter((record) => record.status === 'defeated').length,
+			bossContributors: new Set(serverBossRecords.flatMap((record) => Object.keys(record.contributions || {}))).size
 		}
 	};
 }
@@ -493,7 +509,11 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	}
 
 	await saveProfile(profile);
-	if (won) await recordRpgEvent({ guildId, userId, event: 'first_victory' });
+	if (won) {
+		await recordRpgEvent({ guildId, userId, event: 'first_victory' });
+		await recordSeasonVictory(userId);
+		result.unlockedAchievements = (await syncAchievements(profile)).newlyUnlocked;
+	}
 	return result;
 }
 
@@ -552,7 +572,20 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 		advanceQuest(profile, loot);
 		await saveProfile(profile);
 		await recordRpgEvent({ guildId, userId, event: 'first_victory' });
-		return { profile, encounter, won, crit, damage, enemyDamage: Math.floor(enemyDamage / 2), gold, xp: encounter.xp, loot };
+		await recordSeasonVictory(userId);
+		const unlockedAchievements = (await syncAchievements(profile)).newlyUnlocked;
+		return {
+			profile,
+			encounter,
+			won,
+			crit,
+			damage,
+			enemyDamage: Math.floor(enemyDamage / 2),
+			gold,
+			xp: encounter.xp,
+			loot,
+			unlockedAchievements
+		};
 	}
 
 	profile.battlesLost += 1;
@@ -565,7 +598,7 @@ async function leaderboard(guildId, type = 'level') {
 	assertDatabaseReady();
 	const profiles = await RpgProfileSchema.find({});
 	for (const profile of profiles) await normalizeProfile(profile);
-	return profiles.sort((a, b) => compareProfiles(a, b, type));
+	return profiles.filter((profile) => profile.guildId === guildId).sort((a, b) => compareProfiles(a, b, type));
 }
 
 async function saveProfile(profile) {

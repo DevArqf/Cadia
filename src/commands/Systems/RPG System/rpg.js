@@ -30,8 +30,11 @@ const { classes, encounters, items, npcQuests, origins, regions } = require('../
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
+const growth = require('../../../lib/rpg/playerGrowth');
+const { createAchievementShareCard, createCharacterShareCard } = require('../../../lib/rpg/shareCard');
 const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
 const { createBattleFlow } = require('../../../lib/rpg/command/battleFlow');
+const { createPlayerGrowthHandlers } = require('../../../lib/rpg/command/playerGrowthView');
 const { registerRpgCommand } = require('../../../lib/rpg/command/register');
 const { dispatchRpgCommand } = require('../../../lib/rpg/command/router');
 const { clearActiveAction, getActiveAction, setActiveAction } = require('../../../lib/rpg/command/sessions');
@@ -178,6 +181,20 @@ const battleFlow = createBattleFlow({
 	service: rpg,
 	setActiveAction: setActiveRpgAction
 });
+const playerGrowthHandlers = createPlayerGrowthHandlers({
+	color,
+	componentReply,
+	createAchievementShareCard,
+	createCharacterShareCard,
+	createRpgLeaderboardCard,
+	growth,
+	icon,
+	leaderboardPageSize,
+	leaderboardTypes,
+	notice,
+	panel,
+	service: rpg
+});
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -209,6 +226,11 @@ class UserCommand extends CadiaCommand {
 					inventory,
 					equip,
 					leaderboard,
+					'global-leaderboard': playerGrowthHandlers.globalLeaderboard,
+					share: playerGrowthHandlers.share,
+					'server-boss': playerGrowthHandlers.serverBoss,
+					season: playerGrowthHandlers.season,
+					refer: playerGrowthHandlers.refer,
 					bestiary,
 					delete: deleteCharacter
 				},
@@ -1666,8 +1688,12 @@ function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
 				? [
 						`${icon.coin} **Gold:** +${result.gold}`,
 						`${icon.xpLabel} **XP:** +${result.xp}`,
-						`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`
+						`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`,
+						result.unlockedAchievements?.length
+							? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
+							: null
 					]
+						.filter(Boolean)
 				: `${icon.info} No rewards were claimed. Regroup and try again.`
 		],
 		footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`

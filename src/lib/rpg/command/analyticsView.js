@@ -6,7 +6,8 @@ function createAnalyticsView({ classes, color, icon, items, panel, regions, serv
 			combat: combatSections,
 			economy: economySections,
 			leaders: leaderSections,
-			content: contentSections
+			content: contentSections,
+			growth: growthSections
 		};
 		const selectedView = sections[view] ? view : 'summary';
 
@@ -110,6 +111,25 @@ function createAnalyticsView({ classes, color, icon, items, panel, regions, serv
 				`${icon.chapter} **Story Steps:** ${number(content.questSteps)}`
 			],
 			`${icon.info} **Runtime Snapshot**\n${snapshot(analytics)}`
+		];
+	}
+
+	function growthSections(analytics) {
+		const growth = analytics.growth;
+		return [
+			[
+				`${icon.person} **Shared Cards:** ${number(growth.shares)}`,
+				`${icon.success} **Referral Conversions:** ${number(growth.referrals)}`,
+				`${icon.loot} **Cosmetics Owned:** ${number(growth.cosmeticsOwned)}`,
+				`${icon.info} **Achievement Unlocks:** ${number(growth.achievementUnlocks)}`
+			],
+			[
+				`${icon.compass} **Season Claims:** ${number(growth.seasonClaims)}`,
+				`${icon.threat} **Active Server Bosses:** ${number(growth.activeServerBosses)}`,
+				`${icon.success} **Defeated Server Bosses:** ${number(growth.defeatedServerBosses)}`,
+				`${icon.person} **Boss Contributors:** ${number(growth.bossContributors)}`
+			],
+			`${icon.info} **Growth Principle**\nThese rewards are cosmetic and social. They do not increase combat power or bypass progression.`
 		];
 	}
 
