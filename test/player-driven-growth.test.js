@@ -5,6 +5,7 @@ process.env.BOT_OWNERS ??= 'test-owner';
 process.env.DEVELOPERS ??= 'test-developer';
 
 const { createAchievementShareCard, createCharacterShareCard } = require('../src/lib/rpg/shareCard');
+const { createSeasonCard } = require('../src/lib/rpg/seasonCanvas');
 const { createPlayerGrowthHandlers } = require('../src/lib/rpg/command/playerGrowthView');
 const { componentReply, notice, panel } = require('../src/lib/util/components');
 
@@ -31,17 +32,34 @@ test('shareable character and achievement cards render PNG attachments', () => {
 	assert.ok(achievement.attachment.length > 1_000);
 });
 
+test('season card renders quest progress and reward as a PNG attachment', () => {
+	const attachment = createSeasonCard({
+		season: {
+			id: '2026-q2',
+			name: 'Stormglass',
+			endsAt: Date.parse('2026-07-01T00:00:00Z'),
+			quest: { victories: 5, activeDays: 3 },
+			cosmetic: { name: 'Stormglass Aura', rarity: 'Limited' }
+		},
+		progress: { victories: 3, activeDays: 2 }
+	});
+
+	assert.equal(attachment.name, 'rpg-season.png');
+	assert.ok(attachment.attachment.length > 10_000);
+	assert.deepEqual([...attachment.attachment.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+});
+
 test('global leaderboards sort across guilds and seasonal rewards are unique per season', async () => {
 	const loaded = loadGrowth({
-		profiles: [
-			profile('one', 'guild-a', { level: 4, gold: 100 }),
-			profile('two', 'guild-b', { level: 9, gold: 50 })
-		]
+		profiles: [profile('one', 'guild-a', { level: 4, gold: 100 }), profile('two', 'guild-b', { level: 9, gold: 50 })]
 	});
 
 	try {
 		const leaders = await loaded.module.globalLeaderboard('level');
-		assert.deepEqual(leaders.map((entry) => entry.userId), ['two', 'one']);
+		assert.deepEqual(
+			leaders.map((entry) => entry.userId),
+			['two', 'one']
+		);
 		const first = loaded.module.currentSeason(new Date('2026-01-15T00:00:00Z'));
 		const second = loaded.module.currentSeason(new Date('2026-04-15T00:00:00Z'));
 		assert.notEqual(first.cosmetic.id, second.cosmetic.id);
@@ -53,10 +71,7 @@ test('global leaderboards sort across guilds and seasonal rewards are unique per
 
 test('referrals reward both players with cosmetics and cannot be self-redeemed', async () => {
 	const profiles = [profile('referrer', 'guild'), profile('new-player', 'guild')];
-	const growthRecords = [
-		growthRecord('referrer', { referralCode: 'CADIA-REF123' }),
-		growthRecord('new-player', { referralCode: 'CADIA-NEW123' })
-	];
+	const growthRecords = [growthRecord('referrer', { referralCode: 'CADIA-REF123' }), growthRecord('new-player', { referralCode: 'CADIA-NEW123' })];
 	const loaded = loadGrowth({ profiles, growthRecords });
 
 	try {
@@ -135,9 +150,11 @@ test('season handler edits an acknowledged interaction after database work', asy
 		createAchievementShareCard: () => null,
 		createCharacterShareCard: () => null,
 		createRpgLeaderboardCard: () => null,
+		createSeasonCard,
 		growth: {
 			seasonalProgress: async () => ({
 				season: {
+					id: '2026-q2',
 					name: 'Stormglass',
 					endsAt: Date.parse('2026-07-01T00:00:00Z'),
 					quest: { victories: 5, activeDays: 3 },
@@ -178,6 +195,9 @@ test('season handler edits an acknowledged interaction after database work', asy
 
 	assert.ok(edited);
 	assert.ok(edited.components.length > 0);
+	assert.equal(edited.files.length, 1);
+	assert.equal(edited.files[0].name, 'rpg-season-2026-q2.png');
+	assert.equal(edited.flags, 32768);
 });
 
 function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss = null }) {

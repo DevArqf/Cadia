@@ -30,6 +30,7 @@ const { classes, encounters, items, npcQuests, origins, regions } = require('../
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
+const { createSeasonCard } = require('../../../lib/rpg/seasonCanvas');
 const growth = require('../../../lib/rpg/playerGrowth');
 const { createAchievementShareCard, createCharacterShareCard } = require('../../../lib/rpg/shareCard');
 const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
@@ -181,6 +182,7 @@ const playerGrowthHandlers = createPlayerGrowthHandlers({
 	createAchievementShareCard,
 	createCharacterShareCard,
 	createRpgLeaderboardCard,
+	createSeasonCard,
 	growth,
 	icon,
 	notice,
@@ -1587,8 +1589,7 @@ function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
 						result.unlockedAchievements?.length
 							? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
 							: null
-					]
-						.filter(Boolean)
+					].filter(Boolean)
 				: `${icon.info} No rewards were claimed. Regroup and try again.`
 		],
 		footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`

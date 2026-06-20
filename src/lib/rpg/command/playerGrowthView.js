@@ -19,6 +19,7 @@ function createPlayerGrowthHandlers({
 	createAchievementShareCard,
 	createCharacterShareCard,
 	createRpgLeaderboardCard,
+	createSeasonCard,
 	growth,
 	icon,
 	notice,
@@ -80,9 +81,7 @@ function createPlayerGrowthHandlers({
 
 	async function buildLeaderboardReply(interaction, state, customIdBase, disabled = false) {
 		const isGlobal = state.scope === 'global';
-		const allLeaders = isGlobal
-			? await growth.globalLeaderboard(state.type)
-			: await service.leaderboard(interaction.guild.id, state.type);
+		const allLeaders = isGlobal ? await growth.globalLeaderboard(state.type) : await service.leaderboard(interaction.guild.id, state.type);
 		const totalPages = Math.max(Math.ceil(allLeaders.length / leaderboardPageSize), 1);
 		state.page = Math.min(Math.max(state.page, 0), totalPages - 1);
 
@@ -229,26 +228,32 @@ function createPlayerGrowthHandlers({
 				? await executeGrowth(() => growth.claimSeason(interaction.user.id))
 				: await executeGrowth(() => growth.seasonalProgress(interaction.user.id));
 		const { season: activeSeason, progress } = status;
-
-		const response = componentReply(
-			panel({
-				accentColor: status.claimed || action === 'claim' ? color.success : color.RPG,
-				title: `${icon.compass} **Season: ${activeSeason.name}**`,
-				subtitle: `Limited until <t:${Math.floor(activeSeason.endsAt / 1000)}:D>`,
-				sections: [
-					[
-						`${icon.success} **Victories:** ${progress.victories}/${activeSeason.quest.victories}`,
-						`${icon.calendar || icon.clock} **Active Days:** ${progress.activeDays}/${activeSeason.quest.activeDays}`,
-						`${icon.loot} **Limited Cosmetic:** ${activeSeason.cosmetic.name}`
-					],
-					status.claimed || action === 'claim'
-						? `${icon.success} The seasonal cosmetic is in your collection.`
-						: status.complete
-							? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
-							: `${icon.arrowRight} Win encounters and return on multiple days before the season ends.`
-				]
-			})
-		);
+		const claimed = status.claimed || action === 'claim';
+		const fileName = `rpg-season-${activeSeason.id || 'current'}.png`;
+		const attachment = createSeasonCard({
+			season: activeSeason,
+			progress,
+			complete: status.complete,
+			claimed,
+			fileName
+		});
+		const statusText = claimed
+			? `${icon.success} The limited cosmetic is now in your collection.`
+			: status.complete
+				? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
+				: `${icon.arrowRight} Complete both objectives before the season ends.`;
+		const container = new ContainerBuilder()
+			.setAccentColor(Number.parseInt((claimed ? color.success : color.RPG).replace('#', ''), 16))
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(`${icon.compass} **${activeSeason.name} Season**\n-# Seasonal quest and limited reward`)
+			)
+			.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
+			.addTextDisplayComponents(new TextDisplayBuilder().setContent(statusText));
+		const response = {
+			components: [container],
+			files: [attachment],
+			flags: MessageFlags.IsComponentsV2
+		};
 		return interaction.deferred ? interaction.editReply(response) : interaction.reply(response);
 	}
 
