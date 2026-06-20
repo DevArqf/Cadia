@@ -204,7 +204,7 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		try {
 			if (shouldDeferRpgCommand(interaction) && !interaction.deferred && !interaction.replied) {
-				await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+				await interaction.deferReply();
 			}
 			return await dispatchRpgCommand(
 				interaction,

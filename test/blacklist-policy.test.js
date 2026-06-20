@@ -4,6 +4,21 @@ const test = require('node:test');
 process.env.BOT_OWNERS ??= 'owner';
 process.env.DEVELOPERS ??= 'developer';
 
+const { shouldAcknowledgeBeforeBlacklistCheck } = require('../src/preconditions/global/Blacklist');
+
+test('season interactions are acknowledged before the global blacklist database check', () => {
+	const interaction = {
+		commandName: 'rpg',
+		options: { getSubcommand: () => 'season' }
+	};
+
+	assert.equal(shouldAcknowledgeBeforeBlacklistCheck(interaction), true);
+	assert.equal(
+		shouldAcknowledgeBeforeBlacklistCheck({ ...interaction, options: { getSubcommand: () => 'profile' } }),
+		false
+	);
+});
+
 test('blacklist policy bypasses privileged users and queries normal guilds', async () => {
 	const schemaPath = require.resolve('../src/lib/schemas/blacklistSchema');
 	const policyPath = require.resolve('../src/lib/policies/blacklist');

@@ -15,10 +15,17 @@ class BlacklistPrecondition extends Precondition {
 	}
 
 	chatInputRun(interaction) {
-		return this.checkGuild(interaction.guildId, interaction.user.id);
+		return this.checkChatInput(interaction);
 	}
 
 	contextMenuRun(interaction) {
+		return this.checkGuild(interaction.guildId, interaction.user.id);
+	}
+
+	async checkChatInput(interaction) {
+		if (shouldAcknowledgeBeforeBlacklistCheck(interaction) && !interaction.deferred && !interaction.replied) {
+			await interaction.deferReply();
+		}
 		return this.checkGuild(interaction.guildId, interaction.user.id);
 	}
 
@@ -33,4 +40,8 @@ class BlacklistPrecondition extends Precondition {
 	}
 }
 
-module.exports = { BlacklistPrecondition };
+function shouldAcknowledgeBeforeBlacklistCheck(interaction) {
+	return interaction.commandName === 'rpg' && interaction.options.getSubcommand(false) === 'season';
+}
+
+module.exports = { BlacklistPrecondition, shouldAcknowledgeBeforeBlacklistCheck };
