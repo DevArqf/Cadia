@@ -1,5 +1,6 @@
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const cliProgress = require('cli-progress');
 
@@ -8,6 +9,9 @@ const testRoot = path.join(root, 'test');
 const testFiles = findTestFiles(testRoot);
 const startedAt = Date.now();
 const failures = [];
+const requestedConcurrency = Number.parseInt(process.env.TEST_CONCURRENCY || '', 10);
+const defaultConcurrency = Math.min(os.availableParallelism?.() || os.cpus().length || 1, 4);
+const concurrency = Math.max(1, Math.min(requestedConcurrency || defaultConcurrency, testFiles.length || 1));
 
 if (!testFiles.length) {
 	console.log('No test files found.');
@@ -33,15 +37,21 @@ run().catch((error) => {
 });
 
 async function run() {
-	for (const [index, file] of testFiles.entries()) {
-		progress.update(index, getProgressPayload(relative(file)));
+	let nextIndex = 0;
+	let completed = 0;
 
-		const result = await runTestFile(file);
-		if (result.code !== 0) failures.push({ file, ...result });
-
-		progress.update(index + 1, getProgressPayload(relative(file)));
+	async function worker() {
+		while (nextIndex < testFiles.length) {
+			const file = testFiles[nextIndex++];
+			progress.update(completed, getProgressPayload(relative(file)));
+			const result = await runTestFile(file);
+			if (result.code !== 0) failures.push({ file, ...result });
+			completed += 1;
+			progress.update(completed, getProgressPayload(relative(file)));
+		}
 	}
 
+	await Promise.all(Array.from({ length: concurrency }, () => worker()));
 	progress.stop();
 
 	const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -59,7 +69,7 @@ async function run() {
 		process.exit(1);
 	}
 
-	console.log(`\nAll ${testFiles.length} test file(s) passed in ${elapsed}s.`);
+	console.log(`\nAll ${testFiles.length} test file(s) passed in ${elapsed}s using ${concurrency} worker(s).`);
 }
 
 function runTestFile(file) {

@@ -1,6 +1,6 @@
 const { Listener, UserError, ChatInputCommandErrorPayload } = require('@sapphire/framework');
 const { EmbedBuilder, MessageFlags } = require('discord.js');
-const { emojis, channels, color } = require('../../config');
+const { branding, emojis, channels, color } = require('../../config');
 const { recordCommandError } = require('../../lib/util/botAnalytics');
 const { commandPathFromInteraction } = require('../../lib/analytics/growth');
 
@@ -108,7 +108,7 @@ async function sendUserErrorReply(interaction) {
 	const userEmbed = new EmbedBuilder()
 		.setColor(color.fail)
 		.setDescription(
-			`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](https://discord.gg/26R7kXa6dx) for assistance or use </bugreport:1511812665398264024>*`
+			`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](${branding.supportServerUrl}) for assistance or use </bugreport:${branding.bugReportCommandId}>*`
 		);
 
 	if (interaction.deferred || interaction.replied) {

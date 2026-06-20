@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const { createInviteUrl } = require('../../config/invite');
 const {
 	ActionRowBuilder,
@@ -89,7 +89,7 @@ class UserCommand extends CadiaCommand {
 				if (i.user.id !== interaction.user.id) {
 					return i.reply({
 						components: buildNoticeComponents(
-							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run \`</help:1221554638910787585>\` to open your own.`
+							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run \`</help:${branding.helpCommandId}>\` to open your own.`
 						),
 						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 					});
@@ -174,7 +174,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
 				new ButtonBuilder().setLabel('Invite Cadia').setStyle(ButtonStyle.Link).setURL(inviteUrl),
-				new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL('https://discord.gg/26R7kXa6dx')
+				new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL(branding.supportServerUrl)
 			)
 		);
 
@@ -272,7 +272,7 @@ function getCategoryEmojiName(name = '') {
 async function sendError(interaction) {
 	const response = {
 		components: buildNoticeComponents(
-			`${emojis.custom.fail} Oops, I could not load the help menu. Please try again later or use </bugreport:1219050295770742934>.`
+			`${emojis.custom.fail} Oops, I could not load the help menu. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
 		),
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 	};

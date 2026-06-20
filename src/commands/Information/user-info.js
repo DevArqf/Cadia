@@ -1,5 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -123,7 +123,7 @@ function buildErrorContainer() {
 		.setAccentColor(Number.parseInt(color.fail.replace('#', ''), 16))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`${emojis.custom.fail} Oops, I could not load that user profile. Please try again later or use </bugreport:1219050295770742934>.`
+				`${emojis.custom.fail} Oops, I could not load that user profile. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
 			)
 		);
 }

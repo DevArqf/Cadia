@@ -35,6 +35,33 @@ test('RPG growth events mark second active day and seven-day return', async () =
 	}
 });
 
+test('RPG growth write failures are logged and exposed through diagnostics', async () => {
+	const warnings = [];
+	const record = {
+		guildId: 'guild',
+		userId: 'user',
+		activeDays: {},
+		save: async () => {
+			throw new Error('database unavailable');
+		}
+	};
+	const loaded = loadRpgGrowth({ record, guildRows: [] });
+
+	try {
+		loaded.growth.configureRpgGrowth({ logger: { warn: (message) => warnings.push(message) } });
+		const result = await loaded.growth.recordRpgEvent({ guildId: 'guild', userId: 'user', event: 'activity' });
+		const diagnostics = loaded.growth.getRpgGrowthDiagnostics();
+
+		assert.equal(result, null);
+		assert.equal(diagnostics.writeFailures, 1);
+		assert.match(diagnostics.lastFailureMessage, /database unavailable/);
+		assert.match(warnings[0], /was not recorded/i);
+	} finally {
+		loaded.growth.configureRpgGrowth();
+		loaded.restore();
+	}
+});
+
 test('RPG funnel identifies the largest conversion loss and compares onboarding variants', async () => {
 	const now = Date.parse('2026-06-20T12:00:00.000Z');
 	const joinedAt = now - DAY_MS;

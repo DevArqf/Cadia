@@ -59,6 +59,8 @@ test('referrals reward both players with cosmetics and cannot be self-redeemed',
 		assert.equal(result.referrer.referrals, 1);
 		assert.ok(result.growth.cosmetics.includes('gatebound-crest'));
 		assert.ok(result.referrer.cosmetics.includes('gatebound-crest'));
+		assert.ok(loaded.transactionEvents.includes('lock:rpg:player:new-player'));
+		assert.ok(loaded.transactionEvents.includes('lock:rpg:referral:CADIA-REF123'));
 		await assert.rejects(() => loaded.module.redeemReferral('referrer', 'CADIA-REF123'), /own referral/i);
 	} finally {
 		loaded.restore();
@@ -79,6 +81,8 @@ test('server boss aggregates player damage, enforces cooldown, and rewards contr
 		assert.equal(result.defeated, true);
 		assert.equal(result.boss.status, 'defeated');
 		assert.ok(growthRecords[0].cosmetics.includes('worldbreaker-sigil'));
+		assert.ok(loaded.transactionEvents.includes('lock:rpg:boss:guild:2026-q2'));
+		assert.ok(loaded.transactionEvents.includes('lock:rpg:player:one'));
 
 		boss.status = 'active';
 		boss.hp = boss.maxHp;
@@ -94,12 +98,13 @@ test('seasonal quest requires in-season victories and active days before cosmeti
 	const now = new Date();
 	const seasonId = `${now.getUTCFullYear()}-q${Math.floor(now.getUTCMonth() / 3) + 1}`;
 	player.seasonVictories[seasonId] = 5;
+	const quarterStart = Date.UTC(now.getUTCFullYear(), Math.floor(now.getUTCMonth() / 3) * 3, 1);
 	const activity = {
 		userId: 'one',
 		activeDays: {
-			[new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10)]: true,
-			[new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)]: true,
-			[new Date().toISOString().slice(0, 10)]: true
+			[new Date(quarterStart).toISOString().slice(0, 10)]: true,
+			[new Date(quarterStart + 86_400_000).toISOString().slice(0, 10)]: true,
+			[new Date(quarterStart + 2 * 86_400_000).toISOString().slice(0, 10)]: true
 		}
 	};
 	const loaded = loadGrowth({ profiles: [userProfile], growthRecords: [player], activities: [activity] });
@@ -121,9 +126,11 @@ function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss =
 		activity: require.resolve('../src/lib/schemas/rpgGrowthSchema'),
 		player: require.resolve('../src/lib/schemas/rpgPlayerGrowthSchema'),
 		boss: require.resolve('../src/lib/schemas/rpgServerBossSchema'),
+		mysql: require.resolve('../src/lib/database/mysql'),
 		module: require.resolve('../src/lib/rpg/playerGrowth')
 	};
 	const originals = Object.fromEntries(Object.entries(paths).map(([key, modulePath]) => [key, require.cache[modulePath]]));
+	const transactionEvents = [];
 
 	class PlayerModel {
 		constructor(data) {
@@ -133,8 +140,11 @@ function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss =
 			if (!growthRecords.includes(this)) growthRecords.push(this);
 			return this;
 		}
-		static async findOne({ userId }) {
-			return growthRecords.find((entry) => entry.userId === userId) || null;
+		static async findOne(filter) {
+			return growthRecords.find((entry) => Object.entries(filter).every(([key, value]) => entry[key] === value)) || null;
+		}
+		static async findOneForUpdate(filter) {
+			return this.findOne(filter);
 		}
 		static async find() {
 			return growthRecords;
@@ -142,6 +152,9 @@ function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss =
 	}
 	class BossModel {
 		static async findOne() {
+			return boss;
+		}
+		static async findOneForUpdate() {
 			return boss;
 		}
 		static async create(data) {
@@ -160,10 +173,25 @@ function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss =
 	});
 	require.cache[paths.player] = moduleWith({ RpgPlayerGrowthSchema: PlayerModel });
 	require.cache[paths.boss] = moduleWith({ RpgServerBossSchema: BossModel });
+	require.cache[paths.mysql] = moduleWith({
+		acquireTransactionLock: async (name) => transactionEvents.push(`lock:${name}`),
+		withTransaction: async (operation) => {
+			transactionEvents.push('begin');
+			try {
+				const result = await operation();
+				transactionEvents.push('commit');
+				return result;
+			} catch (error) {
+				transactionEvents.push('rollback');
+				throw error;
+			}
+		}
+	});
 	delete require.cache[paths.module];
 
 	return {
 		module: require(paths.module),
+		transactionEvents,
 		restore() {
 			for (const [key, modulePath] of Object.entries(paths)) {
 				if (originals[key]) require.cache[modulePath] = originals[key];

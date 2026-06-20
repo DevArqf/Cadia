@@ -1,3 +1,4 @@
+const { AsyncLocalStorage } = require('node:async_hooks');
 const mysql = require('mysql2/promise');
 
 const connectionString = process.env.DATABASE_URL || process.env.MYSQL_URL;
@@ -14,6 +15,7 @@ const pool = connectionString
 let connected = false;
 let lastError = null;
 let reconnecting = null;
+const transactionStorage = new AsyncLocalStorage();
 
 async function connectMysql() {
 	if (!pool) {
@@ -44,11 +46,52 @@ async function connectMysql() {
 }
 
 async function execute(sql, params = []) {
+	const transaction = transactionStorage.getStore();
+	if (transaction) return transaction.connection.execute(sql, params);
 	return runWithRetry(() => getPool().execute(sql, params));
 }
 
 async function query(sql, params = []) {
+	const transaction = transactionStorage.getStore();
+	if (transaction) return transaction.connection.query(sql, params);
 	return runWithRetry(() => getPool().query(sql, params));
+}
+
+async function withTransaction(operation) {
+	if (transactionStorage.getStore()) return operation();
+	if (!connected) await reconnect();
+
+	const connection = await getPool().getConnection();
+	const transaction = { connection, locks: new Set() };
+	try {
+		await connection.beginTransaction();
+		const result = await transactionStorage.run(transaction, operation);
+		await connection.commit();
+		return result;
+	} catch (error) {
+		await connection.rollback().catch(() => null);
+		throw error;
+	} finally {
+		for (const lockName of [...transaction.locks].reverse()) {
+			await connection.query('SELECT RELEASE_LOCK(?)', [lockName]).catch(() => null);
+		}
+		connection.release();
+	}
+}
+
+async function acquireTransactionLock(name, timeoutSeconds = 5) {
+	const transaction = transactionStorage.getStore();
+	if (!transaction) throw new Error('Transaction locks require an active transaction.');
+	const lockName = String(name);
+	if (transaction.locks.has(lockName)) return;
+
+	const [rows] = await transaction.connection.query('SELECT GET_LOCK(?, ?) AS acquired', [lockName, timeoutSeconds]);
+	if (Number(rows[0]?.acquired) !== 1) throw new Error(`Could not acquire transaction lock: ${name}`);
+	transaction.locks.add(lockName);
+}
+
+function isInTransaction() {
+	return Boolean(transactionStorage.getStore());
 }
 
 async function runWithRetry(operation) {
@@ -110,9 +153,12 @@ function getPool() {
 
 module.exports = {
 	connectMysql,
+	acquireTransactionLock,
 	execute,
 	getMysqlError,
 	getPool,
 	isMysqlConnected,
-	query
+	isInTransaction,
+	query,
+	withTransaction
 };

@@ -13,6 +13,20 @@ const EVENT_FIELDS = {
 	first_adventure: 'firstAdventureAt',
 	first_victory: 'firstVictoryAt'
 };
+let growthLogger = null;
+const writeDiagnostics = {
+	writeFailures: 0,
+	lastFailureAt: null,
+	lastFailureMessage: null
+};
+
+function configureRpgGrowth({ logger = null } = {}) {
+	growthLogger = logger;
+}
+
+function getRpgGrowthDiagnostics() {
+	return { ...writeDiagnostics };
+}
 
 async function recordRpgEvent({ guildId, userId, event = 'activity', now = Date.now() }) {
 	if (!isMysqlConnected() || !guildId || !userId || isExcludedGuild(guildId)) return null;
@@ -28,7 +42,11 @@ async function recordRpgEvent({ guildId, userId, event = 'activity', now = Date.
 		record.updatedAt = now;
 		await record.save();
 		return record;
-	} catch {
+	} catch (error) {
+		writeDiagnostics.writeFailures += 1;
+		writeDiagnostics.lastFailureAt = Date.now();
+		writeDiagnostics.lastFailureMessage = error.message;
+		growthLogger?.warn?.(`RPG growth event "${event}" was not recorded: ${error.message}`);
 		return null;
 	}
 }
@@ -64,6 +82,11 @@ async function getRpgGrowthAnalytics(days = 14, now = Date.now()) {
 		cohortRecords,
 		excludedRecordCount
 	});
+	diagnostics.writeFailures = getRpgGrowthDiagnostics();
+	if (diagnostics.writeFailures.writeFailures) {
+		diagnostics.healthy = false;
+		diagnostics.warnings.push(`writeFailures: ${diagnostics.writeFailures.writeFailures}`);
+	}
 
 	return {
 		generatedAt: now,
@@ -242,7 +265,9 @@ function hydrate(record) {
 module.exports = {
 	EVENT_FIELDS,
 	buildRpgGrowthExport,
+	configureRpgGrowth,
 	diagnoseRpgGrowthData,
+	getRpgGrowthDiagnostics,
 	getRpgGrowthAnalytics,
 	largestFunnelLoss,
 	recordRpgEvent

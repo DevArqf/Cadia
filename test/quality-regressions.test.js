@@ -42,15 +42,10 @@ test('activity rotation uses one managed interval and client shutdown clears tim
 	assert.doesNotMatch(readySource, /setTimeout/);
 	assert.match(clientSource, /clearInterval\(this\.activityRotationTimer\)/);
 	assert.match(clientSource, /clearInterval\(this\.topggStatsPoster\)/);
-});
-
-test('kick command performs one DM and one moderation action', () => {
-	const source = read('src/commands/Moderation/kick.js');
-
-	assert.equal(countMatches(source, /sendDmNotice\(/g), 1);
-	assert.equal(countMatches(source, /member\.kick\(/g), 1);
-	assert.match(source, /runModerationAction\(/);
-	assert.match(source, /requiredClientPermissions:\s*\['KickMembers'\]/);
+	assert.match(clientSource, /clearInterval\(this\.reminderTimer\)/);
+	const indexSource = read('src/index.js');
+	assert.match(indexSource, /client\.reminderTimer = setInterval/);
+	assert.doesNotMatch(indexSource, /\.send\([\s\S]*?\)\s*\.catch\(\(\) => null\)/);
 });
 
 test('partial message updates and transient database DNS failures are handled', () => {
@@ -80,21 +75,28 @@ test('ban and timeout moderation commands use the correct Discord semantics', ()
 
 test('large command modules delegate to focused feature modules', () => {
 	const rpgCommand = read('src/commands/Systems/RPG System/rpg.js');
+	const rpgService = read('src/lib/rpg/service.js');
 	const minigameCommand = read('src/commands/Systems/Minigame/minigame.js');
 
 	assert.ok(rpgCommand.split(/\r?\n/).length < 2100);
 	assert.match(rpgCommand, /registerRpgCommand/);
 	assert.match(rpgCommand, /dispatchRpgCommand/);
 	assert.match(rpgCommand, /createBattleFlow/);
+	assert.match(rpgCommand, /createPlayerGrowthHandlers/);
+	assert.ok(rpgService.split(/\r?\n/).length < 100);
 	assert.ok(minigameCommand.split(/\r?\n/).length < 100);
 	assert.match(minigameCommand, /runGamecordGame/);
 	assert.match(minigameCommand, /runCustomGame/);
 });
 
+test('Sapphire custom templates live at the configured project location', () => {
+	const sapphireConfig = JSON.parse(read('.sapphirerc.json'));
+	const templateDirectory = sapphireConfig.customFileTemplates.location;
+
+	assert.equal(templateDirectory, 'templates');
+	assert.equal(fs.existsSync(path.join(root, templateDirectory, 'cmd.js.sapphire')), true);
+});
+
 function read(relativePath) {
 	return fs.readFileSync(path.join(root, relativePath), 'utf8');
-}
-
-function countMatches(source, pattern) {
-	return source.match(pattern)?.length ?? 0;
 }

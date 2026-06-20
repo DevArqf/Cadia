@@ -1,5 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { channels, color, emojis } = require('../../config');
 const {
 	ButtonStyle,
 	ChannelType,
@@ -13,7 +13,7 @@ const {
 const { BugReportBlacklist } = require('../../lib/schemas/bugreportSchema');
 const { actionButton, componentReply, notice, panel } = require('../../lib/util/components');
 
-const bugReportForumChannelId = '1514152995108159588';
+const bugReportForumChannelId = channels.bugReportForum;
 const maxForumTitleLength = 100;
 const bugReportSeverities = [
 	{ name: 'Critical', value: 'Critical' },

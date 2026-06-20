@@ -1,6 +1,6 @@
 const os = require('node:os');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -15,7 +15,6 @@ const {
 	version
 } = require('discord.js');
 const { isMysqlConnected } = require('../../lib/database/mysql');
-const { branding } = require('../../config/branding');
 const { createInviteUrl } = require('../../config/invite');
 
 class UserCommand extends CadiaCommand {
@@ -104,7 +103,7 @@ class UserCommand extends CadiaCommand {
 			.addActionRowComponents(
 				new ActionRowBuilder().addComponents(
 					new ButtonBuilder().setLabel('Invite Cadia').setStyle(ButtonStyle.Link).setURL(inviteUrl),
-					new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL('https://discord.gg/26R7kXa6dx')
+					new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL(branding.supportServerUrl)
 				)
 			);
 

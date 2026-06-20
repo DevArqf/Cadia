@@ -3,6 +3,7 @@ const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
 const { RpgGrowthSchema } = require('../schemas/rpgGrowthSchema');
 const { RpgPlayerGrowthSchema } = require('../schemas/rpgPlayerGrowthSchema');
 const { RpgServerBossSchema } = require('../schemas/rpgServerBossSchema');
+const { acquireTransactionLock, withTransaction } = require('../database/mysql');
 
 const BOSS_ATTACK_COOLDOWN = 30 * 60_000;
 const cosmetics = {
@@ -39,7 +40,12 @@ async function globalLeaderboard(type = 'level', limit = 100) {
 }
 
 async function getPlayerGrowth(userId) {
-	let record = await RpgPlayerGrowthSchema.findOne({ userId });
+	return withLockedAggregates([playerLock(userId)], () => loadPlayerGrowth(userId, true));
+}
+
+async function loadPlayerGrowth(userId, forUpdate = false) {
+	const findOne = forUpdate && RpgPlayerGrowthSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
+	let record = await RpgPlayerGrowthSchema[findOne]({ userId });
 	if (!record) record = new RpgPlayerGrowthSchema({ userId, referralCode: createReferralCode() });
 	hydrate(record);
 	await record.save();
@@ -47,62 +53,72 @@ async function getPlayerGrowth(userId) {
 }
 
 async function syncAchievements(profile) {
-	const growth = await getPlayerGrowth(profile.userId);
-	const unlocked = achievements.filter((achievement) => achievement.test(profile));
-	const newlyUnlocked = [];
-	for (const achievement of unlocked) {
-		if (!growth.achievements.includes(achievement.id)) {
-			growth.achievements.push(achievement.id);
-			newlyUnlocked.push(achievement);
+	return withLockedAggregates([playerLock(profile.userId)], async () => {
+		const growth = await loadPlayerGrowth(profile.userId, true);
+		const unlocked = achievements.filter((achievement) => achievement.test(profile));
+		const newlyUnlocked = [];
+		for (const achievement of unlocked) {
+			if (!growth.achievements.includes(achievement.id)) {
+				growth.achievements.push(achievement.id);
+				newlyUnlocked.push(achievement);
+			}
 		}
-	}
-	growth.updatedAt = Date.now();
-	await growth.save();
-	return { unlocked, newlyUnlocked };
+		growth.updatedAt = Date.now();
+		await growth.save();
+		return { unlocked, newlyUnlocked };
+	});
 }
 
 async function recordSeasonVictory(userId, now = new Date()) {
-	const growth = await getPlayerGrowth(userId);
-	const season = currentSeason(now);
-	growth.seasonVictories[season.id] = (growth.seasonVictories[season.id] || 0) + 1;
-	growth.updatedAt = Date.now();
-	await growth.save();
-	return growth.seasonVictories[season.id];
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		const season = currentSeason(now);
+		growth.seasonVictories[season.id] = (growth.seasonVictories[season.id] || 0) + 1;
+		growth.updatedAt = Date.now();
+		await growth.save();
+		return growth.seasonVictories[season.id];
+	});
 }
 
 async function recordShare(userId) {
-	const growth = await getPlayerGrowth(userId);
-	growth.shareCount += 1;
-	growth.lastSharedAt = Date.now();
-	growth.updatedAt = Date.now();
-	await growth.save();
-	return growth;
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		growth.shareCount += 1;
+		growth.lastSharedAt = Date.now();
+		growth.updatedAt = Date.now();
+		await growth.save();
+		return growth;
+	});
 }
 
 async function redeemReferral(userId, code) {
 	const profile = await RpgProfileSchema.findOne({ userId });
 	if (!profile) throw new Error('Create your Warden before redeeming a referral code.');
-	const growth = await getPlayerGrowth(userId);
-	if (growth.referredBy) throw new Error('You already redeemed a referral code.');
-	const referrer = (await RpgPlayerGrowthSchema.find({})).find((entry) => entry.referralCode === String(code).trim().toUpperCase());
-	if (!referrer) throw new Error('That referral code does not exist.');
-	if (referrer.userId === userId) throw new Error('You cannot redeem your own referral code.');
+	const referralCode = String(code).trim().toUpperCase();
+	return withLockedAggregates([playerLock(userId), `rpg:referral:${referralCode}`], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		if (growth.referredBy) throw new Error('You already redeemed a referral code.');
+		const findOne = RpgPlayerGrowthSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
+		const referrer = await RpgPlayerGrowthSchema[findOne]({ referralCode });
+		if (!referrer) throw new Error('That referral code does not exist.');
+		if (referrer.userId === userId) throw new Error('You cannot redeem your own referral code.');
 
-	growth.referredBy = referrer.userId;
-	addCosmetic(growth, cosmetics.referral.id);
-	referrer.referrals = (referrer.referrals || 0) + 1;
-	addCosmetic(referrer, cosmetics.referral.id);
-	growth.updatedAt = referrer.updatedAt = Date.now();
-	await Promise.all([growth.save(), referrer.save()]);
-	return { growth, referrer, cosmetic: cosmetics.referral };
+		growth.referredBy = referrer.userId;
+		addCosmetic(growth, cosmetics.referral.id);
+		referrer.referrals = (referrer.referrals || 0) + 1;
+		addCosmetic(referrer, cosmetics.referral.id);
+		growth.updatedAt = referrer.updatedAt = Date.now();
+		await Promise.all([growth.save(), referrer.save()]);
+		return { growth, referrer, cosmetic: cosmetics.referral };
+	});
 }
 
-async function seasonalProgress(userId) {
+async function seasonalProgress(userId, lockedGrowth = null) {
 	const season = currentSeason();
 	const [profile, activity, growth] = await Promise.all([
 		RpgProfileSchema.findOne({ userId }),
 		RpgGrowthSchema.findOne({ userId }),
-		getPlayerGrowth(userId)
+		lockedGrowth || getPlayerGrowth(userId)
 	]);
 	if (!profile) throw new Error('Create your Warden to participate in the season.');
 	const activeDays = Object.keys(activity?.activeDays || {}).filter((day) => {
@@ -123,19 +139,27 @@ async function seasonalProgress(userId) {
 }
 
 async function claimSeason(userId) {
-	const status = await seasonalProgress(userId);
-	if (!status.complete) throw new Error('Complete the seasonal quest before claiming its cosmetic.');
-	if (status.claimed) throw new Error('You already claimed this season reward.');
-	status.growth.seasonClaims.push(status.season.id);
-	addCosmetic(status.growth, status.season.cosmetic.id);
-	status.growth.updatedAt = Date.now();
-	await status.growth.save();
-	return status;
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		const status = await seasonalProgress(userId, growth);
+		if (!status.complete) throw new Error('Complete the seasonal quest before claiming its cosmetic.');
+		if (status.claimed) throw new Error('You already claimed this season reward.');
+		status.growth.seasonClaims.push(status.season.id);
+		addCosmetic(status.growth, status.season.cosmetic.id);
+		status.growth.updatedAt = Date.now();
+		await status.growth.save();
+		return status;
+	});
 }
 
 async function getServerBoss(guildId, now = Date.now()) {
 	const season = currentSeason(new Date(now));
-	let boss = await RpgServerBossSchema.findOne({ guildId, seasonId: season.id });
+	return withLockedAggregates([bossLock(guildId, season.id)], () => loadServerBoss(guildId, season, now, true));
+}
+
+async function loadServerBoss(guildId, season, now, forUpdate = false) {
+	const findOne = forUpdate && RpgServerBossSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
+	let boss = await RpgServerBossSchema[findOne]({ guildId, seasonId: season.id });
 	if (!boss) {
 		boss = await RpgServerBossSchema.create({
 			guildId,
@@ -153,36 +177,61 @@ async function getServerBoss(guildId, now = Date.now()) {
 }
 
 async function attackServerBoss(guildId, userId, now = Date.now()) {
-	const [profile, boss] = await Promise.all([RpgProfileSchema.findOne({ userId }), getServerBoss(guildId, now)]);
-	if (!profile) throw new Error('Create your Warden before joining the server boss event.');
-	if (boss.status === 'defeated') throw new Error('Your server already defeated this seasonal boss.');
-	const lastAttack = Number(boss.lastAttacks[userId] || 0);
-	if (now - lastAttack < BOSS_ATTACK_COOLDOWN) {
-		throw new Error(`You can attack again <t:${Math.ceil((lastAttack + BOSS_ATTACK_COOLDOWN) / 1000)}:R>.`);
-	}
-	const damage = Math.max(100, Math.round((profile.level || 1) * 120 + (profile.stats?.attack || 5) * 18 + (profile.battlesWon || 0) * 4));
-	boss.hp = Math.max(boss.hp - damage, 0);
-	boss.lastAttacks[userId] = now;
-	boss.contributions[userId] = (boss.contributions[userId] || 0) + damage;
-	boss.updatedAt = now;
-	let defeated = false;
-	if (boss.hp === 0) {
-		boss.status = 'defeated';
-		boss.defeatedAt = now;
-		defeated = true;
-		await rewardBossContributors(boss);
-	}
-	await boss.save();
-	return { boss, damage, defeated, contribution: boss.contributions[userId] };
+	const season = currentSeason(new Date(now));
+	return withLockedAggregates([bossLock(guildId, season.id)], async () => {
+		const [profile, boss] = await Promise.all([
+			RpgProfileSchema.findOne({ userId }),
+			loadServerBoss(guildId, season, now, true)
+		]);
+		if (!profile) throw new Error('Create your Warden before joining the server boss event.');
+		if (boss.status === 'defeated') throw new Error('Your server already defeated this seasonal boss.');
+		const lastAttack = Number(boss.lastAttacks[userId] || 0);
+		if (now - lastAttack < BOSS_ATTACK_COOLDOWN) {
+			throw new Error(`You can attack again <t:${Math.ceil((lastAttack + BOSS_ATTACK_COOLDOWN) / 1000)}:R>.`);
+		}
+		const damage = Math.max(
+			100,
+			Math.round((profile.level || 1) * 120 + (profile.stats?.attack || 5) * 18 + (profile.battlesWon || 0) * 4)
+		);
+		boss.hp = Math.max(boss.hp - damage, 0);
+		boss.lastAttacks[userId] = now;
+		boss.contributions[userId] = (boss.contributions[userId] || 0) + damage;
+		boss.updatedAt = now;
+		let defeated = false;
+		if (boss.hp === 0) {
+			boss.status = 'defeated';
+			boss.defeatedAt = now;
+			defeated = true;
+			await rewardBossContributors(boss);
+		}
+		await boss.save();
+		return { boss, damage, defeated, contribution: boss.contributions[userId] };
+	});
 }
 
 async function rewardBossContributors(boss) {
-	for (const userId of Object.keys(boss.contributions)) {
-		const growth = await getPlayerGrowth(userId);
+	for (const userId of Object.keys(boss.contributions).sort()) {
+		await acquireTransactionLock(playerLock(userId));
+		const growth = await loadPlayerGrowth(userId, true);
 		addCosmetic(growth, cosmetics.raid.id);
 		growth.updatedAt = Date.now();
 		await growth.save();
 	}
+}
+
+async function withLockedAggregates(lockNames, operation) {
+	return withTransaction(async () => {
+		for (const lockName of [...new Set(lockNames)].sort()) await acquireTransactionLock(lockName);
+		return operation();
+	});
+}
+
+function playerLock(userId) {
+	return `rpg:player:${userId}`;
+}
+
+function bossLock(guildId, seasonId) {
+	return `rpg:boss:${guildId}:${seasonId}`;
 }
 
 function achievementById(id) {

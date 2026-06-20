@@ -50,6 +50,26 @@ test('model operator filters remain in memory after database narrowing', async (
 	}
 });
 
+test('model row locks append FOR UPDATE to transactional lookups', async () => {
+	const calls = [];
+	const { createModel, restore } = loadModelWithMysql({
+		execute: async (sql) => {
+			calls.push(sql);
+			return [[{ id: 1, data: { userId: 'user' } }]];
+		}
+	});
+
+	try {
+		const Model = createModel('test');
+		const result = await Model.findOneForUpdate({ userId: 'user' });
+
+		assert.equal(result.userId, 'user');
+		assert.match(calls[0], /LIMIT 1 FOR UPDATE$/);
+	} finally {
+		restore();
+	}
+});
+
 function loadModelWithMysql(overrides) {
 	const mysqlPath = require.resolve('../src/lib/database/mysql');
 	const modelPath = require.resolve('../src/lib/database/model');

@@ -18,3 +18,19 @@ test('config compatibility facade exposes focused configuration modules', () => 
 	assert.equal(compatibility.color, color);
 	assert.equal(compatibility.emojis, emojis);
 });
+
+test('Discord application, command, and channel identifiers are owned by focused config modules', () => {
+	const { branding } = require('../src/config/branding');
+	const { channels } = require('../src/config/channels');
+
+	for (const value of [
+		branding.applicationId,
+		branding.ownerUserId,
+		branding.helpCommandId,
+		branding.bugReportCommandId,
+		branding.alertCommandId,
+		channels.bugReportForum
+	]) {
+		assert.match(value, /^\d{17,20}$/);
+	}
+});

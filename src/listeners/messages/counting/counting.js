@@ -1,5 +1,4 @@
-const { Listener, Events } = require('@sapphire/framework');
-const { Message } = require('discord.js');
+const { Events, Listener } = require('@sapphire/framework');
 const { GuildSchema } = require('../../../lib/schemas/guildSchema');
 const { CountActivity } = require('../../../lib/schemas/countSchema');
 
@@ -12,140 +11,65 @@ class UserEvent extends Listener {
 		});
 	}
 
-	/**
-	 * @param {Message} message The message sent
-	 */
 	async run(message) {
 		const guild = message.guild;
 		if (!guild) return;
 
 		const data = await GuildSchema.findOne({ id: guild.id });
-
-		// const data = await this.container.db.guild.findUnique({
-		// 	where: {
-		// 		id: guild.id
-		// 	}
-		// });
-
-		if (!data) return;
-		if (!data.countChannel) return;
+		if (!data?.countChannel) return;
 
 		const channel = guild.channels.cache.get(data.countChannel);
+		if (!channel?.isTextBased() || channel.id !== message.channel.id) return;
 
-		if (!channel || !channel.isTextBased()) return;
-		if (channel.id !== message.channel.id) return;
-
-		if (data.count === 0 && message.content !== '1') {
-			if (message.deletable) message.delete();
+		const currentNumber = Number(message.content);
+		if (!Number.isInteger(currentNumber)) {
+			if (message.deletable) await message.delete();
 			return;
 		}
 
-		const lastNumber = data.count;
-		const currentNumber = Number(message.content);
-
-		if (currentNumber - lastNumber !== 1) {
-			channel.send({ content: `${message.author} ruined the count at **${lastNumber}**!` });
-
+		const lastNumber = data.count || 0;
+		if (currentNumber !== lastNumber + 1) {
+			await channel.send({ content: `${message.author} ruined the count at **${lastNumber}**!` });
 			await GuildSchema.updateOne(
 				{ id: guild.id },
 				{
 					$set: {
 						count: 0,
 						countLastUser: null,
-						countLastScore: data.count
+						countLastScore: lastNumber
 					}
 				}
 			);
-
-			// await this.container.db.guild.update({
-			// 	where: {
-			// 		id: guild.id
-			// 	},
-			// 	data: {
-			// 		count: 0,
-			// 		countLastUser: null,
-			// 		countLastScore: data.count
-			// 	}
-			// });
-
-			channel.send({ content: `The count has been reset to **0**` });
+			await channel.send({ content: 'The count has been reset to **0**' });
 			return;
 		}
 
-		if (isNaN(currentNumber)) {
-			message.delete();
-			return;
-		}
-
-		message.react('✅');
+		if (message.reactable) await message.react('✅');
 		this.container.client.emit('successfulCount', message, currentNumber);
 
-		const oldHighscore = data.countHighscore;
-		const newHighscore = data.count > oldHighscore ? data.count : oldHighscore;
-
-		await GuildSchema.updateOne(
-			{ id: guild.id },
-			{
-				$set: {
-					count: currentNumber,
-					countLastUser: message.author.id,
-					countHighscore: newHighscore
+		await Promise.all([
+			GuildSchema.updateOne(
+				{ id: guild.id },
+				{
+					$set: {
+						count: currentNumber,
+						countLastUser: message.author.id,
+						countHighscore: Math.max(currentNumber, data.countHighscore || 0)
+					}
 				}
-			}
-		);
-
-		// await this.container.db.guild.update({
-		// 	where: {
-		// 		id: guild.id
-		// 	},
-		// 	data: {
-		// 		count: currentNumber,
-		// 		countLastUser: message.author.id,
-		// 		countHighscore: newHighscore
-		// 	}
-		// });
-
-		// await this.container.db.countActivity.upsert({
-		// 	where: {
-		// 		userId_guildId: {
-		// 			guildId: guild.id,
-		// 			userId: message.author.id
-		// 		}
-		// 	},
-		// 	update: {
-		// 		count: {
-		// 			increment: 1
-		// 		}
-		// 	},
-		// 	create: {
-		// 		guildId: guild.id,
-		// 		userId: message.author.id,
-		// 		count: 1
-		// 	}
-		// });
-
-		await CountActivity.findOneAndUpdate(
-			{
-				userId: message.author.id,
-				guildId: guild.id
-			},
-			{
-				$inc: {
-					count: 1
-				}
-			},
-			{
-				upsert: true
-			}
-		);
+			),
+			CountActivity.findOneAndUpdate(
+				{ userId: message.author.id, guildId: guild.id },
+				{ $inc: { count: 1 } },
+				{ upsert: true }
+			)
+		]);
 
 		if (data.countGoal === currentNumber) {
-			message.reply({ content: `Congratulations! You reached the goal of **${currentNumber}**!` });
-			message.pinnable && message.pin();
+			await message.reply({ content: `Congratulations! You reached the goal of **${currentNumber}**!` });
+			if (message.pinnable) await message.pin();
 		}
 	}
 }
 
-module.exports = {
-	UserEvent
-};
+module.exports = { UserEvent };

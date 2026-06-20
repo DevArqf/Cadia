@@ -1,14 +1,10 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');
 const { OAuth2Scopes } = require('discord.js');
+const { invitePermissionPresets } = require('../../config/invite');
 const { componentReply, linkButton, panel } = require('../../lib/util/components');
 
-const permissionChoices = [
-	{ name: 'View Server (No moderation perms)', value: '517547088960' },
-	{ name: 'Basic Moderation (Manage messages, roles and emojis)', value: '545195949136' },
-	{ name: 'Advanced Moderation (Manage server)', value: '545195949174' },
-	{ name: 'Administrator (Every permission)', value: '8' }
-];
+const permissionChoices = invitePermissionPresets.map(({ name, value }) => ({ name, value }));
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -49,9 +45,7 @@ class UserCommand extends CadiaCommand {
 					subtitle: 'Cadia authorization link',
 					sections: [
 						`${emojis.custom.settings} **Permission Preset:** ${selected?.name ?? 'Custom'}`,
-						permissions === '8'
-							? `${emojis.custom.warning} This invite grants **Administrator** permissions.`
-							: `${emojis.custom.warning} Some features may require Administrator permissions later.`
+						`${emojis.custom.info} This preset grants only the permissions used by its listed Cadia features.`
 					],
 					buttons: [linkButton('Invite Cadia', invite)]
 				}),

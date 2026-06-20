@@ -114,7 +114,7 @@ function createModel(modelName, defaults = {}) {
 			return deserializeRows(rows);
 		}
 
-		static async _matchingRows(filter = {}, limit = null) {
+		static async _matchingRows(filter = {}, limit = null, { forUpdate = false } = {}) {
 			if (!isMysqlConnected()) return [];
 			const { databaseFilter, memoryFilter } = splitFilter(filter);
 			const hasDatabaseFilter = Object.keys(databaseFilter).length > 0;
@@ -123,7 +123,8 @@ function createModel(modelName, defaults = {}) {
 				'SELECT id, data FROM cadia_documents WHERE model = ?',
 				hasDatabaseFilter ? 'AND JSON_CONTAINS(data, ?)' : '',
 				'ORDER BY id ASC',
-				canLimitInDatabase ? `LIMIT ${Math.max(limit, 0)}` : ''
+				canLimitInDatabase ? `LIMIT ${Math.max(limit, 0)}` : '',
+				forUpdate ? 'FOR UPDATE' : ''
 			]
 				.filter(Boolean)
 				.join(' ');
@@ -144,6 +145,11 @@ function createModel(modelName, defaults = {}) {
 
 		static async findOne(filter = {}) {
 			const [row] = await this._matchingRows(filter, 1);
+			return row ? createDocument(this, row.id, row.data) : null;
+		}
+
+		static async findOneForUpdate(filter = {}) {
+			const [row] = await this._matchingRows(filter, 1, { forUpdate: true });
 			return row ? createDocument(this, row.id, row.data) : null;
 		}
 

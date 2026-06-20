@@ -9,6 +9,7 @@ const { syncDiscordBotListCommands } = require('../lib/util/discordBotListComman
 const { startTopggStatsPoster, syncTopggCommands } = require('../lib/util/topgg');
 const { preloadRpgAssets } = require('../lib/rpg/preload');
 const { validateGrowthConfig } = require('../config/growth');
+const { configureRpgGrowth } = require('../lib/rpg/growth');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -23,6 +24,7 @@ class UserEvent extends Listener {
 
 	async run(client) {
 		this.container.client = client;
+		configureRpgGrowth({ logger: this.container.logger });
 
 		const info = await this._connectDb();
 		this._reportGrowthConfiguration(info);

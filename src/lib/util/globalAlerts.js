@@ -7,7 +7,7 @@ const {
 	TextDisplayBuilder,
 	ThumbnailBuilder
 } = require('discord.js');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const { GlobalAlertSchema } = require('../schemas/globalAlertSchema');
 const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
 
@@ -212,7 +212,7 @@ function buildAlertNudge(alert) {
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`A developer posted a global alert <t:${Math.floor(alert.createdAt / 1000)}:R>.\n${emojis.custom.arrowright} Run \`</alert:1512787844664528928>\` to read it.`
+				`A developer posted a global alert <t:${Math.floor(alert.createdAt / 1000)}:R>.\n${emojis.custom.arrowright} Run \`</alert:${branding.alertCommandId}>\` to read it.`
 			)
 		);
 }

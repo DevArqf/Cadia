@@ -1,5 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -173,7 +173,7 @@ function buildNoticeComponents(message) {
 async function sendError(interaction) {
 	const response = {
 		components: buildNoticeComponents(
-			`${emojis.custom.fail} Oops, I could not measure latency. Please try again later or use </bugreport:1219050295770742934>.`
+			`${emojis.custom.fail} Oops, I could not measure latency. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
 		),
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 	};

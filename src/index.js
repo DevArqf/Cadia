@@ -11,7 +11,7 @@ const client = new CadiaClient();
 const reminderSchema = require('./lib/schemas/reminderSchema');
 let checkingReminders = false;
 
-setInterval(async () => {
+client.reminderTimer = setInterval(async () => {
 	if (checkingReminders || !isMysqlConnected()) return;
 
 	checkingReminders = true;
@@ -33,15 +33,13 @@ async function sendReminder(reminder) {
 	const user = await client.users.fetch(reminder.User).catch(() => null);
 	if (!user) return;
 
-	await user
-		.send({
-			embeds: [
-				new EmbedBuilder()
-					.setColor(`${color.default}`)
-					.setDescription(`${emojis.custom.wave} You asked me to **remind** you about "\`${reminder.Remind}\`"`)
-			]
-		})
-		.catch(() => null);
+	await user.send({
+		embeds: [
+			new EmbedBuilder()
+				.setColor(`${color.default}`)
+				.setDescription(`${emojis.custom.wave} You asked me to **remind** you about "\`${reminder.Remind}\`"`)
+		]
+	});
 
 	await reminderSchema.deleteMany({
 		Time: reminder.Time,

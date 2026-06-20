@@ -24,6 +24,10 @@ class CadiaClient extends SapphireClient {
 			clearInterval(this.topggStatsPoster);
 			this.topggStatsPoster = null;
 		}
+		if (this.reminderTimer) {
+			clearInterval(this.reminderTimer);
+			this.reminderTimer = null;
+		}
 
 		return super.destroy();
 	}

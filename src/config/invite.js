@@ -18,6 +18,23 @@ const invitePermissions = [
 	PermissionFlagsBits.ManageRoles,
 	PermissionFlagsBits.ManageGuildExpressions
 ];
+const invitePermissionPresets = [
+	{
+		name: 'RPG and Community',
+		permissions: invitePermissions.slice(0, 8)
+	},
+	{
+		name: 'RPG and Moderation',
+		permissions: invitePermissions.slice(0, 13)
+	},
+	{
+		name: 'All Cadia Features',
+		permissions: invitePermissions
+	}
+].map((preset) => ({
+	...preset,
+	value: preset.permissions.reduce((total, permission) => total | permission, 0n).toString()
+}));
 
 function createInviteUrl(client) {
 	return client.generateInvite({
@@ -28,6 +45,7 @@ function createInviteUrl(client) {
 
 module.exports = {
 	createInviteUrl,
+	invitePermissionPresets,
 	invitePermissions,
 	inviteScopes
 };
