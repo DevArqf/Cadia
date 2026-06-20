@@ -1,6 +1,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+
+process.env.BOT_OWNERS ??= 'test-owner';
+process.env.DEVELOPERS ??= 'test-developer';
+
 const { createAchievementShareCard, createCharacterShareCard } = require('../src/lib/rpg/shareCard');
+const { createPlayerGrowthHandlers } = require('../src/lib/rpg/command/playerGrowthView');
+const { componentReply, notice, panel } = require('../src/lib/util/components');
 
 test('shareable character and achievement cards render PNG attachments', () => {
 	const profile = {
@@ -118,6 +124,60 @@ test('seasonal quest requires in-season victories and active days before cosmeti
 	} finally {
 		loaded.restore();
 	}
+});
+
+test('season handler edits an acknowledged interaction after database work', async () => {
+	let edited = null;
+	const handlers = createPlayerGrowthHandlers({
+		actionButton: () => null,
+		color: { RPG: '#5946b2', success: '#46b26b' },
+		componentReply,
+		createAchievementShareCard: () => null,
+		createCharacterShareCard: () => null,
+		createRpgLeaderboardCard: () => null,
+		growth: {
+			seasonalProgress: async () => ({
+				season: {
+					name: 'Stormglass',
+					endsAt: Date.parse('2026-07-01T00:00:00Z'),
+					quest: { victories: 5, activeDays: 3 },
+					cosmetic: { name: 'Stormglass Aura' }
+				},
+				progress: { victories: 1, activeDays: 1 },
+				complete: false,
+				claimed: false
+			})
+		},
+		icon: {
+			arrowRight: '>',
+			calendar: 'calendar',
+			clock: 'clock',
+			compass: 'compass',
+			coin: 'coin',
+			loot: 'loot',
+			rank: { s: 'rank' },
+			shards: 'shards',
+			success: 'success'
+		},
+		notice,
+		panel,
+		service: { RpgError: Error }
+	});
+	const interaction = {
+		deferred: true,
+		user: { id: 'user' },
+		options: { getString: () => 'view' },
+		editReply: async (payload) => {
+			edited = payload;
+			return payload;
+		},
+		reply: async () => assert.fail('season should edit the deferred interaction')
+	};
+
+	await handlers.season(interaction);
+
+	assert.ok(edited);
+	assert.ok(edited.components.length > 0);
 });
 
 function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss = null }) {

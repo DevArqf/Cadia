@@ -203,6 +203,9 @@ class UserCommand extends CadiaCommand {
 
 	async chatInputRun(interaction) {
 		try {
+			if (shouldDeferRpgCommand(interaction) && !interaction.deferred && !interaction.replied) {
+				await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
+			}
 			return await dispatchRpgCommand(
 				interaction,
 				{
@@ -1859,7 +1862,8 @@ async function sendRpgIssue(interaction, error) {
 		true
 	);
 
-	if (interaction.deferred || interaction.replied) return interaction.followUp(response).catch(() => null);
+	if (interaction.deferred) return interaction.editReply(response).catch(() => null);
+	if (interaction.replied) return interaction.followUp(response).catch(() => null);
 	return interaction.reply(response).catch(() => null);
 }
 
@@ -1911,6 +1915,11 @@ function isDeveloper(userId) {
 		.includes(userId);
 }
 
+function shouldDeferRpgCommand(interaction) {
+	return interaction.options.getSubcommand(false) === 'season';
+}
+
 module.exports = {
-	UserCommand
+	UserCommand,
+	shouldDeferRpgCommand
 };

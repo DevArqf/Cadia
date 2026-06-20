@@ -1,11 +1,16 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+
+process.env.BOT_OWNERS ??= 'test-owner';
+process.env.DEVELOPERS ??= 'test-developer';
+
 const { SlashCommandBuilder } = require('discord.js');
 const { classes, encounters, items, origins, regions } = require('../src/lib/rpg/data');
 const { registerRpgCommand } = require('../src/lib/rpg/command/register');
 const { dispatchRpgCommand } = require('../src/lib/rpg/command/router');
 const { clearActiveAction, getActiveAction, setActiveAction } = require('../src/lib/rpg/command/sessions');
 const service = require('../src/lib/rpg/service');
+const { shouldDeferRpgCommand } = require('../src/commands/Systems/RPG System/rpg');
 
 test('RPG registration preserves public and developer subcommands', () => {
 	let command;
@@ -88,6 +93,11 @@ test('RPG progression and travel rules preserve rank and boss gates', () => {
 
 	assert.equal(service.canTravel(lockedProfile, region).ok, false);
 	assert.equal(service.canTravel(unlockedProfile, region).ok, true);
+});
+
+test('season commands are acknowledged before tutorial and database work', () => {
+	assert.equal(shouldDeferRpgCommand(interactionFor('season')), true);
+	assert.equal(shouldDeferRpgCommand(interactionFor('profile')), false);
 });
 
 function interactionFor(subcommand, group = null) {

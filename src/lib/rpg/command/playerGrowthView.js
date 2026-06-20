@@ -230,27 +230,26 @@ function createPlayerGrowthHandlers({
 				: await executeGrowth(() => growth.seasonalProgress(interaction.user.id));
 		const { season: activeSeason, progress } = status;
 
-		return interaction.reply(
-			componentReply(
-				panel({
-					accentColor: status.claimed || action === 'claim' ? color.success : color.RPG,
-					title: `${icon.compass} **Season: ${activeSeason.name}**`,
-					subtitle: `Limited until <t:${Math.floor(activeSeason.endsAt / 1000)}:D>`,
-					sections: [
-						[
-							`${icon.success} **Victories:** ${progress.victories}/${activeSeason.quest.victories}`,
-							`${icon.calendar || icon.clock} **Active Days:** ${progress.activeDays}/${activeSeason.quest.activeDays}`,
-							`${icon.loot} **Limited Cosmetic:** ${activeSeason.cosmetic.name}`
-						],
-						status.claimed || action === 'claim'
-							? `${icon.success} The seasonal cosmetic is in your collection.`
-							: status.complete
-								? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
-								: `${icon.arrowRight} Win encounters and return on multiple days before the season ends.`
-					]
-				})
-			)
+		const response = componentReply(
+			panel({
+				accentColor: status.claimed || action === 'claim' ? color.success : color.RPG,
+				title: `${icon.compass} **Season: ${activeSeason.name}**`,
+				subtitle: `Limited until <t:${Math.floor(activeSeason.endsAt / 1000)}:D>`,
+				sections: [
+					[
+						`${icon.success} **Victories:** ${progress.victories}/${activeSeason.quest.victories}`,
+						`${icon.calendar || icon.clock} **Active Days:** ${progress.activeDays}/${activeSeason.quest.activeDays}`,
+						`${icon.loot} **Limited Cosmetic:** ${activeSeason.cosmetic.name}`
+					],
+					status.claimed || action === 'claim'
+						? `${icon.success} The seasonal cosmetic is in your collection.`
+						: status.complete
+							? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
+							: `${icon.arrowRight} Win encounters and return on multiple days before the season ends.`
+				]
+			})
 		);
+		return interaction.deferred ? interaction.editReply(response) : interaction.reply(response);
 	}
 
 	async function refer(interaction) {

@@ -4,6 +4,7 @@ const TOPGG_V1_API = 'https://top.gg/api/v1';
 const TOPGG_V0_API = 'https://top.gg/api';
 const TOPGG_STATS_INTERVAL = 1000 * 60 * 30;
 const TOPGG_REQUEST_TIMEOUT = Number(process.env.TOPGG_REQUEST_TIMEOUT) || 15_000;
+const TOPGG_NETWORK_RETRY_DELAYS = [1_000, 3_000];
 
 async function postTopggStats(client) {
 	const token = getTopggToken();
@@ -15,10 +16,12 @@ async function postTopggStats(client) {
 	const body = getTopggMetrics(client);
 
 	try {
-		await axios.patch(`${TOPGG_V1_API}/projects/@me/metrics`, body, {
-			headers: getTopggV1Headers(token),
-			timeout: TOPGG_REQUEST_TIMEOUT
-		});
+		await retryTransientNetworkRequest(() =>
+			axios.patch(`${TOPGG_V1_API}/projects/@me/metrics`, body, {
+				headers: getTopggV1Headers(token),
+				timeout: TOPGG_REQUEST_TIMEOUT
+			})
+		);
 
 		client.logger?.info?.(`Posted Cadia stats to Top.gg: ${body.server_count} servers.`);
 		return { skipped: false, serverCount: body.server_count, shardCount: body.shard_count ?? null };
@@ -192,10 +195,22 @@ function isTransientNetworkError(error) {
 	return ['EAI_AGAIN', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND', 'ECONNABORTED'].includes(error?.code);
 }
 
+async function retryTransientNetworkRequest(operation, delays = TOPGG_NETWORK_RETRY_DELAYS) {
+	for (let attempt = 0; ; attempt += 1) {
+		try {
+			return await operation();
+		} catch (error) {
+			if (!isTransientNetworkError(error) || attempt >= delays.length) throw error;
+			await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+		}
+	}
+}
+
 module.exports = {
 	checkTopggVote,
 	getTopggMetrics,
 	postTopggStats,
+	retryTransientNetworkRequest,
 	startTopggStatsPoster,
 	syncTopggCommands
 };
