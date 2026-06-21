@@ -32,6 +32,7 @@ const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
 const { createSeasonCard } = require('../../../lib/rpg/seasonCanvas');
+const { createDefeatStory } = require('../../../lib/rpg/defeatStory');
 const growth = require('../../../lib/rpg/playerGrowth');
 const { createAchievementShareCard, createCharacterShareCard } = require('../../../lib/rpg/shareCard');
 const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
@@ -1588,9 +1589,28 @@ function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
 		});
 	}
 
+	if (!result.won) {
+		return panel({
+			accentColor: color.fail,
+			title: `${icon.fail} **Warden Defeated**`,
+			subtitle: `${result.profile.name} fell to ${result.encounter.name}`,
+			image,
+			sections: [
+				createDefeatStory(result),
+				[
+					`${icon.damageDealt} **Damage Dealt:** ${result.damage}${result.crit ? ' (critical)' : ''}`,
+					`${icon.damageTaken} **Final Blow:** ${result.enemyDamage} damage`,
+					`${icon.health.full} **HP Remaining:** 1`,
+					`${icon.info} **Rewards:** None`
+				]
+			],
+			footer: `${icon.clock} Defeated <t:${Math.floor(Date.now() / 1000)}:R>`
+		});
+	}
+
 	return panel({
-		accentColor: result.won ? color.success : color.fail,
-		title: result.won ? `${icon.success} **Encounter Cleared**` : `${icon.fail} **Encounter Lost**`,
+		accentColor: color.success,
+		title: `${icon.success} **Encounter Cleared**`,
 		subtitle: `${result.encounter.name} - ${titleCase(stance)} stance`,
 		image,
 		sections: [
@@ -1599,16 +1619,14 @@ function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
 				`${icon.damageTaken} **Damage Taken:** ${result.enemyDamage}`,
 				`**HP:** ${healthBar(result.profile.hp, result.profile.maxHp)} ${percentage(result.profile.hp, result.profile.maxHp)}`
 			],
-			result.won
-				? [
-						`${icon.coin} **Gold:** +${result.gold}`,
-						`${icon.xpLabel} **XP:** +${result.xp}`,
-						`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`,
-						result.unlockedAchievements?.length
-							? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
-							: null
-					].filter(Boolean)
-				: `${icon.info} No rewards were claimed. Regroup and try again.`
+			[
+				`${icon.coin} **Gold:** +${result.gold}`,
+				`${icon.xpLabel} **XP:** +${result.xp}`,
+				`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`,
+				result.unlockedAchievements?.length
+					? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
+					: null
+			].filter(Boolean)
 		],
 		footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
 	});
@@ -1940,5 +1958,6 @@ function shouldDeferRpgCommand(interaction) {
 
 module.exports = {
 	UserCommand,
+	buildBattleResultPanel,
 	shouldDeferRpgCommand
 };
