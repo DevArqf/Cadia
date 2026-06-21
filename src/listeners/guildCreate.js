@@ -1,12 +1,5 @@
 const { Events, Listener } = require('@sapphire/framework');
-const {
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-	ChannelType,
-	EmbedBuilder,
-	PermissionFlagsBits
-} = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { branding } = require('../config/branding');
 const { color } = require('../config/colors');
 const { emojis } = require('../config/emojis');
@@ -110,7 +103,11 @@ function findOnboardingChannel(guild) {
 	const eligible = (channel) => {
 		if (!botMember || !channel || channel.type !== ChannelType.GuildText || !channel.isTextBased?.()) return false;
 		const permissions = channel.permissionsFor?.(botMember);
-		return permissions?.has(PermissionFlagsBits.ViewChannel) && permissions.has(PermissionFlagsBits.SendMessages) && permissions.has(PermissionFlagsBits.EmbedLinks);
+		return (
+			permissions?.has(PermissionFlagsBits.ViewChannel) &&
+			permissions.has(PermissionFlagsBits.SendMessages) &&
+			permissions.has(PermissionFlagsBits.EmbedLinks)
+		);
 	};
 
 	if (eligible(guild.systemChannel)) return guild.systemChannel;

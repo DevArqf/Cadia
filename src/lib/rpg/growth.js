@@ -1,8 +1,6 @@
-const { isMysqlConnected } = require('../database/mysql');
-const { BotAnalyticsGuildSchema } = require('../schemas/botAnalyticsGuildSchema');
-const { RpgGrowthSchema } = require('../schemas/rpgGrowthSchema');
 const { DAY_MS, excludedGuildIds, isExcludedGuild } = require('../analytics/growth');
 const { getGrowthConfig } = require('../../config/growth');
+const repositories = require('./repositories');
 
 const EVENT_FIELDS = {
 	tutorial_offered: 'tutorialOfferedAt',
@@ -29,11 +27,11 @@ function getRpgGrowthDiagnostics() {
 }
 
 async function recordRpgEvent({ guildId, userId, event = 'activity', now = Date.now() }) {
-	if (!isMysqlConnected() || !guildId || !userId || isExcludedGuild(guildId)) return null;
+	if (!repositories.database.isConnected() || !guildId || !userId || isExcludedGuild(guildId)) return null;
 
 	try {
-		let record = await RpgGrowthSchema.findOne({ guildId, userId });
-		if (!record) record = new RpgGrowthSchema({ guildId, userId, firstSeenAt: now });
+		let record = await repositories.activity.findOne({ guildId, userId });
+		if (!record) record = repositories.activity.createRecord({ guildId, userId, firstSeenAt: now });
 		hydrate(record);
 		markActivity(record, now);
 
@@ -54,20 +52,22 @@ async function recordRpgEvent({ guildId, userId, event = 'activity', now = Date.
 async function getRpgGrowthAnalytics(days = 14, now = Date.now()) {
 	const since = now - Math.max(days, 1) * DAY_MS;
 	const excludedIds = excludedGuildIds();
-	const [records, guildRows] = await Promise.all([RpgGrowthSchema.find(), BotAnalyticsGuildSchema.find()]);
+	const [records, guildRows] = await Promise.all([repositories.activity.find(), repositories.analyticsGuilds.find()]);
 	const excludedRecordCount = records.filter((record) => excludedIds.has(record.guildId)).length;
 	const includedRecords = records.filter((record) => !excludedIds.has(record.guildId));
 	const includedGuilds = guildRows.filter((guild) => !excludedIds.has(guild.guildId));
 	const cohortGuilds = includedGuilds.filter((guild) => cohortTime(guild) >= since && cohortTime(guild) <= now);
 	const cohortGuildIds = new Set(cohortGuilds.map((guild) => guild.guildId));
 	const cohortRecords = includedRecords.filter((record) => cohortGuildIds.has(record.guildId));
-	const weeklyGuilds = uniqueGuilds(
-		includedRecords.filter((record) => Number(record.lastActiveAt || 0) >= now - 7 * DAY_MS)
-	);
+	const weeklyGuilds = uniqueGuilds(includedRecords.filter((record) => Number(record.lastActiveAt || 0) >= now - 7 * DAY_MS));
 	const stages = [
 		{ key: 'joined', label: 'Guild Joined', count: cohortGuilds.length },
 		{ key: 'tutorialStarted', label: 'Tutorial Started', count: uniqueGuilds(cohortRecords.filter((record) => record.tutorialStartedAt)).size },
-		{ key: 'characterCreated', label: 'Character Created', count: uniqueGuilds(cohortRecords.filter((record) => record.characterCreatedAt)).size },
+		{
+			key: 'characterCreated',
+			label: 'Character Created',
+			count: uniqueGuilds(cohortRecords.filter((record) => record.characterCreatedAt)).size
+		},
 		{ key: 'firstAdventure', label: 'First Adventure', count: uniqueGuilds(cohortRecords.filter((record) => record.firstAdventureAt)).size },
 		{ key: 'firstVictory', label: 'First Victory', count: uniqueGuilds(cohortRecords.filter((record) => record.firstVictoryAt)).size },
 		{ key: 'secondActiveDay', label: 'Second Active Day', count: uniqueGuilds(cohortRecords.filter((record) => record.secondActiveDayAt)).size },
@@ -130,12 +130,8 @@ function diagnoseRpgGrowthData({ records, guildRows, cohortRecords, excludedReco
 		victoryBeforeAdventure: records.filter(
 			(record) => record.firstVictoryAt && (!record.firstAdventureAt || record.firstVictoryAt < record.firstAdventureAt)
 		).length,
-		invalidSecondActiveDay: records.filter(
-			(record) => record.secondActiveDayAt && Object.keys(record.activeDays || {}).length < 2
-		).length,
-		earlyRetention: records.filter(
-			(record) => record.retained7At && record.retained7At < Number(record.firstSeenAt || 0) + 7 * DAY_MS
-		).length,
+		invalidSecondActiveDay: records.filter((record) => record.secondActiveDayAt && Object.keys(record.activeDays || {}).length < 2).length,
+		earlyRetention: records.filter((record) => record.retained7At && record.retained7At < Number(record.firstSeenAt || 0) + 7 * DAY_MS).length,
 		excludedRecordCount
 	};
 	const warnings = [];

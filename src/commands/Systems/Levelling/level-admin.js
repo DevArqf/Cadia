@@ -69,28 +69,36 @@ class UserCommand extends CadiaCommand {
 						.setName('give-xp')
 						.setDescription('Give XP to a user')
 						.addUserOption((option) => option.setName('user').setDescription('The user').setRequired(true))
-						.addIntegerOption((option) => option.setName('amount').setDescription('The XP amount').setMinValue(1).setMaxValue(100000).setRequired(true))
+						.addIntegerOption((option) =>
+							option.setName('amount').setDescription('The XP amount').setMinValue(1).setMaxValue(100000).setRequired(true)
+						)
 				)
 				.addSubcommand((subcommand) =>
 					subcommand
 						.setName('give-level')
 						.setDescription('Give levels to a user')
 						.addUserOption((option) => option.setName('user').setDescription('The user').setRequired(true))
-						.addIntegerOption((option) => option.setName('amount').setDescription('The level amount').setMinValue(1).setMaxValue(1000).setRequired(true))
+						.addIntegerOption((option) =>
+							option.setName('amount').setDescription('The level amount').setMinValue(1).setMaxValue(1000).setRequired(true)
+						)
 				)
 				.addSubcommand((subcommand) =>
 					subcommand
 						.setName('set-xp')
 						.setDescription('Set a user current XP')
 						.addUserOption((option) => option.setName('user').setDescription('The user').setRequired(true))
-						.addIntegerOption((option) => option.setName('amount').setDescription('The XP amount').setMinValue(0).setMaxValue(99).setRequired(true))
+						.addIntegerOption((option) =>
+							option.setName('amount').setDescription('The XP amount').setMinValue(0).setMaxValue(99).setRequired(true)
+						)
 				)
 				.addSubcommand((subcommand) =>
 					subcommand
 						.setName('set-level')
 						.setDescription('Set a user level')
 						.addUserOption((option) => option.setName('user').setDescription('The user').setRequired(true))
-						.addIntegerOption((option) => option.setName('amount').setDescription('The level').setMinValue(1).setMaxValue(1000).setRequired(true))
+						.addIntegerOption((option) =>
+							option.setName('amount').setDescription('The level').setMinValue(1).setMaxValue(1000).setRequired(true)
+						)
 				)
 				.addSubcommand((subcommand) =>
 					subcommand
@@ -135,7 +143,9 @@ class UserCommand extends CadiaCommand {
 			if (channel) config.channelId = channel.id;
 			if (!config.channelId) config.channelId = interaction.channel.id;
 			await config.save();
-			return interaction.reply({ embeds: [createAdminEmbed('Levelling Enabled', `Level-up messages will be sent in <#${config.channelId}>.`)] });
+			return interaction.reply({
+				embeds: [createAdminEmbed('Levelling Enabled', `Level-up messages will be sent in <#${config.channelId}>.`)]
+			});
 		}
 
 		if (subcommand === 'disable') {
@@ -220,11 +230,7 @@ function normalizeLevel(level) {
 }
 
 function createAdminEmbed(title, description) {
-	return new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(`${emojis.custom.settings} ${title}`)
-		.setDescription(description)
-		.setTimestamp();
+	return new EmbedBuilder().setColor(color.default).setTitle(`${emojis.custom.settings} ${title}`).setDescription(description).setTimestamp();
 }
 
 module.exports = {

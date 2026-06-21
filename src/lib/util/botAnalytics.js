@@ -12,11 +12,26 @@ const {
 } = require('../analytics/growth');
 
 const maxTopEntries = 10;
+let analyticsLogger = null;
+const writeDiagnostics = {
+	writeFailures: 0,
+	lastFailureAt: null,
+	lastFailureMessage: null,
+	lastOperation: null
+};
+
+function configureBotAnalytics({ logger = null } = {}) {
+	analyticsLogger = logger;
+}
+
+function getBotAnalyticsDiagnostics() {
+	return { ...writeDiagnostics };
+}
 
 async function recordCommandRun({ client, user, guild, commandName, commandCategory = 'other', meaningful = false, type = 'slash' }) {
 	if (!canTrack() || isExcludedGuild(guild?.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordCommandRun', async () => {
 		const now = Date.now();
 		const normalizedCommand = normalizeCommandPath(commandName);
 		const day = await getDaily();
@@ -55,10 +70,7 @@ async function recordCommandRun({ client, user, guild, commandName, commandCateg
 				guildDocument.meaningfulCommands[normalizedCommand] = true;
 				guildDocument.activeDays[day.day] = true;
 				incrementMap(guildDocument.commandCategories, commandCategory);
-				if (
-					!guildDocument.activatedAt &&
-					Object.keys(guildDocument.meaningfulCommands).length >= ACTIVATION_COMMAND_COUNT
-				) {
+				if (!guildDocument.activatedAt && Object.keys(guildDocument.meaningfulCommands).length >= ACTIVATION_COMMAND_COUNT) {
 					guildDocument.activatedAt = now;
 				}
 				markRetention(guildDocument, now);
@@ -91,7 +103,7 @@ async function recordCommandDenied({ client, interaction, commandName }) {
 async function recordGuildJoin(guild) {
 	if (!canTrack() || !guild || isExcludedGuild(guild.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordGuildJoin', async () => {
 		const now = Date.now();
 		const day = await getDaily();
 		day.guildJoins += 1;
@@ -131,7 +143,7 @@ async function recordGuildJoin(guild) {
 async function recordGuildLeave(guild) {
 	if (!canTrack() || !guild || isExcludedGuild(guild.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordGuildLeave', async () => {
 		const day = await getDaily();
 		day.guildLeaves += 1;
 		day.updatedAt = Date.now();
@@ -151,7 +163,7 @@ async function recordGuildLeave(guild) {
 async function recordMemberJoin(member) {
 	if (!canTrack() || !member || isExcludedGuild(member.guild?.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordMemberJoin', async () => {
 		const day = await getDaily();
 		day.memberJoins += 1;
 		day.updatedAt = Date.now();
@@ -164,7 +176,7 @@ async function recordMemberJoin(member) {
 async function recordMemberLeave(member) {
 	if (!canTrack() || !member || isExcludedGuild(member.guild?.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordMemberLeave', async () => {
 		const day = await getDaily();
 		day.memberLeaves += 1;
 		day.updatedAt = Date.now();
@@ -179,7 +191,7 @@ async function recordMemberLeave(member) {
 async function recordOnboardingOutcome(guild, { variant, delivered, target = null, error = null }) {
 	if (!canTrack() || !guild || isExcludedGuild(guild.id)) return;
 
-	await swallow(async () => {
+	await swallow('recordOnboardingOutcome', async () => {
 		const now = Date.now();
 		const day = await getDaily();
 		const document = await touchGuild(guild);
@@ -286,8 +298,7 @@ async function getBotAnalytics(client, days = 14) {
 			guildJoins: day.guildJoins || 0,
 			guildLeaves: day.guildLeaves || 0,
 			commandErrors: day.commandErrors || 0,
-			commandDenied: day.commandDenied || 0
-			,
+			commandDenied: day.commandDenied || 0,
 			meaningfulCommandRuns: day.meaningfulCommandRuns || 0,
 			onboardingDelivered: day.onboardingDelivered || 0,
 			onboardingFailed: day.onboardingFailed || 0
@@ -313,7 +324,7 @@ async function getBotAnalytics(client, days = 14) {
 async function incrementDailyCounter(counter, { client, guildId, commandName, detailMap } = {}) {
 	if (!canTrack() || isExcludedGuild(guildId)) return;
 
-	await swallow(async () => {
+	await swallow(`incrementDailyCounter:${counter}`, async () => {
 		const day = await getDaily();
 		day[counter] = (day[counter] || 0) + 1;
 		if (commandName && detailMap) incrementMap(day[detailMap], commandName);
@@ -357,10 +368,15 @@ function canTrack() {
 	return isMysqlConnected();
 }
 
-async function swallow(operation) {
+async function swallow(operationName, operation) {
 	try {
 		await operation();
-	} catch {
+	} catch (error) {
+		writeDiagnostics.writeFailures += 1;
+		writeDiagnostics.lastFailureAt = Date.now();
+		writeDiagnostics.lastFailureMessage = error.message;
+		writeDiagnostics.lastOperation = operationName;
+		analyticsLogger?.warn?.(`Bot analytics operation "${operationName}" failed: ${error.message}`);
 		return null;
 	}
 }
@@ -419,6 +435,8 @@ function dayToTimestamp(day) {
 }
 
 module.exports = {
+	configureBotAnalytics,
+	getBotAnalyticsDiagnostics,
 	getBotAnalytics,
 	recordCommandDenied,
 	recordCommandError,

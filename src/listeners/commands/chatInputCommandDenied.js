@@ -29,7 +29,7 @@ class UserEvent extends Listener {
 			const deniedContent =
 				identifier === 'PermissionError' || identifier === 'DevOnlyCommand'
 					? `${emojis.custom.forbidden} You are not **authorized** to **execute** this command`
-					: content ?? 'An error occurred while executing the command.';
+					: (content ?? 'An error occurred while executing the command.');
 			return interaction.editReply({
 				content: deniedContent,
 				allowedMentions: { users: [interaction.user.id], roles: [] }

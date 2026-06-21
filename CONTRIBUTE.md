@@ -4,9 +4,9 @@ You should always make a new branch on the github repo (<https://github.com/DevA
 
 The naming scheme should be:
 
--   `feature/featureName` for new features
--   `bugfix/bugName` for bug fixes
--   `enhancement/enhancementName` for enhancements
+- `feature/featureName` for new features
+- `bugfix/bugName` for bug fixes
+- `enhancement/enhancementName` for enhancements
 
 When you are done with your feature, bug fix, or enhancement, you should make a pull request to the `main` branch.
 

@@ -14,6 +14,7 @@ test('config compatibility facade exposes focused configuration modules', () => 
 
 	assert.equal(compatibility.ClientConfig, ClientConfig);
 	assert.equal(compatibility.branding, branding);
+	assert.match(branding.userAgent, new RegExp(`v${require('../package.json').version.replaceAll('.', '\\.')}$`));
 	assert.equal(compatibility.channels, channels);
 	assert.equal(compatibility.color, color);
 	assert.equal(compatibility.emojis, emojis);

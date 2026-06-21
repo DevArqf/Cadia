@@ -23,7 +23,10 @@ test('invite command exposes only least-privilege permission presets', () => {
 		choices.map((choice) => choice.value),
 		invitePermissionPresets.map((preset) => preset.value)
 	);
-	assert.equal(choices.some((choice) => BigInt(choice.value) & PermissionFlagsBits.Administrator), false);
+	assert.equal(
+		choices.some((choice) => BigInt(choice.value) & PermissionFlagsBits.Administrator),
+		false
+	);
 });
 
 test('invite command generates the selected preset without Administrator', async () => {

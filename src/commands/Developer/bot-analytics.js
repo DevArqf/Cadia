@@ -53,10 +53,7 @@ class UserCommand extends CadiaCommand {
 		const view = interaction.options.getString('view') || 'overview';
 		const days = interaction.options.getInteger('days') || 14;
 		const shouldExport = interaction.options.getBoolean('export') || false;
-		const [analytics, rpgGrowth] = await Promise.all([
-			getBotAnalytics(interaction.client, days),
-			getRpgGrowthAnalytics(days)
-		]);
+		const [analytics, rpgGrowth] = await Promise.all([getBotAnalytics(interaction.client, days), getRpgGrowthAnalytics(days)]);
 		analytics.rpgGrowth = rpgGrowth;
 
 		const response = componentReply(buildAnalyticsPanel(analytics, view), true);

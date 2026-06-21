@@ -2,6 +2,7 @@ const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { ContainerBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder } = require('discord.js');
 const { color, emojis } = require('../../config');
 const { ReleaseNotesSchema } = require('../../lib/schemas/releasenoteSchema');
+const { isDeveloper } = require('../../lib/util/authorization');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -37,12 +38,11 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		const authorizedIDs = (process.env.DEVELOPERS ?? '').split(' ').filter(Boolean);
 		const sub = interaction.options.getSubcommand();
 		const data = await ReleaseNotesSchema.find();
 
 		if (sub === 'publish') {
-			if (!authorizedIDs.includes(interaction.user.id)) {
+			if (!isDeveloper(interaction.user.id)) {
 				return interaction.reply({
 					components: [
 						buildPanel(

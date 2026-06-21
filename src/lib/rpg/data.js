@@ -174,9 +174,42 @@ const items = {
 
 const encounters = {
 	'broken-gate': [
-		{ id: 'gate-wisp', name: 'Gate Wisp', hp: 620, attack: 66, defense: 18, xp: 38, gold: [48, 92], loot: ['star_salve', 'gate_cloak'], weaknesses: ['arcane', 'warded'], strengths: ['steel'] },
-		{ id: 'rust-hound', name: 'Rust Hound', hp: 760, attack: 78, defense: 32, xp: 46, gold: [64, 120], loot: ['warden_blade'], weaknesses: ['pierce', 'steel'], strengths: ['flame'] },
-		{ id: 'hollow-fire', name: 'Hollow Fire', hp: 680, attack: 86, defense: 22, xp: 43, gold: [58, 112], loot: ['ash_charm'], weaknesses: ['flame', 'arcane'], strengths: ['warded'] },
+		{
+			id: 'gate-wisp',
+			name: 'Gate Wisp',
+			hp: 620,
+			attack: 66,
+			defense: 18,
+			xp: 38,
+			gold: [48, 92],
+			loot: ['star_salve', 'gate_cloak'],
+			weaknesses: ['arcane', 'warded'],
+			strengths: ['steel']
+		},
+		{
+			id: 'rust-hound',
+			name: 'Rust Hound',
+			hp: 760,
+			attack: 78,
+			defense: 32,
+			xp: 46,
+			gold: [64, 120],
+			loot: ['warden_blade'],
+			weaknesses: ['pierce', 'steel'],
+			strengths: ['flame']
+		},
+		{
+			id: 'hollow-fire',
+			name: 'Hollow Fire',
+			hp: 680,
+			attack: 86,
+			defense: 22,
+			xp: 43,
+			gold: [58, 112],
+			loot: ['ash_charm'],
+			weaknesses: ['flame', 'arcane'],
+			strengths: ['warded']
+		},
 		{
 			id: 'harlequin',
 			name: 'Harlequin',
@@ -194,8 +227,30 @@ const encounters = {
 		}
 	],
 	'ashwood-outskirts': [
-		{ id: 'thorn-stalker', name: 'Thorn Stalker', hp: 1500, attack: 155, defense: 74, xp: 72, gold: [130, 250], loot: ['ash_charm', 'star_salve', 'ember_spear'], weaknesses: ['flame', 'pierce'], strengths: ['arcane'] },
-		{ id: 'mossbound-knight', name: 'Mossbound Knight', hp: 1780, attack: 142, defense: 112, xp: 82, gold: [150, 290], loot: ['rootguard_plate', 'ember_spear'], weaknesses: ['flame', 'steel'], strengths: ['warded'] },
+		{
+			id: 'thorn-stalker',
+			name: 'Thorn Stalker',
+			hp: 1500,
+			attack: 155,
+			defense: 74,
+			xp: 72,
+			gold: [130, 250],
+			loot: ['ash_charm', 'star_salve', 'ember_spear'],
+			weaknesses: ['flame', 'pierce'],
+			strengths: ['arcane']
+		},
+		{
+			id: 'mossbound-knight',
+			name: 'Mossbound Knight',
+			hp: 1780,
+			attack: 142,
+			defense: 112,
+			xp: 82,
+			gold: [150, 290],
+			loot: ['rootguard_plate', 'ember_spear'],
+			weaknesses: ['flame', 'steel'],
+			strengths: ['warded']
+		},
 		{
 			id: 'mossbound-regent',
 			name: 'Mossbound Regent',
@@ -213,8 +268,30 @@ const encounters = {
 		}
 	],
 	'glassmine-depths': [
-		{ id: 'glass-mite', name: 'Glass Mite', hp: 2600, attack: 245, defense: 145, xp: 112, gold: [250, 420], loot: ['glass_pick', 'echo_lens'], weaknesses: ['steel', 'pierce'], strengths: ['crystal'] },
-		{ id: 'echo-miner', name: 'Echo Miner', hp: 2900, attack: 270, defense: 128, xp: 126, gold: [280, 460], loot: ['glass_pick', 'ash_charm', 'echo_lens'], weaknesses: ['arcane', 'crystal'], strengths: ['steel'] },
+		{
+			id: 'glass-mite',
+			name: 'Glass Mite',
+			hp: 2600,
+			attack: 245,
+			defense: 145,
+			xp: 112,
+			gold: [250, 420],
+			loot: ['glass_pick', 'echo_lens'],
+			weaknesses: ['steel', 'pierce'],
+			strengths: ['crystal']
+		},
+		{
+			id: 'echo-miner',
+			name: 'Echo Miner',
+			hp: 2900,
+			attack: 270,
+			defense: 128,
+			xp: 126,
+			gold: [280, 460],
+			loot: ['glass_pick', 'ash_charm', 'echo_lens'],
+			weaknesses: ['arcane', 'crystal'],
+			strengths: ['steel']
+		},
 		{
 			id: 'mummy',
 			name: 'Mummy',
@@ -251,8 +328,7 @@ const npcQuests = [
 		},
 		regionId: 'broken-gate',
 		title: 'Lanterns That Whisper',
-		intro:
-			'The lanterns along the Broken Gate are repeating names that nobody remembers. Larry lowers his voice and asks you to silence the wisps before the whispers spread.',
+		intro: 'The lanterns along the Broken Gate are repeating names that nobody remembers. Larry lowers his voice and asks you to silence the wisps before the whispers spread.',
 		objectiveText: 'Defeat 3 Gate Wisps in The Broken Gate, then return to Larry.',
 		targets: [{ encounterId: 'gate-wisp', amount: 3 }],
 		rewards: { gold: 180, xp: 70, shards: 1, items: ['star_salve'] },
@@ -267,8 +343,7 @@ const npcQuests = [
 		},
 		regionId: 'broken-gate',
 		title: 'Iron Teeth In The Dust',
-		intro:
-			'Hunter points to claw marks dragged through the market dust. Rust Hounds are circling the old roads, and he wants their trail broken before caravans return.',
+		intro: 'Hunter points to claw marks dragged through the market dust. Rust Hounds are circling the old roads, and he wants their trail broken before caravans return.',
 		objectiveText: 'Defeat 2 Rust Hounds in The Broken Gate, then return to Hunter.',
 		targets: [{ encounterId: 'rust-hound', amount: 2 }],
 		rewards: { gold: 220, xp: 85, items: ['warden_blade'] },
@@ -283,8 +358,7 @@ const npcQuests = [
 		},
 		regionId: 'broken-gate',
 		title: 'Ash That Remembers',
-		intro:
-			'Carys studies a smear of orange ash that refuses to cool. Hollow Fire has been feeding on old spellwork, and she needs proof before it consumes another block.',
+		intro: 'Carys studies a smear of orange ash that refuses to cool. Hollow Fire has been feeding on old spellwork, and she needs proof before it consumes another block.',
 		objectiveText: 'Defeat 2 Hollow Fires in The Broken Gate, then return to Carys.',
 		targets: [{ encounterId: 'hollow-fire', amount: 2 }],
 		rewards: { gold: 240, xp: 90, items: ['ash_charm'] },
@@ -299,8 +373,7 @@ const npcQuests = [
 		},
 		regionId: 'ashwood-outskirts',
 		title: 'Roots Across The Road',
-		intro:
-			'Rocky has mapped three safe paths through Ashwood. By sunrise, thorn trails covered all of them. He needs the Stalkers cut down before the forest closes.',
+		intro: 'Rocky has mapped three safe paths through Ashwood. By sunrise, thorn trails covered all of them. He needs the Stalkers cut down before the forest closes.',
 		objectiveText: 'Defeat 3 Thorn Stalkers in Ashwood Outskirts, then return to Rocky.',
 		targets: [{ encounterId: 'thorn-stalker', amount: 3 }],
 		rewards: { gold: 420, xp: 160, shards: 1, items: ['ember_spear'] },
@@ -315,8 +388,7 @@ const npcQuests = [
 		},
 		regionId: 'ashwood-outskirts',
 		title: 'The Green Oath',
-		intro:
-			'Emma found old knight vows carved under living moss. The Mossbound still answer them, and she asks you to break their patrol before the Regent wakes.',
+		intro: 'Emma found old knight vows carved under living moss. The Mossbound still answer them, and she asks you to break their patrol before the Regent wakes.',
 		objectiveText: 'Defeat 2 Mossbound Knights in Ashwood Outskirts, then return to Emma.',
 		targets: [{ encounterId: 'mossbound-knight', amount: 2 }],
 		rewards: { gold: 520, xp: 190, items: ['rootguard_plate'] },
@@ -331,8 +403,7 @@ const npcQuests = [
 		},
 		regionId: 'glassmine-depths',
 		title: 'Prisms Under Skin',
-		intro:
-			'Ellon taps a crystal sample and winces when something taps back. Glass Mites are nesting in the mine seams, and every prism they hatch makes the echoes louder.',
+		intro: 'Ellon taps a crystal sample and winces when something taps back. Glass Mites are nesting in the mine seams, and every prism they hatch makes the echoes louder.',
 		objectiveText: 'Defeat 3 Glass Mites in Glassmine Depths, then return to Ellon.',
 		targets: [{ encounterId: 'glass-mite', amount: 3 }],
 		rewards: { gold: 760, xp: 260, shards: 1, items: ['echo_lens'] },
@@ -347,8 +418,7 @@ const npcQuests = [
 		},
 		regionId: 'glassmine-depths',
 		title: 'Tools That Swing Alone',
-		intro:
-			'Gary counts abandoned pickaxes and keeps arriving at one too many. Echo Miners are copying the old crew, and he wants the false shift ended.',
+		intro: 'Gary counts abandoned pickaxes and keeps arriving at one too many. Echo Miners are copying the old crew, and he wants the false shift ended.',
 		objectiveText: 'Defeat 2 Echo Miners in Glassmine Depths, then return to Gary.',
 		targets: [{ encounterId: 'echo-miner', amount: 2 }],
 		rewards: { gold: 840, xp: 290, items: ['glass_pick'] },

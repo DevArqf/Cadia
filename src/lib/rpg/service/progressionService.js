@@ -1,6 +1,5 @@
 const {
 	RpgError,
-	RpgProfileSchema,
 	addInventoryItem,
 	addXp,
 	advanceQuest,
@@ -19,6 +18,7 @@ const {
 	requireProfile,
 	saveProfile
 } = require('./core');
+const repositories = require('../repositories');
 
 async function travel(guildId, userId, regionId) {
 	const profile = await requireProfile(guildId, userId);
@@ -96,7 +96,7 @@ async function claimQuestReward(guildId, userId) {
 
 async function leaderboard(guildId, type = 'level') {
 	assertDatabaseReady();
-	const profiles = await RpgProfileSchema.find({});
+	const profiles = await repositories.profiles.find({});
 	for (const profile of profiles) await normalizeProfile(profile);
 	return profiles.filter((profile) => profile.guildId === guildId).sort((a, b) => compareProfiles(a, b, type));
 }

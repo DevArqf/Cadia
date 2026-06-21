@@ -1,5 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -93,7 +93,7 @@ async function fetchImage(category) {
 	const response = await fetch(`https://nekos.best/api/v2/${endpoint}`, {
 		headers: {
 			accept: 'application/json',
-			'user-agent': 'Cadia-Bot/v3.7.3'
+			'user-agent': branding.userAgent
 		}
 	});
 	const contentType = response.headers.get('content-type') ?? '';

@@ -39,9 +39,7 @@ class CountingCommand extends Command {
 						.addIntegerOption((option) =>
 							option.setName('count').setDescription('The reward milestone').setMinValue(1).setMaxValue(100_000).setRequired(true)
 						)
-						.addIntegerOption((option) =>
-							option.setName('amount').setDescription('Coins awarded at the milestone').setMinValue(1)
-						)
+						.addIntegerOption((option) => option.setName('amount').setDescription('Coins awarded at the milestone').setMinValue(1))
 				)
 				.addSubcommandGroup((group) =>
 					group
@@ -98,11 +96,7 @@ class CountingCommand extends Command {
 
 		const milestone = interaction.options.getInteger('count', true);
 		const amount = interaction.options.getInteger('amount') ?? 1_000;
-		await CountingReward.findOneAndUpdate(
-			{ guildId: interaction.guildId, milestone },
-			{ $set: { reward: amount } },
-			{ upsert: true }
-		);
+		await CountingReward.findOneAndUpdate({ guildId: interaction.guildId, milestone }, { $set: { reward: amount } }, { upsert: true });
 		await channel.send({
 			embeds: [
 				new EmbedBuilder()
@@ -118,7 +112,9 @@ class CountingCommand extends Command {
 	}
 
 	async globalLeaderboard(interaction) {
-		const guilds = await GuildSchema.find({ count: { $ne: 0 } }).sort({ count: -1 }).limit(10);
+		const guilds = await GuildSchema.find({ count: { $ne: 0 } })
+			.sort({ count: -1 })
+			.limit(10);
 		if (!guilds.length) return interaction.reply(privateError('No server has counted yet.'));
 
 		const leaderboard = guilds

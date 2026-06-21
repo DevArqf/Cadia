@@ -2,13 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color } = require('../../config/colors');
 const { emojis } = require('../../config/emojis');
-const {
-	DEFAULT_REASON,
-	createModerationEmbed,
-	reject,
-	runModerationAction,
-	validateModerationTarget
-} = require('../../lib/moderation/workflow');
+const { DEFAULT_REASON, createModerationEmbed, reject, runModerationAction, validateModerationTarget } = require('../../lib/moderation/workflow');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -25,9 +19,7 @@ class UserCommand extends CadiaCommand {
 			builder
 				.setName('unban')
 				.setDescription(this.description)
-				.addStringOption((option) =>
-					option.setName('user').setDescription('The user ID to unban').setRequired(true)
-				)
+				.addStringOption((option) => option.setName('user').setDescription('The user ID to unban').setRequired(true))
 				.addStringOption((option) => option.setName('reason').setDescription('Reason for unbanning the user'))
 		);
 	}

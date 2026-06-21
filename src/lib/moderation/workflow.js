@@ -20,14 +20,7 @@ async function reject(interaction, message) {
 	return respond(interaction, { content: message }, { privateResponse: true });
 }
 
-async function validateModerationTarget({
-	interaction,
-	targetMember,
-	action,
-	permission,
-	capability,
-	allowMissing = false
-}) {
+async function validateModerationTarget({ interaction, targetMember, action, permission, capability, allowMissing = false }) {
 	if (permission && !interaction.member.permissions.has(permission)) {
 		await reject(interaction, `${emojis.custom.forbidden} You do not have permission to ${action} members.`);
 		return false;
@@ -88,10 +81,7 @@ async function runModerationAction({ interaction, action, success, errorMessage,
 		return respond(interaction, typeof success === 'function' ? success(result) : success);
 	} catch (error) {
 		logger?.error(error);
-		const embed = new EmbedBuilder()
-			.setColor(color.fail)
-			.setDescription(`${emojis.custom.fail} ${errorMessage}`)
-			.setTimestamp();
+		const embed = new EmbedBuilder().setColor(color.fail).setDescription(`${emojis.custom.fail} ${errorMessage}`).setTimestamp();
 		return respond(interaction, { embeds: [embed] }, { privateResponse: true });
 	}
 }

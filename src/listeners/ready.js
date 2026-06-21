@@ -10,6 +10,8 @@ const { startTopggStatsPoster, syncTopggCommands } = require('../lib/util/topgg'
 const { preloadRpgAssets } = require('../lib/rpg/preload');
 const { validateGrowthConfig } = require('../config/growth');
 const { configureRpgGrowth } = require('../lib/rpg/growth');
+const { configureBotAnalytics } = require('../lib/util/botAnalytics');
+const { version } = require('../../package.json');
 
 class UserEvent extends Listener {
 	style = dev ? yellow : blue;
@@ -25,6 +27,7 @@ class UserEvent extends Listener {
 	async run(client) {
 		this.container.client = client;
 		configureRpgGrowth({ logger: this.container.logger });
+		configureBotAnalytics({ logger: this.container.logger });
 
 		const info = await this._connectDb();
 		this._reportGrowthConfiguration(info);
@@ -41,9 +44,7 @@ class UserEvent extends Listener {
 
 	_reportGrowthConfiguration(dbInfo) {
 		const config = validateGrowthConfig({ databaseConnected: !dbInfo.error });
-		this.container.logger.info(
-			`RPG growth experiment: ${config.experimentMode}; excluded guilds: ${config.excludedGuildIds.length}`
-		);
+		this.container.logger.info(`RPG growth experiment: ${config.experimentMode}; excluded guilds: ${config.excludedGuildIds.length}`);
 		for (const warning of config.warnings) this.container.logger.warn(`RPG growth configuration: ${warning}`);
 	}
 
@@ -69,12 +70,12 @@ class UserEvent extends Listener {
 		// Offset Pad
 		const pad = ' '.repeat(7);
 
-		console.clear();
+		// console.clear();
 		console.log(
 			String.raw`
 ${line01}
 ${line02}
-${line03} ${pad}${blc('v3.7.3')}
+${line03} ${pad}${blc(`v${version}`)}
 ${line04} ${pad}[${success}] Gateway
 ${line05} ${pad}${db}
 ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}` : ''}
@@ -99,7 +100,7 @@ ${line06}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('ALPHA MODE')}`
 		const commandCount = this.container.stores.get('commands').size;
 		const totalMembers = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
 		const totalGuilds = client.guilds.cache.size;
-		const botVersion = 'Cadia v3.7.3';
+		const botVersion = `Cadia v${version}`;
 		const botOwner = 'Malik';
 		const developers = 'Oreo & Navin';
 

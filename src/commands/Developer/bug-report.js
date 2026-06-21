@@ -11,6 +11,7 @@ const {
 	TextDisplayBuilder
 } = require('discord.js');
 const { BugReportBlacklist } = require('../../lib/schemas/bugreportSchema');
+const { isDeveloper } = require('../../lib/util/authorization');
 const { actionButton, componentReply, notice, panel } = require('../../lib/util/components');
 
 const bugReportForumChannelId = channels.bugReportForum;
@@ -373,10 +374,6 @@ function normalizeForumTagName(value) {
 function forumPostTitle(title, username) {
 	const base = `[Bug] ${title} - ${username}`;
 	return base.length <= maxForumTitleLength ? base : `${base.slice(0, maxForumTitleLength - 3)}...`;
-}
-
-function isDeveloper(userId) {
-	return (process.env.DEVELOPERS || '').split(/\s+/).filter(Boolean).includes(userId);
 }
 
 function unauthorized(interaction) {

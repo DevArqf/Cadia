@@ -113,7 +113,12 @@ test('onboarding channel selection prefers an eligible system channel', () => {
 	const guild = {
 		members: { me: { id: 'bot' } },
 		systemChannel: eligible,
-		channels: { cache: new Collection([[earlier.id, earlier], [eligible.id, eligible]]) }
+		channels: {
+			cache: new Collection([
+				[earlier.id, earlier],
+				[eligible.id, eligible]
+			])
+		}
 	};
 
 	assert.equal(findOnboardingChannel(guild), eligible);
@@ -164,6 +169,10 @@ test('repeat joins reset the installation cohort and database failures are swall
 			throw new Error('database unavailable');
 		};
 		await assert.doesNotReject(() => loaded.analytics.recordGuildJoin({ id: 'guild', name: 'Guild', memberCount: 10 }));
+		const diagnostics = loaded.analytics.getBotAnalyticsDiagnostics();
+		assert.equal(diagnostics.writeFailures, 1);
+		assert.equal(diagnostics.lastOperation, 'recordGuildJoin');
+		assert.match(diagnostics.lastFailureMessage, /database unavailable/);
 	} finally {
 		loaded.restore();
 	}

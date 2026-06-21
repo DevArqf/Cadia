@@ -6,33 +6,21 @@ class CadiaClient extends SapphireClient {
 		super(ClientConfig);
 	}
 
-	/**
-	 *
-	 * @param {string} token The token to login with
-	 * @returns {Promise<string>} The token used to login
-	 */
-	async login(token) {
-		return super.login(token);
-	}
-
 	destroy() {
-		if (this.activityRotationTimer) {
-			clearInterval(this.activityRotationTimer);
-			this.activityRotationTimer = null;
-		}
-		if (this.topggStatsPoster) {
-			clearInterval(this.topggStatsPoster);
-			this.topggStatsPoster = null;
-		}
-		if (this.reminderTimer) {
-			clearInterval(this.reminderTimer);
-			this.reminderTimer = null;
-		}
-
+		clearManagedTimers(this);
 		return super.destroy();
 	}
 }
 
+function clearManagedTimers(client) {
+	for (const timerName of ['activityRotationTimer', 'topggStatsPoster', 'reminderTimer']) {
+		if (!client[timerName]) continue;
+		clearInterval(client[timerName]);
+		client[timerName] = null;
+	}
+}
+
 module.exports = {
-	CadiaClient
+	CadiaClient,
+	clearManagedTimers
 };

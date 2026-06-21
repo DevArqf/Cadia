@@ -1,11 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { Collection, MessageFlags, PermissionFlagsBits } = require('discord.js');
-const {
-	runModerationAction,
-	sendDmNotice,
-	validateModerationTarget
-} = require('../src/lib/moderation/workflow');
+const { runModerationAction, sendDmNotice, validateModerationTarget } = require('../src/lib/moderation/workflow');
 const { isMentionDeleteInteraction } = require('../src/listeners/botMention');
 const { UserCommand: PurgeCommand } = require('../src/commands/Moderation/purge');
 const { UserCommand: UnbanCommand } = require('../src/commands/Moderation/unban');
@@ -249,7 +245,7 @@ function createModerationCommandInteraction({ userId, amount, filter, calls }) {
 		},
 		client: { users: { fetch: async () => ({ tag: 'target#0001' }) } },
 		options: {
-			getString: (name) => ({ user: userId, reason: null, filter }[name] ?? null),
+			getString: (name) => ({ user: userId, reason: null, filter })[name] ?? null,
 			getInteger: () => amount
 		},
 		deferReply: async (options) => {

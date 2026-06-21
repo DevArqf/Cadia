@@ -26,12 +26,7 @@ class UserCommand extends CadiaCommand {
 			builder
 				.setName('level')
 				.setDescription(this.description)
-				.addUserOption((option) =>
-					option
-						.setName('user')
-						.setDescription('The user to view')
-						.setRequired(false)
-				)
+				.addUserOption((option) => option.setName('user').setDescription('The user to view').setRequired(false))
 		);
 	}
 

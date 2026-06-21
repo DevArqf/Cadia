@@ -41,6 +41,11 @@ const { createPlayerGrowthHandlers } = require('../../../lib/rpg/command/playerG
 const { registerRpgCommand } = require('../../../lib/rpg/command/register');
 const { dispatchRpgCommand } = require('../../../lib/rpg/command/router');
 const { clearActiveAction, getActiveAction, setActiveAction } = require('../../../lib/rpg/command/sessions');
+const { createBattleView } = require('../../../lib/rpg/command/views/battleView');
+const { createInventoryView } = require('../../../lib/rpg/command/views/inventoryView');
+const { createProfileView } = require('../../../lib/rpg/command/views/profileView');
+const { createTravelView } = require('../../../lib/rpg/command/views/travelView');
+const { createTutorialView } = require('../../../lib/rpg/command/views/tutorialView');
 const rpg = require('../../../lib/rpg/service');
 
 const icon = {
@@ -103,63 +108,87 @@ const icon = {
 	}
 };
 
-const inventoryCategories = [
-	{ id: 'weapon', label: 'Weapons', action: 'equip' },
-	{ id: 'armor', label: 'Armor', action: 'equip' },
-	{ id: 'charm', label: 'Charms', action: 'equip' },
-	{ id: 'consumable', label: 'Consumables', action: 'use' }
-];
-const tutorialSteps = [
-	{
-		title: 'Create Your Warden',
-		body: [
-			'Start with `/rpg create` and choose a name, class, and origin.',
-			'Your class decides your starting stats and how your character grows when ranking up.',
-			'Your character ID is your permanent RPG lookup code. You can get it with `/rpg id` or from `/rpg profile`.'
-		]
-	},
-	{
-		title: 'Read Your Profile',
-		body: [
-			'Use `/rpg profile` to check Rank, XP progress, HP condition, gold, shards, stats, and equipped gear.',
-			'Profile buttons open Inventory, Quests, Equip, and Travel without needing to remember every command.',
-			'Stats come from your class plus whatever gear you equip.'
-		]
-	},
-	{
-		title: 'Explore For Encounters',
-		body: [
-			'Use `/rpg adventure` to explore your current region.',
-			'Adventures begin with a short story scene, then you continue forward to reveal a region mob.',
-			'Normal adventures are for farming XP, gold, and gear. Bosses do not randomly appear there.'
-		]
-	},
-	{
-		title: 'Gear Matters',
-		body: [
-			'Defeated mobs can drop weapons, armor, charms, and consumables.',
-			'If random drops fail, loot protection guarantees an item by every third mob victory.',
-			'Use `/rpg inventory` to inspect what you own and `/rpg equip` to wear it.',
-			'Gear changes your effective stats. Some gear also has traits like steel, warded, pierce, flame, arcane, or crystal.'
-		]
-	},
-	{
-		title: 'Boss Gates And Travel',
-		body: [
-			'Use `/rpg boss-info` before attempting a boss. It shows HP, attack, defense, weaknesses, resistances, and drops.',
-			'When you reach the required Rank, use `/rpg travel` to attempt the boss gate for the next region.',
-			'If you lose, farm better gear from mobs, equip around the boss weakness, then try travel again.'
-		]
-	},
-	{
-		title: 'Progression Loop',
-		body: [
-			'The loop is: explore, win gear, equip smarter, rank up, study the boss, clear the boss gate, then travel onward.',
-			'HP is restored when starting adventures and boss attempts, so a loss does not trap your character.',
-			'Use `/rpg quest` when you need your next objective.'
-		]
-	}
-];
+const { buildTutorialOfferPanel, buildTutorialPanel, tutorialSteps } = createTutorialView({
+	actionButton,
+	color,
+	icon,
+	panel
+});
+const { buildEquipPickerPanel, buildEquippedPanel, buildInventoryPanel, buildInventoryReply, inventoryCategories, inventoryEntriesForCategory } =
+	createInventoryView({
+		actionButton,
+		color,
+		createInventoryCard,
+		formatEquipment,
+		formatItemName,
+		formatStats,
+		icon,
+		itemSelectOption,
+		items,
+		panel,
+		sceneImages,
+		titleCase
+	});
+const { buildLockedRegionPanel, buildTravelCompletePanel, buildTravelCompleteReply, buildTravelPickerPanel } = createTravelView({
+	actionButton,
+	color,
+	componentReply,
+	createTravelImageAttachment,
+	icon,
+	panel,
+	regions,
+	sceneImages,
+	service: rpg
+});
+const { buildAdminProfilePanel, buildProfilePanel } = createProfileView({
+	actionButton,
+	classes,
+	color,
+	formatCompactStats,
+	formatProfileEquipment,
+	healthBar,
+	icon,
+	nextUnlock,
+	panel,
+	percentage,
+	profileFlavor,
+	rankForLevel,
+	regions,
+	sceneImages,
+	service: rpg,
+	titleCase,
+	xpRemaining
+});
+const {
+	buildBattleResultPanel,
+	buildBattleResultReply,
+	buildBossBattlePanel,
+	buildBossBattleReply,
+	buildEncounterPanel,
+	buildEncounterReply,
+	buildExplorationPanel,
+	explorationScene
+} = createBattleView({
+	actionButton,
+	adventureStoryImage,
+	battleResultImage,
+	classes,
+	color,
+	createBossBattleCard,
+	createDefeatStory,
+	createEncounterBattleCard,
+	formatItemName,
+	hasEncounterBattleCard,
+	healthBar,
+	icon,
+	inventoryQuantity,
+	items,
+	panel,
+	percentage,
+	sceneImages,
+	service: rpg,
+	titleCase
+});
 const buildRpgAnalyticsPanel = createAnalyticsView({ classes, color, icon, items, panel, regions, service: rpg, titleCase });
 const battleFlow = createBattleFlow({
 	buildBattleResultReply,
@@ -368,47 +397,6 @@ async function runTutorial(interaction, fromComponent = false) {
 		}
 
 		return i.update({ components: [buildTutorialPanel(page, customIdBase)] });
-	});
-}
-
-function buildTutorialOfferPanel(customIdBase) {
-	return panel({
-		accentColor: color.RPG,
-		title: `${icon.info} **RPG Tutorial Available**`,
-		subtitle: 'First time using Cadia RPG',
-		sections: [
-			'Cadia RPG has exploration, gear drops, boss gates, travel, ranks, and character IDs. The tutorial takes under a minute and shows what to do first.',
-			`${icon.arrowRight} Starting it now will guide you through the full gameplay loop.`
-		],
-		buttons: [
-			actionButton(`${customIdBase}:start`, 'Start Tutorial', ButtonStyle.Primary, icon.success),
-			actionButton(`${customIdBase}:skip`, 'Skip', ButtonStyle.Secondary)
-		],
-		footer: `${icon.info} You can reopen this anytime with /rpg tutorial`
-	});
-}
-
-function buildTutorialPanel(page, customIdBase) {
-	const step = tutorialSteps[page];
-	const isLast = page >= tutorialSteps.length - 1;
-	return panel({
-		accentColor: color.RPG,
-		title: `${icon.info} **RPG Tutorial**`,
-		subtitle: `${page + 1}/${tutorialSteps.length} - ${step.title}`,
-		sections: [
-			step.body.map((line) => `${icon.arrowRight} ${line}`).join('\n\n'),
-			`${icon.objective} **Goal:** Understand the RPG loop well enough to progress without guessing.`
-		],
-		buttons: [
-			actionButton(`${customIdBase}:prev`, 'Back', ButtonStyle.Secondary).setDisabled(page <= 0),
-			actionButton(
-				`${customIdBase}:${isLast ? 'finish' : 'next'}`,
-				isLast ? 'Finish' : 'Next',
-				isLast ? ButtonStyle.Success : ButtonStyle.Primary
-			),
-			actionButton(`${customIdBase}:skip`, 'Skip', ButtonStyle.Secondary)
-		],
-		footer: `${icon.clock} Tutorial expires after 4 minutes`
 	});
 }
 
@@ -638,25 +626,6 @@ async function travel(interaction) {
 
 	const result = await rpg.travel(interaction.guild.id, interaction.user.id, region.id);
 	return interaction.editReply(buildTravelCompleteReply(result, true));
-}
-
-async function buildBossBattleReply(profile, encounter, region, state, battleId, disabled = false) {
-	const fileName = `${encounter.id}-battle-${state.turn}.png`;
-	const attachment = await createBossBattleCard({
-		encounter,
-		enemyHp: state.enemyHp,
-		playerHp: state.playerHp,
-		playerMaxHp: profile.maxHp,
-		playerName: profile.name,
-		fileName
-	});
-	const container = buildBossBattlePanel(profile, encounter, region, state, battleId, fileName, disabled);
-
-	return {
-		components: [container],
-		files: [attachment],
-		flags: MessageFlags.IsComponentsV2
-	};
 }
 
 async function inventory(interaction) {
@@ -1032,263 +1001,6 @@ function formatQuestRewards(rewards = {}) {
 	return parts.join(' | ') || 'None';
 }
 
-function buildInventoryPanel(profile, requestedBy) {
-	const entries = profile.inventory || [];
-	return panel({
-		accentColor: color.default,
-		title: `${icon.folder} **Inventory Satchel**`,
-		subtitle: `${profile.name}'s carried gear`,
-		image: sceneImages.inventory,
-		sections: [
-			entries.length
-				? entries
-						.map((entry, index) => {
-							const item = items[entry.itemId];
-							return `#${index + 1} **${item?.name ?? entry.itemId}** x${entry.quantity}\n-# ${item?.rarity ?? 'unknown'} ${item?.slot ?? 'item'} - ${item?.description ?? 'No notes.'}`;
-						})
-						.join('\n\n')
-				: `${icon.info} This inventory is empty.`,
-			formatEquipment(profile)
-		],
-		footer: `${icon.person} Requested by ${requestedBy}`
-	});
-}
-
-async function buildInventoryReply(profile, state) {
-	const category = inventoryCategories[state.categoryIndex] || inventoryCategories[0];
-	const entries = inventoryEntriesForCategory(profile, category.id);
-	const fileName = `rpg-inventory-${profile.characterId}-${category.id}.png`;
-	const attachment = await createInventoryCard({ profile, category, entries, fileName });
-	const selectedItem = state.pendingItemId ? items[state.pendingItemId] : null;
-	const usableEntries = entries.filter(({ item, entry }) => item && (entry.quantity || 0) > 0);
-
-	const container = new ContainerBuilder()
-		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(
-				`${icon.folder} **Inventory Satchel**\n-# ${profile.name} - ${category.label} (${state.categoryIndex + 1}/${inventoryCategories.length})`
-			)
-		)
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(
-				selectedItem ? buildInventoryConfirmText(profile, selectedItem, category) : buildInventoryCategoryText(profile, entries, category)
-			)
-		)
-		.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				actionButton(`${state.customIdBase}:prev`, 'Previous', ButtonStyle.Secondary).setDisabled(state.disabled),
-				actionButton(`${state.customIdBase}:next`, 'Next', ButtonStyle.Secondary).setDisabled(state.disabled)
-			)
-		);
-
-	if (usableEntries.length && !state.pendingItemId) {
-		container.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				new StringSelectMenuBuilder()
-					.setCustomId(`${state.customIdBase}:select`)
-					.setPlaceholder(`Choose ${category.action === 'use' ? 'an item to use' : 'gear to equip'}`)
-					.setDisabled(state.disabled)
-					.addOptions(
-						usableEntries
-							.slice(0, 25)
-							.map(({ item, entry }) =>
-								itemSelectOption(item, `${titleCase(item.rarity || 'common')} ${item.slot} - owned x${entry.quantity}`)
-							)
-					)
-			)
-		);
-	}
-
-	if (selectedItem) {
-		container.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				actionButton(
-					`${state.customIdBase}:confirm`,
-					category.action === 'use' ? 'Use Item' : 'Equip Item',
-					category.action === 'use' ? ButtonStyle.Success : ButtonStyle.Primary
-				).setDisabled(state.disabled),
-				actionButton(`${state.customIdBase}:cancel`, 'Cancel', ButtonStyle.Secondary).setDisabled(state.disabled)
-			)
-		);
-	}
-
-	container
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(
-				state.disabled ? `-# Inventory controls expired. Run \`/rpg inventory\` again.` : `-# Inventory controls expire after 3 minutes.`
-			)
-		);
-
-	return {
-		components: [container],
-		files: [attachment],
-		flags: MessageFlags.IsComponentsV2
-	};
-}
-
-function inventoryEntriesForCategory(profile, categoryId) {
-	return (profile.inventory || [])
-		.map((entry) => ({ entry, item: items[entry.itemId] }))
-		.filter(({ item, entry }) => item?.slot === categoryId && (entry.quantity || 0) > 0);
-}
-
-function buildInventoryCategoryText(profile, entries, category) {
-	const equipment = profile.equipment || {};
-	const equippedItemId = category.action === 'equip' ? equipment[category.id] : null;
-	const summary = entries.length
-		? entries
-				.slice(0, 8)
-				.map(
-					({ item, entry }) =>
-						`${icon.arrowRight} **${formatItemName(item)}** x${entry.quantity}${equippedItemId === item.id ? ' - Equipped' : ''}`
-				)
-				.join('\n')
-		: `${icon.info} No owned ${category.label.toLowerCase()} in this satchel.`;
-
-	return [
-		`${icon.equipment} **${category.label}**`,
-		summary,
-		'',
-		category.action === 'use'
-			? `${icon.info} Select an owned consumable, then confirm before using it.`
-			: `${icon.info} Select owned gear, then confirm before equipping it.`
-	].join('\n');
-}
-
-function buildInventoryConfirmText(profile, item, category) {
-	const statText = formatStats(item.stats || {});
-	return [
-		`${icon.warning} **Confirm ${category.action === 'use' ? 'Use' : 'Equip'}**`,
-		`**${formatItemName(item)}**`,
-		`-# ${titleCase(item.rarity || 'common')} ${item.slot}`,
-		item.description || 'No item notes available.',
-		`${icon.settings} **Stats:** ${statText || 'None'}`,
-		`${icon.arrowRight} Choose confirm to ${category.action === 'use' ? 'consume this item' : 'equip this gear'}.`
-	].join('\n');
-}
-
-function buildTravelCompleteReply(result, ephemeral = false) {
-	return {
-		...componentReply(buildTravelCompletePanel(result), ephemeral),
-		files: [createTravelImageAttachment()]
-	};
-}
-
-function buildTravelCompletePanel(result) {
-	const story = travelStory(result.region);
-	return panel({
-		accentColor: color.default,
-		title: `${icon.compass} **Travel Complete**`,
-		subtitle: `Now stationed in ${result.region.name}`,
-		image: sceneImages.travel,
-		sections: [
-			story,
-			[
-				`${icon.chapter} **Chapter:** ${result.region.chapter}`,
-				`${icon.level} **Unlocks at Rank:** ${result.region.unlockRank}`,
-				`${icon.person} **Warden:** ${result.profile.name}`,
-				`${icon.region} **Destination:** ${result.region.name}`
-			]
-		],
-		footer: `${icon.clock} Region updated <t:${Math.floor(Date.now() / 1000)}:R>`
-	});
-}
-
-function buildLockedRegionPanel(profile, region, gate) {
-	const nextSteps = [];
-	if (!region) {
-		nextSteps.push('Choose a valid region from the `/rpg travel` region option.');
-	} else if ((profile.level || 1) < region.unlockRank) {
-		nextSteps.push(`Reach **Rank ${region.unlockRank}**. You are currently **Rank ${profile.level || 1}**.`);
-		nextSteps.push('Use `/rpg adventure` to farm mobs for XP, gold, and gear.');
-		nextSteps.push('Use `/rpg profile` to check your Rank progress.');
-	} else if (gate.bossRequired) {
-		const boss = rpg.getBossById(gate.bossId);
-		nextSteps.push(`Defeat **${boss.name}** to unlock **${region.name}**.`);
-		nextSteps.push(`Use \`/rpg boss-info boss:${boss.id}\` to study weaknesses and resistances.`);
-		nextSteps.push('Farm region mobs with `/rpg adventure`, equip better gear with `/rpg equip`, then try `/rpg travel` again.');
-	} else {
-		nextSteps.push(gate.reason || 'This destination is not available yet.');
-		nextSteps.push('Use `/rpg quest` for your current objective.');
-	}
-
-	return panel({
-		accentColor: color.warning,
-		title: `${icon.warning} **Travel Locked**`,
-		subtitle: region ? region.name : 'Unknown Region',
-		sections: [
-			gate.reason || 'That region is locked right now.',
-			`${icon.objective} **What to do next**\n${nextSteps.map((step) => `${icon.arrowRight} ${step}`).join('\n')}`
-		],
-		footer: `${icon.person} Warden ${profile.name}`
-	});
-}
-
-function buildEquippedPanel(result) {
-	return panel({
-		accentColor: color.success,
-		title: `${icon.success} **Item Equipped**`,
-		subtitle: `${formatItemName(result.item)} moved into ${result.item.slot}`,
-		sections: [
-			`${icon.folder} **${formatItemName(result.item)}**\n${result.item.description}`,
-			`${icon.settings} **Stats:** ${formatStats(result.item.stats)}`
-		],
-		footer: `${icon.person} Warden ${result.profile.name}`
-	});
-}
-
-function buildEquipPickerPanel(profile, equipableEntries, customId) {
-	return new ContainerBuilder()
-		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(`${icon.equipment} **Equip Gear**\n-# Choose an owned item to equip for ${profile.name}.`)
-		)
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				new StringSelectMenuBuilder()
-					.setCustomId(customId)
-					.setPlaceholder('Choose gear to equip')
-					.addOptions(
-						equipableEntries
-							.slice(0, 25)
-							.map(({ entry, item }) => itemSelectOption(item, `${titleCase(item.rarity)} ${item.slot} - owned x${entry.quantity}`))
-					)
-			)
-		);
-}
-
-function buildTravelPickerPanel(profile, travelRegions, customId) {
-	return new ContainerBuilder()
-		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(
-				`${icon.compass} **Travel**\n-# Choose a destination for ${profile.name}. Locked regions explain how to unlock them.`
-			)
-		)
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				new StringSelectMenuBuilder()
-					.setCustomId(customId)
-					.setPlaceholder('Choose destination')
-					.addOptions(
-						travelRegions.slice(0, 25).map((region) =>
-							new StringSelectMenuOptionBuilder()
-								.setLabel(region.name)
-								.setDescription(`Chapter ${region.chapter} - unlock rank ${region.unlockRank}`)
-								.setValue(region.id)
-								.setDefault(region.id === profile.region)
-						)
-					)
-			)
-		);
-}
-
 function buildBestiaryPanel(customIdBase, selectedId = null, disabled = false) {
 	const selected = selectedId ? encounterRecordById(selectedId) : null;
 	const container = new ContainerBuilder()
@@ -1411,239 +1123,6 @@ function getOwnedEquipableItems(profile) {
 		.filter(({ item, quantity }) => item && item.slot !== 'consumable' && quantity > 0);
 }
 
-function buildProfilePanel(profile, user) {
-	const region = regions[profile.region];
-	const archetype = classes[profile.classId];
-	const stats = rpg.getEffectiveStats(profile);
-	const rank = rankForLevel(profile.level);
-	const nextLevel = profile.level + 1;
-	return panel({
-		accentColor: profileAccent(profile),
-		title: `${icon.owner} **${archetype.name} Warden** - ${titleCase(profile.origin)}`,
-		subtitle: `${profile.name} - ${rank.emoji} Rank ${rank.number}`,
-		subtitle2: `Character ID: \`${profile.characterId}\``,
-		image: sceneImages.profile,
-		sections: [
-			`${icon.level} **Level ${profile.level}** -> **Level ${nextLevel}**\n${icon.level} You are **${percentage(profile.xp, rpg.xpPerLevel)}** way there. Keep going, you'll reach **100%** soon!\n${icon.xpLabel} **${xpRemaining(profile)}XP** Remaining`,
-			`**HP** ${profile.hp}/${profile.maxHp}\n${healthBar(profile.hp, profile.maxHp)} **${percentage(profile.hp, profile.maxHp)}**`,
-			[
-				`${icon.owner} **|** ${user} **-** \`${profile.characterId}\``,
-				`${icon.region} **|** ${region.name}`,
-				`${icon.coin} **|** **${profile.gold.toLocaleString()}** Gold`,
-				`${icon.shards} **|** **${profile.relicShards.toLocaleString()}** Shards`
-			],
-			`${icon.settings} **Stats**\n${formatCompactStats(stats)}`,
-			formatProfileEquipment(profile),
-			`${profileFlavor(profile)}\n${icon.arrowRight} **Next Unlock:** ${nextUnlock(profile)}`
-		],
-		buttons: [
-			actionButton(`rpg-profile:${profile.characterId}:inventory`, 'Inventory', ButtonStyle.Secondary, icon.folder),
-			actionButton(`rpg-profile:${profile.characterId}:quest`, 'Quests', ButtonStyle.Secondary, icon.objective),
-			actionButton(`rpg-profile:${profile.characterId}:equip`, 'Equip', ButtonStyle.Secondary, icon.equipment),
-			actionButton(`rpg-profile:${profile.characterId}:travel`, 'Travel', ButtonStyle.Secondary, icon.compass)
-		],
-		footer: `${icon.clock} Last updated <t:${Math.floor(profile.updatedAt / 1000)}:R>`
-	});
-}
-
-function buildExplorationPanel(profile, encounter, region, battleId, recoveredHp = 0, exploration) {
-	const maxHp = rpg.getEffectiveMaxHp(profile);
-	return panel({
-		accentColor: color.RPG,
-		title: `${icon.compass} **${region.name} Expedition**`,
-		subtitle: `${profile.name} moves deeper into Chapter ${region.chapter}`,
-		image: exploration?.image || sceneImages[region.id] || sceneImages.battle,
-		sections: [
-			exploration?.text || `${profile.name} presses deeper into ${region.name}.`,
-			recoveredHp > 0
-				? `${icon.health.full} **Recovered:** Camp rest restored **${recoveredHp.toLocaleString()} HP** before the expedition.`
-				: `${icon.health.full} **Ready:** HP is full at **${percentage(profile.hp, maxHp)}**.`,
-			`${icon.warning} Something is nearby. Continue forward to reveal the encounter.`
-		],
-		buttons: [actionButton(`${battleId}:continue`, 'Continue', ButtonStyle.Secondary)],
-		footer: `${icon.clock} Exploration expires in 2 minutes`
-	});
-}
-
-async function buildEncounterReply(profile, encounter, region, battleId, state) {
-	const fileName = `${encounter.id}-battle.png`;
-	const enemyHp = state?.enemyHp ?? encounter.hp;
-	const playerHp = state?.playerHp ?? profile.hp;
-	const attachment = hasEncounterBattleCard(encounter.id)
-		? await createEncounterBattleCard({
-				encounter,
-				enemyHp,
-				playerHp,
-				playerMaxHp: rpg.getEffectiveMaxHp(profile),
-				playerName: profile.name,
-				fileName
-			})
-		: null;
-
-	return {
-		components: [buildEncounterPanel(profile, encounter, region, battleId, state, attachment ? `attachment://${fileName}` : sceneImages.battle)],
-		files: attachment ? [attachment] : [],
-		flags: MessageFlags.IsComponentsV2
-	};
-}
-
-function buildEncounterPanel(profile, encounter, region, battleId, state, image = sceneImages.battle) {
-	const enemyHp = state?.enemyHp ?? encounter.hp;
-	const playerHp = state?.playerHp ?? profile.hp;
-	const maxHp = rpg.getEffectiveMaxHp(profile);
-	const last = state?.lastResult;
-	const salveCount = inventoryQuantity(profile, 'star_salve');
-	const exchange = last
-		? [
-				`${icon.damageDealt} **Damage Dealt:** ${last.damage}${last.crit ? ' (critical)' : ''}`,
-				last.recoveredHp ? `${icon.health.full} **Star Salve:** Restored ${last.recoveredHp} HP before the counterattack.` : null,
-				`${icon.damageTaken} **Damage Taken:** ${last.enemyDamage}`,
-				last.stance === 'defend'
-					? `${icon.info} Your defensive stance reduced the counterattack.`
-					: last.stance === 'salve'
-						? `${icon.info} Using the salve spent your turn, and ${encounter.name} attacked back.`
-						: `${icon.info} ${encounter.name} counterattacked after your ${titleCase(last.stance)} action.`
-			].filter(Boolean)
-		: `${icon.person} **${profile.name}** found movement beyond the trail. Choose your first action.`;
-
-	return panel({
-		accentColor: color.warning,
-		title: `${icon.warning} **Encounter: ${encounter.name}**`,
-		subtitle: `${region.name} - turn ${state?.turn ?? 0}`,
-		image,
-		sections: [
-			exchange,
-			[
-				`**${encounter.name}:** ${healthBar(enemyHp, encounter.hp)} ${enemyHp}/${encounter.hp}`,
-				`${icon.health.full} **${profile.name}:** ${healthBar(playerHp, maxHp)} ${playerHp}/${maxHp}`,
-				`${icon.threat} **Threat:** Attack ${encounter.attack} - Defense ${encounter.defense}`
-			],
-			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.\n${icon.health.full} Star Salve restores **260 HP** before the counterattack. Owned: **${salveCount}**.\n${icon.loot} Loot protection guarantees a drop by every third mob victory.`
-		],
-		buttons: [
-			actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger),
-			actionButton(`${battleId}:skill`, classes[profile.classId].skill, ButtonStyle.Primary),
-			actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary),
-			actionButton(`${battleId}:flee`, 'Flee', ButtonStyle.Secondary),
-			actionButton(`${battleId}:salve`, `Use Salve (${salveCount})`, ButtonStyle.Success).setDisabled(salveCount <= 0 || playerHp >= maxHp)
-		],
-		footer: `${icon.clock} Encounter expires after 2 minutes of no actions`
-	});
-}
-
-function buildBossBattlePanel(profile, encounter, region, state, battleId, fileName, disabled = false) {
-	const last = state.lastResult;
-	const maxHp = rpg.getEffectiveMaxHp(profile);
-	const salveCount = inventoryQuantity(profile, 'star_salve');
-	const status = last
-		? [
-				`${icon.threat} **Damage Dealt:** ${last.damage}${last.crit ? ' (critical)' : ''}`,
-				last.recoveredHp ? `${icon.health.full} **Star Salve:** Restored ${last.recoveredHp} HP before the counterattack.` : null,
-				`${icon.warning} **Damage Taken:** ${last.enemyDamage}`,
-				last.done
-					? last.won
-						? `${icon.success} **${encounter.name} has fallen.**`
-						: `${icon.fail} **${profile.name} was forced back.**`
-					: `${icon.info} Choose your next stance.`
-			].filter(Boolean)
-		: [`${icon.warning} **Boss Encounter:** ${encounter.name} blocks the only exit.`, `Fleeing is impossible. Fight until one side breaks.`];
-
-	return new ContainerBuilder()
-		.setAccentColor(Number.parseInt((state.enemyHp <= 0 ? color.success : color.RPG).replace('#', ''), 16))
-		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${icon.warning} **Boss: ${encounter.name}**\n-# ${region.name} - live combat`))
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(
-				[
-					...status,
-					`${icon.health.full} **${profile.name}:** ${state.playerHp}/${profile.maxHp}`,
-					`${icon.threat} **${encounter.name}:** ${state.enemyHp}/${encounter.hp}`
-				].join('\n')
-			)
-		)
-		.addActionRowComponents(
-			new ActionRowBuilder().addComponents(
-				actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger).setDisabled(disabled),
-				actionButton(`${battleId}:skill`, classes[profile.classId].skill, ButtonStyle.Primary).setDisabled(disabled),
-				actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary).setDisabled(disabled),
-				actionButton(`${battleId}:salve`, `Use Salve (${salveCount})`, ButtonStyle.Success).setDisabled(
-					disabled || salveCount <= 0 || state.playerHp >= maxHp
-				)
-			)
-		)
-		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
-		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Turn ${state.turn} - Boss fight expires after 3 minutes of no actions.`));
-}
-
-function buildBattleResultReply(result, stance) {
-	const image = result.won ? battleResultImage(`${result.encounter.id}-defeat`) : null;
-	return {
-		components: [buildBattleResultPanel(result, stance, image?.url || sceneImages.battle)],
-		files: image?.attachment ? [image.attachment] : [],
-		flags: MessageFlags.IsComponentsV2
-	};
-}
-
-function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
-	if (result.escaped) {
-		return panel({
-			accentColor: color.warning,
-			title: `${icon.compass} **Clean Escape**`,
-			subtitle: `${result.encounter.name} lost the trail`,
-			image,
-			sections: [
-				`${icon.info} You withdrew from combat before the relic storm tightened.`,
-				`HP remains ${healthBar(result.profile.hp, result.profile.maxHp)} **${percentage(result.profile.hp, result.profile.maxHp)}**.`
-			],
-			footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
-		});
-	}
-
-	if (!result.won) {
-		return panel({
-			accentColor: color.fail,
-			title: `${icon.fail} **Warden Defeated**`,
-			subtitle: `${result.profile.name} fell to ${result.encounter.name}`,
-			image,
-			sections: [
-				createDefeatStory(result),
-				[
-					`${icon.damageDealt} **Damage Dealt:** ${result.damage}${result.crit ? ' (critical)' : ''}`,
-					`${icon.damageTaken} **Final Blow:** ${result.enemyDamage} damage`,
-					`${icon.health.full} **HP Remaining:** 1`,
-					`${icon.info} **Rewards:** None`
-				]
-			],
-			footer: `${icon.clock} Defeated <t:${Math.floor(Date.now() / 1000)}:R>`
-		});
-	}
-
-	return panel({
-		accentColor: color.success,
-		title: `${icon.success} **Encounter Cleared**`,
-		subtitle: `${result.encounter.name} - ${titleCase(stance)} stance`,
-		image,
-		sections: [
-			[
-				`${icon.damageDealt} **Damage Dealt:** ${result.damage}${result.crit ? ' (critical)' : ''}`,
-				`${icon.damageTaken} **Damage Taken:** ${result.enemyDamage}`,
-				`**HP:** ${healthBar(result.profile.hp, result.profile.maxHp)} ${percentage(result.profile.hp, result.profile.maxHp)}`
-			],
-			[
-				`${icon.coin} **Gold:** +${result.gold}`,
-				`${icon.xpLabel} **XP:** +${result.xp}`,
-				`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`,
-				result.unlockedAchievements?.length
-					? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
-					: null
-			].filter(Boolean)
-		],
-		footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
-	});
-}
-
 function formatEquipment(profile) {
 	const equipment = profile.equipment || {};
 	return `${icon.equipment} **Equipment**\nWeapon: **${formatItemName(items[equipment.weapon]) || 'None'}**\nArmor: **${formatItemName(items[equipment.armor]) || 'None'}**\nCharm: **${formatItemName(items[equipment.charm]) || 'None'}**`;
@@ -1715,37 +1194,6 @@ function profileAccent(profile) {
 	return '#80848e';
 }
 
-function buildAdminProfilePanel(profile, owner, title, note) {
-	const inventoryCount = (profile.inventory || []).reduce((total, entry) => total + (entry.quantity || 0), 0);
-	return panel({
-		accentColor: color.RPG,
-		title: `${icon.settings} **RPG Admin - ${title}**`,
-		subtitle: 'Developer character control panel',
-		sections: [
-			note,
-			[
-				`${icon.info} **Character ID:** \`${profile.characterId}\``,
-				`${icon.person} **Owner:** ${owner}`,
-				`${icon.person} **User ID:** \`${profile.userId}\``,
-				`${icon.person} **Name:** ${profile.name}`
-			],
-			[
-				`${icon.level} **Level:** ${profile.level}`,
-				`${icon.xpLabel} **XP:** ${profile.xp}/${rpg.xpPerLevel}`,
-				`${icon.coin} **Gold:** ${profile.gold.toLocaleString()}`,
-				`${icon.shards} **Relic Shards:** ${profile.relicShards.toLocaleString()}`
-			],
-			[
-				`${icon.compass} **Region:** ${regions[profile.region]?.name ?? profile.region}`,
-				`${icon.success} **Wins:** ${profile.battlesWon}`,
-				`${icon.fail} **Losses:** ${profile.battlesLost}`,
-				`${icon.equipment} **Inventory Items:** ${inventoryCount}`
-			]
-		],
-		footer: `${icon.clock} Admin lookup <t:${Math.floor(Date.now() / 1000)}:R>`
-	});
-}
-
 function formatStats(stats) {
 	return Object.entries(stats)
 		.map(([stat, amount]) => `${titleCase(stat)} **${amount}**`)
@@ -1754,85 +1202,6 @@ function formatStats(stats) {
 
 function formatTraits(traits = []) {
 	return traits.length ? traits.map((trait) => `\`${titleCase(trait)}\``).join(', ') : 'None recorded';
-}
-
-function explorationScene(regionId, encounterName) {
-	const scenes = {
-		'broken-gate': [
-			{
-				assetId: 'broken-gate-gatehouse-corridor',
-				text: 'The cracked gatehouse groans above you as dust slips from the old stone. Your boots cross a corridor of broken doors, cold lanterns, and claw marks that look fresh.'
-			},
-			{
-				assetId: 'broken-gate-market-arch',
-				text: 'You pass through a collapsed market arch where torn banners scrape against iron railings. Somewhere deeper in the ruin, a loose tile clicks under something that is not you.'
-			},
-			{
-				assetId: 'broken-gate-black-brick-street',
-				text: 'The street narrows between abandoned black-brick homes. A window shutter taps once, then twice, and the relic storm pulls the air tight around your armor.'
-			}
-		],
-		'ashwood-outskirts': [
-			{
-				assetId: 'ashwood-black-snow-trail',
-				text: 'Ash leaves drift across the trail like black snow. The forest bends around you, every root curling away as if it knows where the next ambush waits.'
-			},
-			{
-				assetId: 'ashwood-watch-post',
-				text: 'You push through a half-buried watch post wrapped in living vines. Sap glows along the walls, and the brush ahead starts moving against the wind.'
-			},
-			{
-				assetId: 'ashwood-hunter-camp',
-				text: 'A ruined hunter camp sits under orange moss. The firepit is warm, the tracks are fresh, and something heavy snaps a branch beyond the trees.'
-			}
-		],
-		'glassmine-depths': [
-			{
-				assetId: 'glassmine-reflection-wall',
-				text: 'Your lantern catches a thousand reflections in the mine wall. Each step answers back a second late, until one echo keeps walking after you stop.'
-			},
-			{
-				assetId: 'glassmine-crystal-bridge',
-				text: 'You cross a bridge of pale crystal above a silent drop. Far below, a pickaxe rings against stone even though no miner is there.'
-			},
-			{
-				assetId: 'glassmine-broken-carts',
-				text: 'The tunnel opens into a chamber of broken carts and blue glass dust. The shards tremble first, then the dark between them begins to move.'
-			}
-		]
-	};
-	const options = scenes[regionId] || scenes['broken-gate'];
-	const scene = options[Math.floor(Math.random() * options.length)];
-	const image = scene.assetId ? adventureStoryImage(scene.assetId) : null;
-	return {
-		attachment: image?.attachment,
-		image: image?.url,
-		text: `${scene.text}\n\n${icon.threat} **Encounter Stirring:** ${encounterName}`
-	};
-}
-
-function travelStory(region) {
-	const stories = [
-		[
-			`${icon.compass} **The road opens slowly.**`,
-			`${region.name} does not appear all at once. ${region.description}`,
-			'Your boots cross old borders, fresh dust, and quiet places where the relic storm has already passed.',
-			`By the final mile, the signs all point toward **${region.name}**.`
-		],
-		[
-			`${icon.compass} **You follow a half-buried route marker.**`,
-			'The path bends through empty fields, broken stone, and stretches of silence where even the wind seems careful.',
-			`${region.description}`,
-			`When the terrain changes under your feet, you know you have reached **${region.name}**.`
-		],
-		[
-			`${icon.compass} **The journey takes longer than the map promised.**`,
-			'You pass ruined posts, cold campfires, and footprints that vanish whenever you look back.',
-			`${region.description}`,
-			`At last, the road gives way to **${region.name}**. Your next chapter begins here.`
-		]
-	];
-	return stories[Math.floor(Math.random() * stories.length)].join('\n');
 }
 
 function progressBar(value, max) {

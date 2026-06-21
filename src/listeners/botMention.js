@@ -1,11 +1,5 @@
 const { Listener } = require('@sapphire/framework');
-const {
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-	EmbedBuilder,
-	MessageFlags
-} = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require('discord.js');
 const { branding } = require('../config/branding');
 const { color } = require('../config/colors');
 const { emojis } = require('../config/emojis');

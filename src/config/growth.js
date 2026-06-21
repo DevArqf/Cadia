@@ -1,7 +1,9 @@
 const VALID_EXPERIMENT_MODES = new Set(['control', 'rpg-first', 'split']);
 
 function getGrowthConfig(env = process.env) {
-	const rawMode = String(env.GROWTH_ONBOARDING_EXPERIMENT || 'rpg-first').trim().toLowerCase();
+	const rawMode = String(env.GROWTH_ONBOARDING_EXPERIMENT || 'rpg-first')
+		.trim()
+		.toLowerCase();
 	const excludedEntries = String(env.GROWTH_EXCLUDED_GUILDS || '')
 		.split(/[,\s]+/)
 		.map((entry) => entry.trim())

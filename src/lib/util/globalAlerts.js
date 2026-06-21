@@ -10,6 +10,7 @@ const {
 const { branding, color, emojis } = require('../../config');
 const { GlobalAlertSchema } = require('../schemas/globalAlertSchema');
 const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
+const { isDeveloper } = require('./authorization');
 
 const ALERT_CACHE_MS = 15_000;
 const ALERT_NUDGE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -222,10 +223,6 @@ function componentReply(component, ephemeral = true) {
 		components: [component],
 		flags: MessageFlags.IsComponentsV2 | (ephemeral ? MessageFlags.Ephemeral : 0)
 	};
-}
-
-function isDeveloper(userId) {
-	return (process.env.DEVELOPERS ?? '').split(/\s+/).filter(Boolean).includes(userId);
 }
 
 function accent(hex = color.default) {

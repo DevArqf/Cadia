@@ -1,9 +1,16 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
+const { Collection } = require('discord.js');
+
+process.env.BOT_OWNERS ??= 'owner';
+process.env.DEVELOPERS ??= 'developer';
+
 const { DAY_MS } = require('../src/lib/analytics/growth');
 const { getGrowthConfig, validateGrowthConfig } = require('../src/config/growth');
+const { buildOnboardingEmbed } = require('../src/listeners/guildCreate');
+const { UserEvent: BotMentionEvent } = require('../src/listeners/botMention');
+const { buildHelpComponents } = require('../src/commands/Miscellaneous/help');
+const { UserCommand: BotInfoCommand } = require('../src/commands/Information/bot-info');
 
 test('RPG growth events mark second active day and seven-day return', async () => {
 	const firstDay = Date.parse('2026-06-01T12:00:00.000Z');
@@ -91,10 +98,7 @@ test('RPG funnel identifies the largest conversion loss and compares onboarding 
 		assert.equal(analytics.weeklyActiveGuilds, 1);
 		assert.equal(analytics.stages.find((stage) => stage.key === 'joined').count, 2);
 		assert.equal(analytics.stages.find((stage) => stage.key === 'firstAdventure').count, 1);
-		assert.deepEqual(
-			{ from: analytics.largestLoss.from, to: analytics.largestLoss.to },
-			{ from: 'joined', to: 'tutorialStarted' }
-		);
+		assert.deepEqual({ from: analytics.largestLoss.from, to: analytics.largestLoss.to }, { from: 'joined', to: 'tutorialStarted' });
 		assert.equal(analytics.variants.find((variant) => variant.variant === 'rpg-first').adventureRate, 1);
 		assert.equal(analytics.decisionReady, false);
 		assert.equal(analytics.expectedDecisionAt, joinedAt + 28 * DAY_MS);
@@ -176,14 +180,69 @@ test('RPG data-quality diagnostics identify impossible lifecycle ordering', () =
 	}
 });
 
-test('public discovery surfaces consistently position Cadia as RPG-first', () => {
-	const root = path.resolve(__dirname, '..');
-	const onboarding = fs.readFileSync(path.join(root, 'src/listeners/guildCreate.js'), 'utf8');
-	const mention = fs.readFileSync(path.join(root, 'src/listeners/botMention.js'), 'utf8');
-	const help = fs.readFileSync(path.join(root, 'src/commands/Miscellaneous/help.js'), 'utf8');
-	const botInfo = fs.readFileSync(path.join(root, 'src/commands/Information/bot-info.js'), 'utf8');
+test('public discovery responses consistently position Cadia as RPG-first', async () => {
+	const avatar = () => 'https://example.com/avatar.png';
+	const onboarding = JSON.stringify(buildOnboardingEmbed({ name: 'Guild', client: { user: { displayAvatarURL: avatar } } }, 'rpg-first').toJSON());
+	const client = {
+		application: { fetch: async () => {}, id: '123456789012345678' },
+		generateInvite: () => 'https://discord.com/oauth2/authorize?client_id=123456789012345678',
+		guilds: { cache: new Collection(), fetch: async () => {} },
+		options: {},
+		uptime: 1_000,
+		user: {
+			displayAvatarURL: avatar,
+			fetch: async () => {},
+			id: '123456789012345678',
+			tag: 'Cadia#0001'
+		},
+		ws: { ping: 20 }
+	};
+	const help = JSON.stringify(
+		buildHelpComponents(
+			{ client },
+			[
+				{ id: 'rpg', name: 'RPG - Start Here', commands: ['rpg tutorial'] },
+				{ id: 'utility', name: 'Community Tools', commands: ['help'] }
+			],
+			'rpg',
+			'help:test:category'
+		)
+	);
+	let mentionReply;
+	const mentionListener = Object.create(BotMentionEvent.prototype);
+	Object.defineProperty(mentionListener, 'container', {
+		value: {
+			logger: { error() {} },
+			stores: { get: () => ({ size: 2 }) }
+		}
+	});
+	await mentionListener.run({
+		author: { bot: false, displayAvatarURL: avatar, id: 'user', username: 'Warden' },
+		client,
+		mentions: { users: { has: () => true } },
+		reply: async (reply) => {
+			mentionReply = reply;
+			return {
+				createMessageComponentCollector: () => ({ on() {} }),
+				id: 'reply'
+			};
+		}
+	});
+	let botInfoReply;
+	await BotInfoCommand.prototype.chatInputRun.call(
+		{ container: { stores: { get: () => ({ size: 2 }) } } },
+		{
+			client,
+			reply: async (reply) => {
+				botInfoReply = reply;
+			},
+			user: { displayName: 'Warden' }
+		}
+	);
 
-	for (const source of [onboarding, mention, help, botInfo]) assert.match(source, /rpg tutorial/i);
+	for (const response of [onboarding, JSON.stringify(mentionReply), help, JSON.stringify(botInfoReply)]) {
+		assert.match(response, /rpg tutorial/i);
+	}
 	assert.match(onboarding, /Community Tools/);
 	assert.match(help, /Community Tools/);
 });

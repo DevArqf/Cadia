@@ -16,7 +16,7 @@ class UserEvent extends Listener {
 		// Use cases for this are for example permissions error when running the `eval` command.
 		if (Reflect.get(Object(context), 'silent')) return;
 
-		console.log(identifier);
+		this.container.logger.debug(`Message command denied: ${identifier}`);
 
 		if (identifier === 'PermissionError') {
 			return message.reply({

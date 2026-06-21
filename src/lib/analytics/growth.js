@@ -82,8 +82,7 @@ function calculateGrowthMetrics({ dailyRows = [], guildRows = [], now = Date.now
 
 	return {
 		instrumentedDays: new Set(dailyRows.filter((day) => day.growthInstrumentedAt).map((day) => day.day)).size,
-		baselineReady:
-			new Set(dailyRows.filter((day) => day.growthInstrumentedAt).map((day) => day.day)).size >= 14,
+		baselineReady: new Set(dailyRows.filter((day) => day.growthInstrumentedAt).map((day) => day.day)).size >= 14,
 		weeklyActiveGuilds: weeklyActiveGuildIds.size,
 		joinedGuilds: cohort.length,
 		onboardingDelivered,

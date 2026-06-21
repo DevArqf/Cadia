@@ -1,10 +1,4 @@
-const {
-	ApplicationCommandRegistry,
-	Command,
-	PreconditionContainerArray,
-	Args: SapphireArgs,
-	UserError
-} = require('@sapphire/framework');
+const { ApplicationCommandRegistry, Command, PreconditionContainerArray, Args: SapphireArgs, UserError } = require('@sapphire/framework');
 
 const {
 	AutocompleteInteraction,

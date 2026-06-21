@@ -3,100 +3,102 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
+process.env.BOT_OWNERS ??= 'owner';
+process.env.DEVELOPERS ??= 'developer';
+
+const { Collection } = require('discord.js');
+const { clearManagedTimers } = require('../src/lib/CadiaClient');
+const { isTransientConnectionError } = require('../src/lib/database/mysql');
+const { createBattleView } = require('../src/lib/rpg/command/views/battleView');
+const { createInventoryView } = require('../src/lib/rpg/command/views/inventoryView');
+const { createProfileView } = require('../src/lib/rpg/command/views/profileView');
+const { createTravelView } = require('../src/lib/rpg/command/views/travelView');
+const { createTutorialView } = require('../src/lib/rpg/command/views/tutorialView');
+const { UserEvent: MessageUpdateEvent } = require('../src/listeners/messages/messageUpdate');
+const { UserEvent: ReadyEvent } = require('../src/listeners/ready');
+
 const root = path.resolve(__dirname, '..');
 
-test('global blacklist precondition queries the blacklist model', () => {
-	const source = read('src/preconditions/global/Blacklist.js');
+test('activity rotation replaces its timer and managed shutdown clears every timer', () => {
+	const activities = [];
+	const oldTimer = {};
+	const client = {
+		activityRotationTimer: oldTimer,
+		topggStatsPoster: {},
+		reminderTimer: {},
+		guilds: {
+			cache: new Collection([
+				['one', { memberCount: 5 }],
+				['two', { memberCount: 7 }]
+			])
+		},
+		user: { setActivity: (activity) => activities.push(activity) }
+	};
+	const listener = Object.create(ReadyEvent.prototype);
+	Object.defineProperty(listener, 'container', {
+		value: { stores: { get: () => ({ size: 12 }) } }
+	});
 
-	assert.match(source, /getGuildBlacklist\(guildId, userId\)/);
-	assert.doesNotMatch(source, /return true;\s*\/\/ TODO: Implement this/);
+	try {
+		listener._setBotActivities(client);
+		assert.notEqual(client.activityRotationTimer, oldTimer);
+		assert.equal(activities[0].name, '/rpg tutorial');
+	} finally {
+		clearManagedTimers(client);
+	}
+	assert.equal(client.activityRotationTimer, null);
+	assert.equal(client.topggStatsPoster, null);
+	assert.equal(client.reminderTimer, null);
 });
 
-test('blacklist add validates the raw guild id before reading cached guild properties', () => {
-	const source = read('src/commands/Systems/Blacklist/blacklist-add.js');
-	const validationIndex = source.indexOf('if (!/^\\d{17,20}$/.test(guildId))');
-	const databaseLookupIndex = source.indexOf('Guild.findOne({ guildId })');
-	const cacheLookupIndex = source.indexOf('guilds.cache.get(guildId)');
+test('message updates ignore partial and bot messages before emitting parsed messages', () => {
+	const emitted = [];
+	const listener = Object.create(MessageUpdateEvent.prototype);
+	Object.defineProperty(listener, 'container', {
+		value: { client: { emit: (...args) => emitted.push(args) } }
+	});
+	const oldMessage = { content: 'before' };
+	const base = { content: 'after', webhookId: null, system: false };
 
-	assert.ok(validationIndex >= 0);
-	assert.ok(databaseLookupIndex > validationIndex);
-	assert.ok(cacheLookupIndex > databaseLookupIndex);
-	assert.doesNotMatch(source, /Guild\.findOne\(\{\s*guildId:\s*targetGuild\.id\s*\}\)/);
+	listener.run(oldMessage, { ...base, author: null });
+	listener.run(oldMessage, { ...base, author: { bot: true } });
+	listener.run(oldMessage, { ...base, author: { bot: false } });
+
+	assert.deepEqual(emitted, [['preMessageParsed', { ...base, author: { bot: false } }]]);
 });
 
-test('automod command awaits rule creation without delayed interaction edits', () => {
-	const source = read('src/commands/Systems/Automod/automod.js');
-
-	assert.match(source, /await interaction\.deferReply\(\)/);
-	assert.match(source, /await interaction\.guild\.autoModerationRules\.create/);
-	assert.doesNotMatch(source, /setTimeout/);
-	assert.doesNotMatch(source, /custommessage/);
-	assert.doesNotMatch(source, /createId/);
+test('database retry policy recognizes transient DNS and connection failures', () => {
+	for (const code of ['EAI_AGAIN', 'ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT']) {
+		assert.equal(isTransientConnectionError({ code }), true);
+	}
+	assert.equal(isTransientConnectionError({ code: 'ER_ACCESS_DENIED_ERROR' }), false);
 });
 
-test('activity rotation uses one managed interval and client shutdown clears timers', () => {
-	const readySource = read('src/listeners/ready.js');
-	const clientSource = read('src/lib/CadiaClient.js');
+test('RPG command views expose focused behavioral factories', () => {
+	for (const factory of [createBattleView, createInventoryView, createProfileView, createTravelView, createTutorialView]) {
+		assert.equal(typeof factory, 'function');
+	}
 
-	assert.match(readySource, /client\.activityRotationTimer = setInterval/);
-	assert.doesNotMatch(readySource, /setTimeout/);
-	assert.match(clientSource, /clearInterval\(this\.activityRotationTimer\)/);
-	assert.match(clientSource, /clearInterval\(this\.topggStatsPoster\)/);
-	assert.match(clientSource, /clearInterval\(this\.reminderTimer\)/);
-	const indexSource = read('src/index.js');
-	assert.match(indexSource, /client\.reminderTimer = setInterval/);
-	assert.doesNotMatch(indexSource, /\.send\([\s\S]*?\)\s*\.catch\(\(\) => null\)/);
-});
+	const tutorial = createTutorialView({
+		actionButton: () => ({
+			setDisabled() {
+				return this;
+			}
+		}),
+		color: { RPG: '#123456' },
+		icon: { arrowRight: '>', clock: 'clock', info: 'info', objective: 'goal', success: 'ok' },
+		panel: (options) => options
+	});
+	const firstPage = tutorial.buildTutorialPanel(0, 'tutorial');
 
-test('partial message updates and transient database DNS failures are handled', () => {
-	const messageUpdateSource = read('src/listeners/messages/messageUpdate.js');
-	const mysqlSource = read('src/lib/database/mysql.js');
-
-	assert.match(messageUpdateSource, /if \(!message\.author \|\| message\.author\.bot\) return/);
-	assert.match(mysqlSource, /'EAI_AGAIN'/);
-	assert.match(mysqlSource, /'ENOTFOUND'/);
-});
-
-test('ban and timeout moderation commands use the correct Discord semantics', () => {
-	const banSource = read('src/commands/Moderation/ban.js');
-	const moderateNameSource = read('src/commands/Moderation/moderate-name.js');
-	const muteSource = read('src/commands/Moderation/mute.js');
-	const unmuteSource = read('src/commands/Moderation/unmute.js');
-
-	assert.match(banSource, /capability:\s*'bannable'/);
-	assert.match(banSource, /if \(evidence\) embed\.setImage\(evidence\.url\)/);
-	assert.doesNotMatch(banSource, /Number\.isNaN\(.*userid/);
-	assert.match(moderateNameSource, /capability:\s*'manageable'/);
-	assert.match(moderateNameSource, /member\.setNickname/);
-	assert.match(muteSource, /capability:\s*'moderatable'/);
-	assert.match(muteSource, /member\.isCommunicationDisabled\(\)/);
-	assert.match(unmuteSource, /member\.timeout\(null, reason\)/);
-});
-
-test('large command modules delegate to focused feature modules', () => {
-	const rpgCommand = read('src/commands/Systems/RPG System/rpg.js');
-	const rpgService = read('src/lib/rpg/service.js');
-	const minigameCommand = read('src/commands/Systems/Minigame/minigame.js');
-
-	assert.ok(rpgCommand.split(/\r?\n/).length < 2100);
-	assert.match(rpgCommand, /registerRpgCommand/);
-	assert.match(rpgCommand, /dispatchRpgCommand/);
-	assert.match(rpgCommand, /createBattleFlow/);
-	assert.match(rpgCommand, /createPlayerGrowthHandlers/);
-	assert.ok(rpgService.split(/\r?\n/).length < 100);
-	assert.ok(minigameCommand.split(/\r?\n/).length < 100);
-	assert.match(minigameCommand, /runGamecordGame/);
-	assert.match(minigameCommand, /runCustomGame/);
+	assert.equal(firstPage.subtitle.startsWith('1/'), true);
+	assert.match(firstPage.sections.join('\n'), /Create Your Warden|RPG loop/);
 });
 
 test('Sapphire custom templates live at the configured project location', () => {
-	const sapphireConfig = JSON.parse(read('.sapphirerc.json'));
+	const sapphireConfig = JSON.parse(fs.readFileSync(path.join(root, '.sapphirerc.json'), 'utf8'));
 	const templateDirectory = sapphireConfig.customFileTemplates.location;
 
 	assert.equal(templateDirectory, 'templates');
 	assert.equal(fs.existsSync(path.join(root, templateDirectory, 'cmd.js.sapphire')), true);
 });
-
-function read(relativePath) {
-	return fs.readFileSync(path.join(root, relativePath), 'utf8');
-}

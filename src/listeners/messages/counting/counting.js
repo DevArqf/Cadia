@@ -58,11 +58,7 @@ class UserEvent extends Listener {
 					}
 				}
 			),
-			CountActivity.findOneAndUpdate(
-				{ userId: message.author.id, guildId: guild.id },
-				{ $inc: { count: 1 } },
-				{ upsert: true }
-			)
+			CountActivity.findOneAndUpdate({ userId: message.author.id, guildId: guild.id }, { $inc: { count: 1 } }, { upsert: true })
 		]);
 
 		if (data.countGoal === currentNumber) {

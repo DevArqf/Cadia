@@ -57,7 +57,9 @@ class UserCommand extends CadiaCommand {
 			}
 
 			const access = await rpg.getRpgAccess(userId);
-			return interaction.editReply(componentReply(buildAccessPanel('Access Check', access || { userId, enabled: false }, interaction.user.id), true));
+			return interaction.editReply(
+				componentReply(buildAccessPanel('Access Check', access || { userId, enabled: false }, interaction.user.id), true)
+			);
 		} catch (error) {
 			const expected = error instanceof rpg.RpgError;
 			if (!expected) console.error(error);

@@ -1,29 +1,35 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
-const { retryTransientNetworkRequest } = require('../src/lib/util/topgg');
 
-const root = path.resolve(__dirname, '..');
+process.env.BOT_OWNERS ??= 'owner';
+process.env.DEVELOPERS ??= 'developer';
 
-test('Top.gg command does not use topgg-autoposter', () => {
-	const file = path.join(root, 'src', 'commands', 'Systems', 'Top.gg', 'top-gg.js');
-	const source = fs.readFileSync(file, 'utf8');
+const { postTopggStats, retryTransientNetworkRequest, startTopggStatsPoster, syncTopggCommands } = require('../src/lib/util/topgg');
+const { UserCommand: TopggCommand } = require('../src/commands/Systems/Top.gg/top-gg');
 
-	assert.doesNotMatch(source, /topgg-autoposter/);
-	assert.doesNotMatch(source, /AutoPoster/);
-	assert.doesNotMatch(source, /getTopggPoster/);
-	assert.match(source, /postTopggStats/);
-	assert.match(source, /startTopggStatsPoster/);
-});
+test('Top.gg command reports missing credentials without starting network work', async () => {
+	const names = ['TOPGG_TOKEN', 'TOP_GG_TOKEN', 'TOPGG_API_TOKEN'];
+	const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+	for (const name of names) delete process.env[name];
+	const replies = [];
 
-test('commands and listeners do not register permanent interactionCreate listeners at runtime', () => {
-	const files = [path.join(root, 'src', 'listeners', 'botMention.js'), path.join(root, 'src', 'commands', 'Developer', 'bug-report.js')];
-
-	for (const file of files) {
-		const source = fs.readFileSync(file, 'utf8');
-		assert.doesNotMatch(source, /\.(?:client|message\.client|interaction\.client)\.on\(['"]interactionCreate['"]/);
-		assert.match(source, /createMessageComponentCollector/);
+	try {
+		await TopggCommand.prototype.chatInputRun.call(
+			{},
+			{
+				deferReply: async () => {},
+				editReply: async (reply) => replies.push(reply)
+			}
+		);
+		assert.match(replies[0].content, /Missing `TOPGG_TOKEN`/);
+		assert.equal(typeof postTopggStats, 'function');
+		assert.equal(typeof syncTopggCommands, 'function');
+		assert.equal(typeof startTopggStatsPoster, 'function');
+	} finally {
+		for (const name of names) {
+			if (original[name] === undefined) delete process.env[name];
+			else process.env[name] = original[name];
+		}
 	}
 });
 

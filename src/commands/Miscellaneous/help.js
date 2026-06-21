@@ -282,5 +282,6 @@ async function sendError(interaction) {
 }
 
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildHelpComponents
 };

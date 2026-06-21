@@ -1,15 +1,14 @@
 const { randomBytes } = require('node:crypto');
-const { getMysqlError, isMysqlConnected } = require('../../database/mysql');
-const { RpgProfileSchema } = require('../../schemas/RPG System/rpgProfileSchema');
 const { classes, encounters, items, npcQuests, questSteps, regions } = require('../data');
+const repositories = require('../repositories');
 
 const xpPerLevel = 100;
 
 class RpgError extends Error {}
 
 function assertDatabaseReady() {
-	if (isMysqlConnected()) return;
-	const message = getMysqlError()?.message || 'DATABASE_URL or MYSQL_URL is not set';
+	if (repositories.database.isConnected()) return;
+	const message = repositories.database.error()?.message || 'DATABASE_URL or MYSQL_URL is not set';
 	throw new RpgError(
 		`The RPG database is not connected, so your RPG data cannot be saved right now. Ask a developer to check the database connection. (${message})`
 	);
@@ -17,7 +16,7 @@ function assertDatabaseReady() {
 
 async function getProfile(guildId, userId) {
 	assertDatabaseReady();
-	const profile = await RpgProfileSchema.findOne({ userId });
+	const profile = await repositories.profiles.findOne({ userId });
 	return profile ? normalizeProfile(profile) : null;
 }
 
@@ -222,7 +221,10 @@ function rollLoot(encounter, luck) {
 
 function rollEncounter(regionEncounters) {
 	const weighted = regionEncounters.map((encounter) => ({ encounter, weight: encounter.weight ?? (encounter.boss ? 8 : 35) }));
-	let roll = randomInt(1, weighted.reduce((total, entry) => total + entry.weight, 0));
+	let roll = randomInt(
+		1,
+		weighted.reduce((total, entry) => total + entry.weight, 0)
+	);
 	for (const entry of weighted) {
 		roll -= entry.weight;
 		if (roll <= 0) return entry.encounter;
@@ -354,12 +356,14 @@ async function generateCharacterId() {
 	let characterId;
 	do {
 		characterId = `RPG-${randomBytes(3).toString('hex').toUpperCase()}`;
-	} while (await RpgProfileSchema.findOne({ characterId }));
+	} while (await repositories.profiles.findOne({ characterId }));
 	return characterId;
 }
 
 function normalizeCharacterId(characterId) {
-	return String(characterId || '').trim().toUpperCase();
+	return String(characterId || '')
+		.trim()
+		.toUpperCase();
 }
 
 function validateDiscordUserId(userId) {
@@ -378,7 +382,6 @@ function compareProfiles(a, b, type) {
 
 module.exports = {
 	RpgError,
-	RpgProfileSchema,
 	addInventoryItem,
 	addXp,
 	adjustRank,

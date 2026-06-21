@@ -1,5 +1,5 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
-const { color, emojis } = require('../../config');
+const { branding, color, emojis } = require('../../config');
 const axios = require('axios');
 const {
 	ActionRowBuilder,
@@ -32,7 +32,7 @@ class UserCommand extends CadiaCommand {
 		try {
 			const response = await axios.get('https://meme-api.com/gimme/memes', {
 				headers: {
-					'User-Agent': 'Cadia-Bot/v3.7.3'
+					'User-Agent': branding.userAgent
 				},
 				timeout: 10000
 			});

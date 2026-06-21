@@ -1,6 +1,9 @@
+const { version } = require('../../package.json');
+
 const branding = {
 	name: 'Cadia',
 	tagline: 'A story-driven Discord RPG with community tools',
+	userAgent: `Cadia-Bot/v${version}`,
 	supportServerUrl: 'https://discord.gg/26R7kXa6dx',
 	applicationId: '1200475110235197631',
 	ownerUserId: '899385550585364481',

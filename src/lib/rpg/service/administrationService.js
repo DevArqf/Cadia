@@ -1,10 +1,6 @@
-const { RpgAccessSchema } = require('../../schemas/RPG System/rpgAccessSchema');
-const { RpgTutorialSchema } = require('../../schemas/RPG System/rpgTutorialSchema');
-const { RpgPlayerGrowthSchema } = require('../../schemas/rpgPlayerGrowthSchema');
-const { RpgServerBossSchema } = require('../../schemas/rpgServerBossSchema');
+const repositories = require('../repositories');
 const {
 	RpgError,
-	RpgProfileSchema,
 	addInventoryItem,
 	addXp,
 	adjustRank,
@@ -55,7 +51,7 @@ async function adminAddItem(characterId, itemId, quantity = 1) {
 
 async function adminWipeCharacter(characterId) {
 	const profile = await getProfileByCharacterId(characterId);
-	const result = await RpgProfileSchema.deleteOne({ characterId: profile.characterId });
+	const result = await repositories.profiles.deleteOne({ characterId: profile.characterId });
 	return { profile, result };
 }
 
@@ -79,11 +75,11 @@ async function adminMaxCharacter(characterId) {
 async function adminAnalytics() {
 	assertDatabaseReady();
 	const [profiles, accessRecords, tutorialRecords, playerGrowthRecords, serverBossRecords] = await Promise.all([
-		RpgProfileSchema.find({}),
-		RpgAccessSchema.find({}),
-		RpgTutorialSchema.find({}),
-		RpgPlayerGrowthSchema.find({}),
-		RpgServerBossSchema.find({})
+		repositories.profiles.find({}),
+		repositories.access.find({}),
+		repositories.tutorials.find({}),
+		repositories.players.find({}),
+		repositories.bosses.find({})
 	]);
 	const now = Date.now();
 	const totalBattles = sumBy(profiles, (profile) => (profile.battlesWon || 0) + (profile.battlesLost || 0));
@@ -171,7 +167,9 @@ async function adminAnalytics() {
 			classes: Object.keys(classes).length,
 			items: Object.keys(items).length,
 			bosses: getBosses().length,
-			mobs: Object.values(encounters).flat().filter((encounter) => !encounter.boss).length,
+			mobs: Object.values(encounters)
+				.flat()
+				.filter((encounter) => !encounter.boss).length,
 			npcQuests: npcQuests.length,
 			questSteps: questSteps.length
 		},

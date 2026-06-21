@@ -1,9 +1,5 @@
 const { randomBytes } = require('node:crypto');
-const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
-const { RpgGrowthSchema } = require('../schemas/rpgGrowthSchema');
-const { RpgPlayerGrowthSchema } = require('../schemas/rpgPlayerGrowthSchema');
-const { RpgServerBossSchema } = require('../schemas/rpgServerBossSchema');
-const { acquireTransactionLock, withTransaction } = require('../database/mysql');
+const repositories = require('./repositories');
 
 const BOSS_ATTACK_COOLDOWN = 30 * 60_000;
 const cosmetics = {
@@ -35,7 +31,7 @@ function currentSeason(now = new Date()) {
 }
 
 async function globalLeaderboard(type = 'level', limit = 100) {
-	const profiles = await RpgProfileSchema.find({});
+	const profiles = await repositories.profiles.find({});
 	return profiles.sort((a, b) => compareProfiles(a, b, type)).slice(0, limit);
 }
 
@@ -44,9 +40,8 @@ async function getPlayerGrowth(userId) {
 }
 
 async function loadPlayerGrowth(userId, forUpdate = false) {
-	const findOne = forUpdate && RpgPlayerGrowthSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
-	let record = await RpgPlayerGrowthSchema[findOne]({ userId });
-	if (!record) record = new RpgPlayerGrowthSchema({ userId, referralCode: createReferralCode() });
+	let record = forUpdate ? await repositories.players.findOneForUpdate({ userId }) : await repositories.players.findOne({ userId });
+	if (!record) record = repositories.players.createRecord({ userId, referralCode: createReferralCode() });
 	hydrate(record);
 	await record.save();
 	return record;
@@ -92,14 +87,13 @@ async function recordShare(userId) {
 }
 
 async function redeemReferral(userId, code) {
-	const profile = await RpgProfileSchema.findOne({ userId });
+	const profile = await repositories.profiles.findOne({ userId });
 	if (!profile) throw new Error('Create your Warden before redeeming a referral code.');
 	const referralCode = String(code).trim().toUpperCase();
 	return withLockedAggregates([playerLock(userId), `rpg:referral:${referralCode}`], async () => {
 		const growth = await loadPlayerGrowth(userId, true);
 		if (growth.referredBy) throw new Error('You already redeemed a referral code.');
-		const findOne = RpgPlayerGrowthSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
-		const referrer = await RpgPlayerGrowthSchema[findOne]({ referralCode });
+		const referrer = await repositories.players.findOneForUpdate({ referralCode });
 		if (!referrer) throw new Error('That referral code does not exist.');
 		if (referrer.userId === userId) throw new Error('You cannot redeem your own referral code.');
 
@@ -116,8 +110,8 @@ async function redeemReferral(userId, code) {
 async function seasonalProgress(userId, lockedGrowth = null) {
 	const season = currentSeason();
 	const [profile, activity, growth] = await Promise.all([
-		RpgProfileSchema.findOne({ userId }),
-		RpgGrowthSchema.findOne({ userId }),
+		repositories.profiles.findOne({ userId }),
+		repositories.activity.findOne({ userId }),
 		lockedGrowth || getPlayerGrowth(userId)
 	]);
 	if (!profile) throw new Error('Create your Warden to participate in the season.');
@@ -158,10 +152,11 @@ async function getServerBoss(guildId, now = Date.now()) {
 }
 
 async function loadServerBoss(guildId, season, now, forUpdate = false) {
-	const findOne = forUpdate && RpgServerBossSchema.findOneForUpdate ? 'findOneForUpdate' : 'findOne';
-	let boss = await RpgServerBossSchema[findOne]({ guildId, seasonId: season.id });
+	let boss = forUpdate
+		? await repositories.bosses.findOneForUpdate({ guildId, seasonId: season.id })
+		: await repositories.bosses.findOne({ guildId, seasonId: season.id });
 	if (!boss) {
-		boss = await RpgServerBossSchema.create({
+		boss = await repositories.bosses.create({
 			guildId,
 			seasonId: season.id,
 			name: `${season.name} Colossus`,
@@ -179,20 +174,14 @@ async function loadServerBoss(guildId, season, now, forUpdate = false) {
 async function attackServerBoss(guildId, userId, now = Date.now()) {
 	const season = currentSeason(new Date(now));
 	return withLockedAggregates([bossLock(guildId, season.id)], async () => {
-		const [profile, boss] = await Promise.all([
-			RpgProfileSchema.findOne({ userId }),
-			loadServerBoss(guildId, season, now, true)
-		]);
+		const [profile, boss] = await Promise.all([repositories.profiles.findOne({ userId }), loadServerBoss(guildId, season, now, true)]);
 		if (!profile) throw new Error('Create your Warden before joining the server boss event.');
 		if (boss.status === 'defeated') throw new Error('Your server already defeated this seasonal boss.');
 		const lastAttack = Number(boss.lastAttacks[userId] || 0);
 		if (now - lastAttack < BOSS_ATTACK_COOLDOWN) {
 			throw new Error(`You can attack again <t:${Math.ceil((lastAttack + BOSS_ATTACK_COOLDOWN) / 1000)}:R>.`);
 		}
-		const damage = Math.max(
-			100,
-			Math.round((profile.level || 1) * 120 + (profile.stats?.attack || 5) * 18 + (profile.battlesWon || 0) * 4)
-		);
+		const damage = Math.max(100, Math.round((profile.level || 1) * 120 + (profile.stats?.attack || 5) * 18 + (profile.battlesWon || 0) * 4));
 		boss.hp = Math.max(boss.hp - damage, 0);
 		boss.lastAttacks[userId] = now;
 		boss.contributions[userId] = (boss.contributions[userId] || 0) + damage;
@@ -211,7 +200,7 @@ async function attackServerBoss(guildId, userId, now = Date.now()) {
 
 async function rewardBossContributors(boss) {
 	for (const userId of Object.keys(boss.contributions).sort()) {
-		await acquireTransactionLock(playerLock(userId));
+		await repositories.database.acquireLock(playerLock(userId));
 		const growth = await loadPlayerGrowth(userId, true);
 		addCosmetic(growth, cosmetics.raid.id);
 		growth.updatedAt = Date.now();
@@ -220,8 +209,8 @@ async function rewardBossContributors(boss) {
 }
 
 async function withLockedAggregates(lockNames, operation) {
-	return withTransaction(async () => {
-		for (const lockName of [...new Set(lockNames)].sort()) await acquireTransactionLock(lockName);
+	return repositories.database.transaction(async () => {
+		for (const lockName of [...new Set(lockNames)].sort()) await repositories.database.acquireLock(lockName);
 		return operation();
 	});
 }

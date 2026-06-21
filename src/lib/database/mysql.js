@@ -157,6 +157,7 @@ module.exports = {
 	execute,
 	getMysqlError,
 	getPool,
+	isTransientConnectionError,
 	isMysqlConnected,
 	isInTransaction,
 	query,
