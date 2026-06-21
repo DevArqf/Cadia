@@ -52,7 +52,10 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false, op
 	const alert = await publishAlert({ ...draft, developer: interaction.user, dmEnabled: dmUsers });
 	const targetData = dmUsers ? await collectBroadcastUserIds(interaction.client) : { userIds: new Set(), sources: {} };
 	if (dmUsers) await options.onTargetsCollected?.(targetData);
-	const stats = dmUsers ? await sendUserDms(interaction.client, alert, targetData) : { sent: 0, failed: 0, total: 0, sources: {} };
+	const stats = dmUsers
+		? await sendUserDms(interaction.client, alert, targetData, { onProgress: options.onProgress })
+		: { sent: 0, failed: 0, total: 0, sources: {} };
+	await options.onBroadcastComplete?.(stats);
 	await updateAlertDmStats(alert, stats);
 
 	const response = componentReply(
@@ -117,18 +120,15 @@ async function previewTemplate(interaction, draft, dmUsers) {
 				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 			});
 
+			let progressUpdater;
 			try {
 				return await publishDraft(interaction, draft, dmUsers, true, {
-					onTargetsCollected: (targetData) =>
-						interaction
-							.editReply({
-								components: buildPublishStatusComponents(draft, dmUsers, 'publishing', {
-									etaText: publishEtaText(targetData.userIds.size, dmUsers),
-									targetData
-								}),
-								flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-							})
-							.catch(() => null)
+					onTargetsCollected: async (targetData) => {
+						progressUpdater = startPublishProgressUpdates({ interaction, draft, dmUsers, targetData });
+						await progressUpdater.refresh();
+					},
+					onProgress: (progress) => progressUpdater?.update(progress),
+					onBroadcastComplete: () => progressUpdater?.stop()
 				});
 			} catch (error) {
 				await interaction
@@ -138,6 +138,8 @@ async function previewTemplate(interaction, draft, dmUsers) {
 					})
 					.catch(() => null);
 				throw error;
+			} finally {
+				await progressUpdater?.stop();
 			}
 		}
 
@@ -170,15 +172,18 @@ async function previewTemplate(interaction, draft, dmUsers) {
 	});
 }
 
-async function sendUserDms(client, alert, targetData = null) {
+async function sendUserDms(client, alert, targetData = null, options = {}) {
 	targetData ??= await collectBroadcastUserIds(client);
 	const userIds = targetData.userIds;
 	const stats = { sent: 0, failed: 0, total: userIds.size, sources: targetData.sources };
+	const startedAt = Date.now();
+	options.onProgress?.({ ...stats, processed: 0, remaining: stats.total, startedAt });
 
 	for (const userId of userIds) {
 		const user = await client.users.fetch(userId).catch(() => null);
 		if (!user || user.bot) {
 			stats.failed += 1;
+			reportBroadcastProgress(options.onProgress, stats, startedAt);
 			continue;
 		}
 
@@ -188,9 +193,21 @@ async function sendUserDms(client, alert, targetData = null) {
 		);
 		if (sent) stats.sent += 1;
 		else stats.failed += 1;
+		reportBroadcastProgress(options.onProgress, stats, startedAt);
 	}
 
 	return stats;
+}
+
+function reportBroadcastProgress(onProgress, stats, startedAt) {
+	if (!onProgress) return;
+	const processed = stats.sent + stats.failed;
+	onProgress({
+		...stats,
+		processed,
+		remaining: Math.max(stats.total - processed, 0),
+		startedAt
+	});
 }
 
 async function collectBroadcastUserIds(client) {
@@ -314,10 +331,14 @@ function buildPublishStatusComponents(draft, dmUsers, status, options = {}) {
 		? 'Cadia is publishing the alert now. This message will update with the final result when it finishes.'
 		: `Cadia could not publish the alert.${options.error?.message ? `\nError: \`${shorten(options.error.message, 900)}\`` : ''}`;
 	const targetData = options.targetData;
-	const etaText = options.etaText || publishEtaText(null, dmUsers);
+	const progress = options.progress;
+	const etaText = options.etaText || publishEtaText(targetData?.userIds.size ?? null, dmUsers, progress);
 	const targetText = targetData
 		? `${emojis.custom.community} **Targets Found:** ${targetData.userIds.size} users`
 		: `${emojis.custom.community} **Targets Found:** ${dmUsers ? 'Calculating...' : 'DM broadcast skipped'}`;
+	const progressText = progress
+		? `${emojis.custom.mail} **Progress:** ${progress.processed}/${progress.total} processed (${progress.sent} sent, ${progress.failed} failed)`
+		: null;
 
 	return [
 		buildAlertPanel(
@@ -335,21 +356,80 @@ function buildPublishStatusComponents(draft, dmUsers, status, options = {}) {
 				statusText,
 				`${emojis.custom.mail} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
 				targetText,
+				progressText,
 				`${emojis.custom.clock} **ETA Left:** ${etaText}`,
 				`${emojis.custom.info} **Final Status:** ${isPublishing ? 'Pending' : 'Failed'}`
-			]
+			].filter(Boolean)
 		})
 	];
 }
 
-function publishEtaText(targetCount, dmUsers) {
+function startPublishProgressUpdates({ interaction, draft, dmUsers, targetData, intervalMs = 30_000 }) {
+	let progress = {
+		failed: 0,
+		processed: 0,
+		remaining: targetData.userIds.size,
+		sent: 0,
+		startedAt: Date.now(),
+		total: targetData.userIds.size
+	};
+	let stopped = false;
+	let refreshInFlight = null;
+
+	const refresh = () => {
+		if (stopped || refreshInFlight) return refreshInFlight;
+		refreshInFlight = interaction
+			.editReply({
+				components: buildPublishStatusComponents(draft, dmUsers, 'publishing', {
+					progress,
+					targetData
+				}),
+				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+			})
+			.catch(() => null)
+			.finally(() => {
+				refreshInFlight = null;
+			});
+		return refreshInFlight;
+	};
+
+	const timer = setInterval(refresh, intervalMs);
+	timer.unref?.();
+
+	return {
+		refresh,
+		update(nextProgress) {
+			progress = { ...progress, ...nextProgress };
+		},
+		async stop() {
+			stopped = true;
+			clearInterval(timer);
+			await refreshInFlight;
+		}
+	};
+}
+
+function publishEtaText(targetCount, dmUsers, progress = null) {
 	if (!dmUsers) return 'No DM broadcast selected.';
 	if (typeof targetCount !== 'number') return 'Calculating target count...';
 	if (targetCount <= 0) return 'No DM targets found.';
 
-	const seconds = estimatePublishSeconds(targetCount);
+	const seconds = estimateRemainingSeconds(targetCount, progress);
+	if (seconds <= 0) return 'Finishing now...';
 	const finishAt = Math.floor((Date.now() + seconds * 1000) / 1000);
 	return `about ${formatDuration(seconds)} (finishes <t:${finishAt}:R>)`;
+}
+
+function estimateRemainingSeconds(targetCount, progress) {
+	const processed = Number(progress?.processed) || 0;
+	const startedAt = Number(progress?.startedAt) || 0;
+	if (processed > 0 && startedAt > 0) {
+		const elapsedSeconds = Math.max((Date.now() - startedAt) / 1000, 1);
+		const usersPerSecond = processed / elapsedSeconds;
+		const remaining = Math.max(targetCount - processed, 0);
+		return Math.ceil(remaining / usersPerSecond);
+	}
+	return estimatePublishSeconds(targetCount);
 }
 
 function estimatePublishSeconds(targetCount) {
@@ -485,9 +565,14 @@ module.exports = {
 	addDraftOptions,
 	addTemplateOption,
 	applyTemplate,
+	buildPublishStatusComponents,
+	estimateRemainingSeconds,
 	normalizeAlertMessage,
+	publishEtaText,
 	publishDraft,
 	readDraft,
 	resolveDraftVariables,
-	previewTemplate
+	previewTemplate,
+	sendUserDms,
+	startPublishProgressUpdates
 };
