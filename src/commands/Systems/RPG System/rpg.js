@@ -22,6 +22,7 @@ const {
 	createCharacterCreationImageAttachment,
 	createProfileImageAttachment,
 	createTravelImageAttachment,
+	fleeResultImage,
 	npcPortrait,
 	sceneImages,
 	serverBossImage
@@ -177,6 +178,7 @@ const {
 	createBossBattleCard,
 	createDefeatStory,
 	createEncounterBattleCard,
+	fleeResultImage,
 	formatItemName,
 	hasEncounterBattleCard,
 	healthBar,
@@ -1344,6 +1346,7 @@ function shouldDeferRpgCommand(interaction) {
 module.exports = {
 	UserCommand,
 	buildBattleResultPanel,
+	buildBattleResultReply,
 	buildBossBattlePanel,
 	buildEncounterPanel,
 	shouldDeferRpgCommand

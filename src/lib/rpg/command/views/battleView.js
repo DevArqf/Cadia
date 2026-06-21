@@ -19,6 +19,7 @@ function createBattleView({
 	createBossBattleCard,
 	createDefeatStory,
 	createEncounterBattleCard,
+	fleeResultImage,
 	formatItemName,
 	hasEncounterBattleCard,
 	healthBar,
@@ -186,7 +187,11 @@ function createBattleView({
 	}
 
 	function buildBattleResultReply(result, stance) {
-		const image = result.won ? battleResultImage(`${result.encounter.id}-defeat`) : null;
+		const image = result.escaped
+			? fleeResultImage(result.profile.region)
+			: result.won
+				? battleResultImage(`${result.encounter.id}-defeat`)
+				: null;
 		return {
 			components: [buildBattleResultPanel(result, stance, image?.url || sceneImages.battle)],
 			files: image?.attachment ? [image.attachment] : [],

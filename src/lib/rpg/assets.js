@@ -19,6 +19,20 @@ const serverBossImages = {
 		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Stormglass Colossus Defeat.png')
 	}
 };
+const fleeImages = {
+	'broken-gate': {
+		fileName: 'the-broken-gate-flee.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'The Broken Gate Flee.png')
+	},
+	'ashwood-outskirts': {
+		fileName: 'ashwood-outskirts-flee.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Ashwood Outskirts Flee.png')
+	},
+	'glassmine-depths': {
+		fileName: 'glassmine-depths-flee.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Glassmine Depths Flee.png')
+	}
+};
 const npcPortraitPath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'NPC Portraits');
 const attachmentBufferCache = new Map();
 const adventureStoryImages = {
@@ -162,6 +176,15 @@ function battleResultImage(id) {
 	};
 }
 
+function fleeResultImage(regionId) {
+	const image = fleeImages[regionId];
+	if (!image) return null;
+	return {
+		url: `attachment://${image.fileName}`,
+		attachment: attachmentFromFile(image.path, image.fileName)
+	};
+}
+
 function attachmentFromFile(filePath, fileName) {
 	if (!attachmentBufferCache.has(filePath)) attachmentBufferCache.set(filePath, fs.readFileSync(filePath));
 	return new AttachmentBuilder(attachmentBufferCache.get(filePath), { name: fileName });
@@ -173,6 +196,7 @@ module.exports = {
 	createCharacterCreationImageAttachment,
 	createProfileImageAttachment,
 	createTravelImageAttachment,
+	fleeResultImage,
 	npcPortrait,
 	placeholderImage,
 	sceneImages,
