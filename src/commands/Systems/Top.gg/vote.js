@@ -42,40 +42,7 @@ class UserCommand extends CadiaCommand {
 			await interaction.deferReply();
 			const vote = await checkTopggVote(userId, interaction.client);
 			if (vote.ok) {
-				if (vote.voted) {
-					return interaction.editReply(
-						`${emojis.custom.success} You have **already** voted for Cadia. We **appreciate** you trying again!`
-					);
-				} else {
-					const voteEmbed = new EmbedBuilder()
-						.setColor(color.default)
-						.setDescription(
-							`${emojis.custom.heart2} It appears you're interested in **voting** for Cadia. To **cast** your vote, simply **click** the buttons **below** at your convenience!`
-						)
-						.setFooter({ text: `Requested by ${interaction.user.displayName}`, iconURL: interaction.user.displayAvatarURL() })
-						.setTimestamp();
-
-					const voteButton1 = new ActionRowBuilder()
-						.addComponents(
-							new ButtonBuilder().setLabel('Top.gg').setURL(`https://top.gg/bot/${branding.applicationId}`).setStyle(ButtonStyle.Link)
-						)
-
-						.addComponents(
-							new ButtonBuilder()
-								.setLabel('DiscordBotList.com')
-								.setURL(`https://discordbotlist.com/bots/cadia`)
-								.setStyle(ButtonStyle.Link)
-						)
-
-						.addComponents(
-							new ButtonBuilder()
-								.setLabel('DiscordList.gg')
-								.setURL(`https://discordlist.gg/bot/${branding.applicationId}?message=success`)
-								.setStyle(ButtonStyle.Link)
-						);
-
-					return interaction.editReply({ embeds: [voteEmbed], components: [voteButton1] });
-				}
+				return interaction.editReply(buildVoteResponse(interaction.user));
 			} else {
 				return interaction.editReply(
 					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](${branding.supportServerUrl}) for assistance or use </bugreport:${branding.bugReportCommandId}>*`
@@ -94,6 +61,28 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
+function buildVoteResponse(user) {
+	const voteEmbed = new EmbedBuilder()
+		.setColor(color.default)
+		.setDescription(
+			`${emojis.custom.heart2} Support Cadia by voting on any of the bot lists below. You can revisit this panel whenever a new vote becomes available.`
+		)
+		.setFooter({ text: `Requested by ${user.displayName}`, iconURL: user.displayAvatarURL() })
+		.setTimestamp();
+
+	const voteButtons = new ActionRowBuilder().addComponents(
+		new ButtonBuilder().setLabel('Top.gg').setURL(`https://top.gg/bot/${branding.applicationId}`).setStyle(ButtonStyle.Link),
+		new ButtonBuilder().setLabel('DiscordBotList.com').setURL('https://discordbotlist.com/bots/cadia').setStyle(ButtonStyle.Link),
+		new ButtonBuilder()
+			.setLabel('DiscordList.gg')
+			.setURL(`https://discordlist.gg/bot/${branding.applicationId}?message=success`)
+			.setStyle(ButtonStyle.Link)
+	);
+
+	return { embeds: [voteEmbed], components: [voteButtons] };
+}
+
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildVoteResponse
 };
