@@ -73,7 +73,7 @@ function buildOnboardingEmbed(guild, variant) {
 	const control =
 		`${emojis.custom.heart1} **Thank you for adding ${branding.name} to ${guild.name}!**\n` +
 		`${emojis.custom.arrowright} Run \`/help\` to browse commands or join the support server if you need assistance.\n\n` +
-		`${emojis.custom.warning} Keep ${branding.name}'s role above roles it needs to moderate.`;
+		`${emojis.custom.warning} **Keep ${branding.name}'s role above roles it needs to moderate.**`;
 
 	return new EmbedBuilder()
 		.setColor(color.default)
