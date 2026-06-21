@@ -47,14 +47,32 @@ test('admin-maxed defense cannot reduce a surviving boss counterattack to zero',
 	assert.ok(defend.enemyDamage < attack.enemyDamage);
 });
 
-async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false, defense = 20, encounterAttack = 70 }) {
+test('Star Salve heals during combat, consumes one item, and allows a counterattack', async () => {
+	const result = await resolveTurn({ stance: 'salve', playerHp: 80, salves: 2 });
+
+	assert.equal(result.damage, 0);
+	assert.equal(result.recoveredHp, 170);
+	assert.equal(result.usedItem, 'star_salve');
+	assert.ok(result.enemyDamage > 0);
+	assert.equal(result.playerHp, 250 - result.enemyDamage);
+	assert.equal(result.profile.inventory[0].quantity, 1);
+});
+
+test('Star Salve cannot be used at full HP or without an owned salve', async () => {
+	await assert.rejects(() => resolveTurn({ stance: 'salve', playerHp: 250, salves: 1 }), /already full/i);
+	await assert.rejects(() => resolveTurn({ stance: 'salve', playerHp: 80, salves: 0 }), /do not have/i);
+});
+
+async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false, defense = 20, encounterAttack = 70, playerHp, salves = 0 }) {
+	const maxHp = boss ? 2_000 : 250;
 	const profile = {
 		userId: 'user',
-		hp: boss ? 2_000 : 250,
+		hp: playerHp ?? maxHp,
 		battlesWon: 0,
 		battlesLost: 0,
 		gold: 0,
 		xp: 0,
+		inventory: salves > 0 ? [{ itemId: 'star_salve', quantity: salves }] : [],
 		equipment: {},
 		defeatedBosses: []
 	};
@@ -83,6 +101,11 @@ async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false,
 		addInventoryItem: () => null,
 		addXp: () => null,
 		advanceQuest: () => null,
+		decrementInventoryItem: (value, itemId) => {
+			const entry = value.inventory.find((item) => item.itemId === itemId);
+			entry.quantity -= 1;
+			value.inventory = value.inventory.filter((item) => item.quantity > 0);
+		},
 		encounters: {},
 		getDamageTuning: () => ({ scale: 0.62, focus: 0.14, speed: 0.08, randomMin: 15, randomMax: 55, crit: 1.45 }),
 		getEffectiveMaxHp: () => (boss ? 2_000 : 250),
@@ -96,6 +119,7 @@ async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false,
 				defend: { damage: 0.75, guard: 1.45, loot: 1 },
 				flee: { damage: 0, guard: 1, loot: 0 }
 			})[selectedStance],
+		items: { star_salve: { stats: { hp: 260 } } },
 		markBossDefeated: () => null,
 		progressQuestKill: () => null,
 		randomInt: (min) => min,
@@ -116,7 +140,7 @@ async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false,
 
 	try {
 		const combat = require(paths.combat);
-		return await combat.resolveAdventureTurn('guild', 'user', { encounterId: encounter.id, enemyHp, playerHp: profile.hp }, stance);
+		return await combat.resolveAdventureTurn('guild', 'user', { encounterId: encounter.id, enemyHp, playerHp: playerHp ?? profile.hp }, stance);
 	} finally {
 		Math.random = originalRandom;
 		for (const [key, modulePath] of Object.entries(paths)) {

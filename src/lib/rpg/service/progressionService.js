@@ -51,6 +51,7 @@ async function useItem(guildId, userId, itemId) {
 	if (!entry) throw new RpgError('You do not own that item.');
 	const maxHp = getEffectiveMaxHp(profile);
 	const hpBefore = profile.hp || 0;
+	if (hpBefore >= maxHp) throw new RpgError('Your HP is already full. Save that consumable for when you are injured.');
 	profile.hp = Math.min(maxHp, hpBefore + (item.stats?.hp || 0));
 	const recoveredHp = Math.max(profile.hp - hpBefore, 0);
 	decrementInventoryItem(profile, itemId);

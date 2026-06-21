@@ -12,7 +12,7 @@ const mobCounterShares = {
 };
 
 function balancePlayerDamage(encounter, stance, calculatedDamage) {
-	if (encounter.boss || stance === 'flee') return calculatedDamage;
+	if (encounter.boss || stance === 'flee' || stance === 'salve') return calculatedDamage;
 	const minimumShare = mobDamageShares[stance] || mobDamageShares.attack;
 	return Math.max(calculatedDamage, Math.ceil(encounter.hp * minimumShare));
 }

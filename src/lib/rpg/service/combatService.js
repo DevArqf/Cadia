@@ -6,6 +6,7 @@ const {
 	addInventoryItem,
 	addXp,
 	advanceQuest,
+	decrementInventoryItem,
 	encounters,
 	getDamageTuning,
 	getEffectiveMaxHp,
@@ -13,6 +14,7 @@ const {
 	getEncounterById,
 	getEncounterMatchup,
 	getStanceBonus,
+	items,
 	markBossDefeated,
 	progressQuestKill,
 	randomInt,
@@ -40,8 +42,19 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	if (encounter.boss && stance === 'flee') throw new RpgError(`${encounter.name} has sealed the room. You cannot flee this fight.`);
 
 	const stats = getEffectiveStats(profile);
-	const stanceBonus = getStanceBonus(stance, stats);
+	const usingSalve = stance === 'salve';
+	const stanceBonus = usingSalve ? { damage: 0, guard: 1, loot: 0 } : getStanceBonus(stance, stats);
 	const matchup = getEncounterMatchup(profile, encounter);
+	const effectiveMaxHp = getEffectiveMaxHp(profile);
+	const currentPlayerHp = Math.min(battle.playerHp ?? profile.hp, effectiveMaxHp);
+	let recoveredHp = 0;
+	if (usingSalve) {
+		const salve = (profile.inventory || []).find((entry) => entry.itemId === 'star_salve' && entry.quantity > 0);
+		if (!salve) throw new RpgError('You do not have a Star Salve to use.');
+		if (currentPlayerHp >= effectiveMaxHp) throw new RpgError('Your HP is already full. Save the Star Salve for when you are injured.');
+		recoveredHp = Math.min(items.star_salve.stats.hp, effectiveMaxHp - currentPlayerHp);
+		decrementInventoryItem(profile, 'star_salve');
+	}
 	const escaped = !encounter.boss && stance === 'flee' && Math.random() * 100 < Math.min(85, 45 + Math.floor(stats.speed / 4));
 	if (escaped) {
 		await saveProfile(profile);
@@ -60,16 +73,16 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 		};
 	}
 
-	const crit = randomInt(1, 100) <= Math.min(35, 5 + Math.floor(stats.luck / 8));
+	const crit = !usingSalve && randomInt(1, 100) <= Math.min(35, 5 + Math.floor(stats.luck / 8));
 	const damageTuning = getDamageTuning(encounter);
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
-	const calculatedDamage = stance === 'flee' ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
+	const calculatedDamage =
+		stance === 'flee' || usingSalve ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
 	const damage = balancePlayerDamage(encounter, stance, calculatedDamage);
 	const nextEnemyHp = Math.max((battle.enemyHp ?? encounter.hp) - damage, 0);
-	const effectiveMaxHp = getEffectiveMaxHp(profile);
 	const calculatedEnemyDamage = nextEnemyHp > 0 ? calculateEnemyDamage(encounter, stats, matchup, stanceBonus) : 0;
 	const enemyDamage = balanceEnemyDamage(encounter, stance, calculatedEnemyDamage, effectiveMaxHp);
-	const nextPlayerHp = Math.max(Math.min(battle.playerHp ?? profile.hp, effectiveMaxHp) - enemyDamage, 0);
+	const nextPlayerHp = Math.max(Math.min(currentPlayerHp + recoveredHp, effectiveMaxHp) - enemyDamage, 0);
 	const won = nextEnemyHp <= 0;
 	const lost = nextPlayerHp <= 0;
 	profile.hp = lost ? 1 : Math.min(Math.max(nextPlayerHp, 1), effectiveMaxHp);
@@ -80,6 +93,8 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 		crit,
 		damage,
 		enemyDamage,
+		recoveredHp,
+		usedItem: usingSalve ? 'star_salve' : null,
 		enemyHp: nextEnemyHp,
 		playerHp: profile.hp,
 		won,

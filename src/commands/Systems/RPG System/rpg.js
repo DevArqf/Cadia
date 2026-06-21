@@ -1492,14 +1492,18 @@ function buildEncounterPanel(profile, encounter, region, battleId, state, image 
 	const playerHp = state?.playerHp ?? profile.hp;
 	const maxHp = rpg.getEffectiveMaxHp(profile);
 	const last = state?.lastResult;
+	const salveCount = inventoryQuantity(profile, 'star_salve');
 	const exchange = last
 		? [
 				`${icon.damageDealt} **Damage Dealt:** ${last.damage}${last.crit ? ' (critical)' : ''}`,
+				last.recoveredHp ? `${icon.health.full} **Star Salve:** Restored ${last.recoveredHp} HP before the counterattack.` : null,
 				`${icon.damageTaken} **Damage Taken:** ${last.enemyDamage}`,
 				last.stance === 'defend'
 					? `${icon.info} Your defensive stance reduced the counterattack.`
-					: `${icon.info} ${encounter.name} counterattacked after your ${titleCase(last.stance)} action.`
-			]
+					: last.stance === 'salve'
+						? `${icon.info} Using the salve spent your turn, and ${encounter.name} attacked back.`
+						: `${icon.info} ${encounter.name} counterattacked after your ${titleCase(last.stance)} action.`
+			].filter(Boolean)
 		: `${icon.person} **${profile.name}** found movement beyond the trail. Choose your first action.`;
 
 	return panel({
@@ -1514,13 +1518,14 @@ function buildEncounterPanel(profile, encounter, region, battleId, state, image 
 				`${icon.health.full} **${profile.name}:** ${healthBar(playerHp, maxHp)} ${playerHp}/${maxHp}`,
 				`${icon.threat} **Threat:** Attack ${encounter.attack} - Defense ${encounter.defense}`
 			],
-			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.\n${icon.loot} Loot protection guarantees a drop by every third mob victory.`
+			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.\n${icon.health.full} Star Salve restores **260 HP** before the counterattack. Owned: **${salveCount}**.\n${icon.loot} Loot protection guarantees a drop by every third mob victory.`
 		],
 		buttons: [
 			actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger),
 			actionButton(`${battleId}:skill`, classes[profile.classId].skill, ButtonStyle.Primary),
 			actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary),
-			actionButton(`${battleId}:flee`, 'Flee', ButtonStyle.Secondary)
+			actionButton(`${battleId}:flee`, 'Flee', ButtonStyle.Secondary),
+			actionButton(`${battleId}:salve`, `Use Salve (${salveCount})`, ButtonStyle.Success).setDisabled(salveCount <= 0 || playerHp >= maxHp)
 		],
 		footer: `${icon.clock} Encounter expires after 2 minutes of no actions`
 	});
@@ -1528,16 +1533,19 @@ function buildEncounterPanel(profile, encounter, region, battleId, state, image 
 
 function buildBossBattlePanel(profile, encounter, region, state, battleId, fileName, disabled = false) {
 	const last = state.lastResult;
+	const maxHp = rpg.getEffectiveMaxHp(profile);
+	const salveCount = inventoryQuantity(profile, 'star_salve');
 	const status = last
 		? [
 				`${icon.threat} **Damage Dealt:** ${last.damage}${last.crit ? ' (critical)' : ''}`,
+				last.recoveredHp ? `${icon.health.full} **Star Salve:** Restored ${last.recoveredHp} HP before the counterattack.` : null,
 				`${icon.warning} **Damage Taken:** ${last.enemyDamage}`,
 				last.done
 					? last.won
 						? `${icon.success} **${encounter.name} has fallen.**`
 						: `${icon.fail} **${profile.name} was forced back.**`
 					: `${icon.info} Choose your next stance.`
-			]
+			].filter(Boolean)
 		: [`${icon.warning} **Boss Encounter:** ${encounter.name} blocks the only exit.`, `Fleeing is impossible. Fight until one side breaks.`];
 
 	return new ContainerBuilder()
@@ -1559,7 +1567,10 @@ function buildBossBattlePanel(profile, encounter, region, state, battleId, fileN
 			new ActionRowBuilder().addComponents(
 				actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger).setDisabled(disabled),
 				actionButton(`${battleId}:skill`, classes[profile.classId].skill, ButtonStyle.Primary).setDisabled(disabled),
-				actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary).setDisabled(disabled)
+				actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary).setDisabled(disabled),
+				actionButton(`${battleId}:salve`, `Use Salve (${salveCount})`, ButtonStyle.Success).setDisabled(
+					disabled || salveCount <= 0 || state.playerHp >= maxHp
+				)
 			)
 		)
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
@@ -1636,6 +1647,10 @@ function buildBattleResultPanel(result, stance, image = sceneImages.battle) {
 function formatEquipment(profile) {
 	const equipment = profile.equipment || {};
 	return `${icon.equipment} **Equipment**\nWeapon: **${formatItemName(items[equipment.weapon]) || 'None'}**\nArmor: **${formatItemName(items[equipment.armor]) || 'None'}**\nCharm: **${formatItemName(items[equipment.charm]) || 'None'}**`;
+}
+
+function inventoryQuantity(profile, itemId) {
+	return (profile.inventory || []).find((entry) => entry.itemId === itemId)?.quantity || 0;
 }
 
 function formatProfileEquipment(profile) {
@@ -1960,5 +1975,7 @@ function shouldDeferRpgCommand(interaction) {
 module.exports = {
 	UserCommand,
 	buildBattleResultPanel,
+	buildBossBattlePanel,
+	buildEncounterPanel,
 	shouldDeferRpgCommand
 };

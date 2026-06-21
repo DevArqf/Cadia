@@ -29,6 +29,7 @@ test('regional farming guarantees progress without changing boss balance', () =>
 	const boss = encounters['broken-gate'].find((encounter) => encounter.boss);
 
 	assert.equal(balancePlayerDamage(mob, 'attack', 1), Math.ceil(mob.hp * mobDamageShares.attack));
+	assert.equal(balancePlayerDamage(mob, 'salve', 0), 0);
 	assert.equal(balanceEnemyDamage(mob, 'defend', 999, 850), Math.floor(850 * mobCounterShares.defend));
 	assert.equal(balancePlayerDamage(boss, 'attack', 1), 1);
 	assert.equal(balanceEnemyDamage(boss, 'defend', 999, 850), 999);
