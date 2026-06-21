@@ -138,6 +138,7 @@ const tutorialSteps = [
 		title: 'Gear Matters',
 		body: [
 			'Defeated mobs can drop weapons, armor, charms, and consumables.',
+			'If random drops fail, loot protection guarantees an item by every third mob victory.',
 			'Use `/rpg inventory` to inspect what you own and `/rpg equip` to wear it.',
 			'Gear changes your effective stats. Some gear also has traits like steel, warded, pierce, flame, arcane, or crystal.'
 		]
@@ -1513,7 +1514,7 @@ function buildEncounterPanel(profile, encounter, region, battleId, state, image 
 				`${icon.health.full} **${profile.name}:** ${healthBar(playerHp, maxHp)} ${playerHp}/${maxHp}`,
 				`${icon.threat} **Threat:** Attack ${encounter.attack} - Defense ${encounter.defense}`
 			],
-			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.`
+			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.\n${icon.loot} Loot protection guarantees a drop by every third mob victory.`
 		],
 		buttons: [
 			actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger),

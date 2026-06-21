@@ -1,5 +1,6 @@
 const { recordRpgEvent } = require('../growth');
 const { recordSeasonVictory, syncAchievements } = require('../playerGrowth');
+const { balanceEnemyDamage, balancePlayerDamage, guaranteedMobLoot } = require('../combatBalance');
 const {
 	RpgError,
 	addInventoryItem,
@@ -62,10 +63,12 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	const crit = randomInt(1, 100) <= Math.min(35, 5 + Math.floor(stats.luck / 8));
 	const damageTuning = getDamageTuning(encounter);
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
-	const damage = stance === 'flee' ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
+	const calculatedDamage = stance === 'flee' ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
+	const damage = balancePlayerDamage(encounter, stance, calculatedDamage);
 	const nextEnemyHp = Math.max((battle.enemyHp ?? encounter.hp) - damage, 0);
-	const enemyDamage = nextEnemyHp > 0 ? calculateEnemyDamage(encounter, stats, matchup, stanceBonus) : 0;
 	const effectiveMaxHp = getEffectiveMaxHp(profile);
+	const calculatedEnemyDamage = nextEnemyHp > 0 ? calculateEnemyDamage(encounter, stats, matchup, stanceBonus) : 0;
+	const enemyDamage = balanceEnemyDamage(encounter, stance, calculatedEnemyDamage, effectiveMaxHp);
 	const nextPlayerHp = Math.max(Math.min(battle.playerHp ?? profile.hp, effectiveMaxHp) - enemyDamage, 0);
 	const won = nextEnemyHp <= 0;
 	const lost = nextPlayerHp <= 0;
@@ -159,7 +162,7 @@ function calculateEnemyDamage(encounter, stats, matchup, stanceBonus) {
 
 function applyVictory(profile, encounter, stats, stanceBonus, result) {
 	const gold = randomInt(encounter.gold[0], encounter.gold[1]);
-	const loot = rollLoot(encounter, stats.luck + stanceBonus.loot);
+	const loot = guaranteedMobLoot(profile, encounter, rollLoot(encounter, stats.luck + stanceBonus.loot), randomInt);
 	profile.gold += gold;
 	profile.battlesWon += 1;
 	if (encounter.boss) markBossDefeated(profile, encounter.id);
