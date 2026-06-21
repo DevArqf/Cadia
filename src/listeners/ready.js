@@ -30,6 +30,7 @@ class UserEvent extends Listener {
 		configureBotAnalytics({ logger: this.container.logger });
 
 		const info = await this._connectDb();
+		console.clear();
 		this._reportGrowthConfiguration(info);
 
 		this._printBanner(info);
@@ -70,7 +71,6 @@ class UserEvent extends Listener {
 		// Offset Pad
 		const pad = ' '.repeat(7);
 
-		// console.clear();
 		console.log(
 			String.raw`
 ${line01}
