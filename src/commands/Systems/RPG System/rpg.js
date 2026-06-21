@@ -1461,13 +1461,15 @@ function buildExplorationPanel(profile, encounter, region, battleId, recoveredHp
 	});
 }
 
-async function buildEncounterReply(profile, encounter, region, battleId) {
+async function buildEncounterReply(profile, encounter, region, battleId, state) {
 	const fileName = `${encounter.id}-battle.png`;
+	const enemyHp = state?.enemyHp ?? encounter.hp;
+	const playerHp = state?.playerHp ?? profile.hp;
 	const attachment = hasEncounterBattleCard(encounter.id)
 		? await createEncounterBattleCard({
 				encounter,
-				enemyHp: encounter.hp,
-				playerHp: profile.hp,
+				enemyHp,
+				playerHp,
 				playerMaxHp: rpg.getEffectiveMaxHp(profile),
 				playerName: profile.name,
 				fileName
@@ -1475,26 +1477,40 @@ async function buildEncounterReply(profile, encounter, region, battleId) {
 		: null;
 
 	return {
-		components: [buildEncounterPanel(profile, encounter, region, battleId, attachment ? `attachment://${fileName}` : sceneImages.battle)],
+		components: [buildEncounterPanel(profile, encounter, region, battleId, state, attachment ? `attachment://${fileName}` : sceneImages.battle)],
 		files: attachment ? [attachment] : [],
 		flags: MessageFlags.IsComponentsV2
 	};
 }
 
-function buildEncounterPanel(profile, encounter, region, battleId, image = sceneImages.battle) {
+function buildEncounterPanel(profile, encounter, region, battleId, state, image = sceneImages.battle) {
+	const enemyHp = state?.enemyHp ?? encounter.hp;
+	const playerHp = state?.playerHp ?? profile.hp;
+	const maxHp = rpg.getEffectiveMaxHp(profile);
+	const last = state?.lastResult;
+	const exchange = last
+		? [
+				`${icon.damageDealt} **Damage Dealt:** ${last.damage}${last.crit ? ' (critical)' : ''}`,
+				`${icon.damageTaken} **Damage Taken:** ${last.enemyDamage}`,
+				last.stance === 'defend'
+					? `${icon.info} Your defensive stance reduced the counterattack.`
+					: `${icon.info} ${encounter.name} counterattacked after your ${titleCase(last.stance)} action.`
+			]
+		: `${icon.person} **${profile.name}** found movement beyond the trail. Choose your first action.`;
+
 	return panel({
 		accentColor: color.warning,
 		title: `${icon.warning} **Encounter: ${encounter.name}**`,
-		subtitle: `${region.name} - RNG combat`,
+		subtitle: `${region.name} - turn ${state?.turn ?? 0}`,
 		image,
 		sections: [
-			`${icon.person} **${profile.name}** found movement beyond the trail. Choose how to respond.`,
+			exchange,
 			[
-				`**Enemy HP:** ${healthBar(encounter.hp, encounter.hp)} ${encounter.hp}`,
-				`${icon.threat} **Threat:** Attack ${encounter.attack} - Defense ${encounter.defense}`,
-				`${icon.coin} **Reward Range:** ${encounter.gold[0]}-${encounter.gold[1]} gold`
+				`**${encounter.name}:** ${healthBar(enemyHp, encounter.hp)} ${enemyHp}/${encounter.hp}`,
+				`${icon.health.full} **${profile.name}:** ${healthBar(playerHp, maxHp)} ${playerHp}/${maxHp}`,
+				`${icon.threat} **Threat:** Attack ${encounter.attack} - Defense ${encounter.defense}`
 			],
-			`${icon.actions} **Actions**\nAttack is steady. Skill scales with Focus. Defend lowers incoming damage. Flee is safer with Speed.`
+			`${icon.actions} **Actions**\nEach action spends one turn. If the mob survives, it immediately attacks back. Defend reduces that counterattack.`
 		],
 		buttons: [
 			actionButton(`${battleId}:attack`, 'Attack', ButtonStyle.Danger),
@@ -1502,7 +1518,7 @@ function buildEncounterPanel(profile, encounter, region, battleId, image = scene
 			actionButton(`${battleId}:defend`, 'Defend', ButtonStyle.Secondary),
 			actionButton(`${battleId}:flee`, 'Flee', ButtonStyle.Secondary)
 		],
-		footer: `${icon.clock} Encounter expires in 90 seconds`
+		footer: `${icon.clock} Encounter expires after 2 minutes of no actions`
 	});
 }
 

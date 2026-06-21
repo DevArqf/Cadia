@@ -41,10 +41,28 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	const stats = getEffectiveStats(profile);
 	const stanceBonus = getStanceBonus(stance, stats);
 	const matchup = getEncounterMatchup(profile, encounter);
+	const escaped = !encounter.boss && stance === 'flee' && Math.random() * 100 < Math.min(85, 45 + Math.floor(stats.speed / 4));
+	if (escaped) {
+		await saveProfile(profile);
+		return {
+			profile,
+			encounter,
+			crit: false,
+			damage: 0,
+			enemyDamage: 0,
+			enemyHp: battle.enemyHp ?? encounter.hp,
+			playerHp: Math.min(battle.playerHp ?? profile.hp, getEffectiveMaxHp(profile)),
+			escaped: true,
+			won: false,
+			lost: false,
+			done: true
+		};
+	}
+
 	const crit = randomInt(1, 100) <= Math.min(35, 5 + Math.floor(stats.luck / 8));
 	const damageTuning = getDamageTuning(encounter);
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
-	const damage = calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
+	const damage = stance === 'flee' ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
 	const nextEnemyHp = Math.max((battle.enemyHp ?? encounter.hp) - damage, 0);
 	const enemyDamage =
 		nextEnemyHp > 0
@@ -97,17 +115,13 @@ async function resolveAdventure(guildId, userId, encounterId, stance) {
 		return { profile, encounter, escaped: true };
 	}
 
-	const playerRoll =
-		stats.attack * 1.7 + stats.defense * 0.65 + stats.speed * 0.35 + stats.focus * 0.45 + stats.luck * 0.25 + randomInt(80, 180);
+	const playerRoll = stats.attack * 1.7 + stats.defense * 0.65 + stats.speed * 0.35 + stats.focus * 0.45 + stats.luck * 0.25 + randomInt(80, 180);
 	const enemyRoll = encounter.hp * 0.18 + encounter.attack * 1.15 + encounter.defense * 0.85 + randomInt(60, 150);
 	const crit = randomInt(1, 100) <= Math.min(35, 5 + Math.floor(stats.luck / 8));
 	const damageTuning = getDamageTuning(encounter);
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
 	const damage = calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
-	const enemyDamage = Math.max(
-		Math.round(((encounter.attack + randomInt(18, 76)) * matchup.incoming - stats.defense) / stanceBonus.guard),
-		0
-	);
+	const enemyDamage = Math.max(Math.round(((encounter.attack + randomInt(18, 76)) * matchup.incoming - stats.defense) / stanceBonus.guard), 0);
 	const won = playerRoll + damage >= enemyRoll;
 	const effectiveMaxHp = getEffectiveMaxHp(profile);
 

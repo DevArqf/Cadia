@@ -40,6 +40,14 @@ function createBattleFlow({
 		const responseMessage = await interaction.fetchReply();
 		let discovered = false;
 		let resolvedFight = false;
+		let resolvingTurn = false;
+		const state = {
+			encounterId: result.encounter.id,
+			enemyHp: result.encounter.hp,
+			playerHp: result.profile.hp,
+			turn: 0,
+			lastResult: null
+		};
 		const collector = responseMessage.createMessageComponentCollector({ time: 120_000 });
 
 		collector.on('collect', async (componentInteraction) => {
@@ -54,16 +62,35 @@ function createBattleFlow({
 					await componentInteraction.deferUpdate();
 					discovered = true;
 					setActiveAction(interaction, 'battle');
-					return componentInteraction.editReply(await buildEncounterReply(result.profile, result.encounter, result.region, battleId));
+					return componentInteraction.editReply(
+						await buildEncounterReply(result.profile, result.encounter, result.region, battleId, state)
+					);
 				}
 
 				if (!discovered) return;
 				await componentInteraction.deferUpdate();
+				if (resolvingTurn) return;
+				resolvingTurn = true;
 				const stance = componentInteraction.customId.split(':').at(-1);
-				const resolved = await service.resolveAdventure(interaction.guild.id, interaction.user.id, result.encounter.id, stance);
-				resolvedFight = true;
-				collector.stop('resolved');
-				return componentInteraction.editReply(buildBattleResultReply(resolved, stance));
+				try {
+					const resolved = await service.resolveAdventureTurn(interaction.guild.id, interaction.user.id, state, stance);
+					state.enemyHp = resolved.enemyHp;
+					state.playerHp = resolved.playerHp;
+					state.turn += 1;
+					state.lastResult = { ...resolved, stance };
+
+					if (resolved.done) {
+						resolvedFight = true;
+						collector.stop(resolved.escaped ? 'escaped' : resolved.won ? 'won' : 'lost');
+						return componentInteraction.editReply(buildBattleResultReply(resolved, stance));
+					}
+
+					return componentInteraction.editReply(
+						await buildEncounterReply(resolved.profile, resolved.encounter, result.region, battleId, state)
+					);
+				} finally {
+					resolvingTurn = false;
+				}
 			} catch (error) {
 				return sendIssue(componentInteraction, error);
 			}
@@ -114,6 +141,7 @@ function createBattleFlow({
 		}
 
 		const collector = responseMessage.createMessageComponentCollector({ time: 180_000 });
+		let resolvingTurn = false;
 		collector.on('collect', async (componentInteraction) => {
 			if (componentInteraction.user.id !== interaction.user.id) {
 				return componentInteraction.reply(
@@ -124,18 +152,24 @@ function createBattleFlow({
 
 			try {
 				await componentInteraction.deferUpdate();
+				if (resolvingTurn) return;
+				resolvingTurn = true;
 				const stance = componentInteraction.customId.split(':').at(-1);
-				const resolved = await service.resolveAdventureTurn(interaction.guild.id, interaction.user.id, state, stance);
-				state.enemyHp = resolved.enemyHp;
-				state.playerHp = resolved.playerHp;
-				state.turn += 1;
-				state.lastResult = { ...resolved, stance };
+				try {
+					const resolved = await service.resolveAdventureTurn(interaction.guild.id, interaction.user.id, state, stance);
+					state.enemyHp = resolved.enemyHp;
+					state.playerHp = resolved.playerHp;
+					state.turn += 1;
+					state.lastResult = { ...resolved, stance };
 
-				if (resolved.done) collector.stop(resolved.won ? 'won' : 'lost');
-				if (resolved.done) return componentInteraction.editReply(buildBattleResultReply(resolved, stance));
-				return componentInteraction.editReply(
-					await buildBossBattleReply(resolved.profile, resolved.encounter, result.region, state, battleId)
-				);
+					if (resolved.done) collector.stop(resolved.won ? 'won' : 'lost');
+					if (resolved.done) return componentInteraction.editReply(buildBattleResultReply(resolved, stance));
+					return componentInteraction.editReply(
+						await buildBossBattleReply(resolved.profile, resolved.encounter, result.region, state, battleId)
+					);
+				} finally {
+					resolvingTurn = false;
+				}
 			} catch (error) {
 				return sendIssue(componentInteraction, error);
 			}
