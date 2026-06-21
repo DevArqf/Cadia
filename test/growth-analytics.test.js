@@ -10,7 +10,13 @@ const {
 	selectOnboardingVariant
 } = require('../src/lib/analytics/growth');
 const { invitePermissions } = require('../src/config/invite');
-const { buildOnboardingEmbed, findOnboardingChannel } = require('../src/listeners/guildCreate');
+const {
+	availableConfiguredEmoji,
+	buildChannelButtons,
+	buildOnboardingEmbed,
+	buildOwnerButtons,
+	findOnboardingChannel
+} = require('../src/listeners/guildCreate');
 
 test('meaningful activity excludes low-intent and developer commands while preserving RPG subcommands', () => {
 	const interaction = {
@@ -105,6 +111,41 @@ test('RPG-first onboarding leads with the tutorial and keeps community tools sec
 	assert.match(embed.description, /Begin the RPG/);
 	assert.match(embed.description, /\/rpg tutorial/);
 	assert.match(embed.description, /Community Tools/);
+});
+
+test('onboarding buttons use available custom emojis from Cadia configuration', () => {
+	const client = {
+		emojis: {
+			cache: new Collection([
+				['1511886652967092380', {}],
+				['1512599543860957186', {}],
+				['1511950592036307155', {}]
+			])
+		}
+	};
+	const rows = [
+		buildChannelButtons(client, 'https://example.com/invite', 'https://example.com/vote'),
+		buildOwnerButtons(client, 'https://example.com/vote')
+	];
+
+	for (const row of rows) {
+		for (const component of row.toJSON().components) {
+			assert.match(component.emoji.id, /^\d{17,20}$/);
+		}
+	}
+
+	assert.deepEqual(availableConfiguredEmoji(client, '<:home:1511886652967092380>'), {
+		animated: false,
+		id: '1511886652967092380',
+		name: 'home'
+	});
+});
+
+test('onboarding omits unavailable configured emojis instead of failing delivery', () => {
+	const client = { emojis: { cache: new Collection() } };
+	const row = buildChannelButtons(client, 'https://example.com/invite', 'https://example.com/vote').toJSON();
+
+	for (const component of row.components) assert.equal(component.emoji, undefined);
 });
 
 test('onboarding channel selection prefers an eligible system channel', () => {

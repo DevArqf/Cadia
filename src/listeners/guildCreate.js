@@ -36,8 +36,8 @@ async function deliverOnboarding(guild, variant) {
 	const inviteUrl = createInviteUrl(client);
 	const applicationId = client.application?.id || client.user.id;
 	const voteUrl = `https://top.gg/bot/${applicationId}`;
-	const channelRow = buildChannelButtons(inviteUrl, voteUrl);
-	const ownerRow = buildOwnerButtons(voteUrl);
+	const channelRow = buildChannelButtons(client, inviteUrl, voteUrl);
+	const ownerRow = buildOwnerButtons(client, voteUrl);
 	const targets = [];
 	const errors = [];
 
@@ -83,19 +83,35 @@ function buildOnboardingEmbed(guild, variant) {
 		.setTimestamp();
 }
 
-function buildChannelButtons(inviteUrl, voteUrl) {
+function buildChannelButtons(client, inviteUrl, voteUrl) {
 	return new ActionRowBuilder().addComponents(
-		new ButtonBuilder().setEmoji(emojis.custom.home).setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
-		new ButtonBuilder().setEmoji(emojis.custom.link).setLabel(`Invite ${branding.name}`).setURL(inviteUrl).setStyle(ButtonStyle.Link),
-		new ButtonBuilder().setEmoji(emojis.custom.gem).setLabel('Vote').setURL(voteUrl).setStyle(ButtonStyle.Link)
+		linkButton(client, 'Support Server', branding.supportServerUrl, emojis.custom.home),
+		linkButton(client, `Invite ${branding.name}`, inviteUrl, emojis.custom.link),
+		linkButton(client, 'Vote', voteUrl, emojis.custom.gem)
 	);
 }
 
-function buildOwnerButtons(voteUrl) {
+function buildOwnerButtons(client, voteUrl) {
 	return new ActionRowBuilder().addComponents(
-		new ButtonBuilder().setEmoji(emojis.custom.home).setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
-		new ButtonBuilder().setEmoji(emojis.custom.gem).setLabel('Vote').setURL(voteUrl).setStyle(ButtonStyle.Link)
+		linkButton(client, 'Support Server', branding.supportServerUrl, emojis.custom.home),
+		linkButton(client, 'Vote', voteUrl, emojis.custom.gem)
 	);
+}
+
+function linkButton(client, label, url, configuredEmoji) {
+	const button = new ButtonBuilder().setLabel(label).setURL(url).setStyle(ButtonStyle.Link);
+	const emoji = availableConfiguredEmoji(client, configuredEmoji);
+	if (emoji) button.setEmoji(emoji);
+	return button;
+}
+
+function availableConfiguredEmoji(client, configuredEmoji) {
+	const match = /^<(a?):([^:]+):(\d{17,20})>$/.exec(configuredEmoji || '');
+	if (!match) return null;
+
+	const [, animated, name, id] = match;
+	if (!client.emojis?.cache?.has(id)) return null;
+	return { animated: animated === 'a', id, name };
 }
 
 function findOnboardingChannel(guild) {
@@ -119,7 +135,10 @@ function findOnboardingChannel(guild) {
 
 module.exports = {
 	UserEvent,
+	availableConfiguredEmoji,
+	buildChannelButtons,
 	buildOnboardingEmbed,
+	buildOwnerButtons,
 	deliverOnboarding,
 	findOnboardingChannel
 };
