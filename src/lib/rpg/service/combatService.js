@@ -64,10 +64,7 @@ async function resolveAdventureTurn(guildId, userId, battle, stance) {
 	const stanceDamage = encounter.boss ? stanceBonus.damage : Math.min(stanceBonus.damage, 1.45);
 	const damage = stance === 'flee' ? 0 : calculateDamage(stats, stanceDamage, matchup, damageTuning, crit, encounter.defense);
 	const nextEnemyHp = Math.max((battle.enemyHp ?? encounter.hp) - damage, 0);
-	const enemyDamage =
-		nextEnemyHp > 0
-			? Math.max(Math.round(((encounter.attack + randomInt(18, 76)) * matchup.incoming - stats.defense) / stanceBonus.guard), 0)
-			: 0;
+	const enemyDamage = nextEnemyHp > 0 ? calculateEnemyDamage(encounter, stats, matchup, stanceBonus) : 0;
 	const effectiveMaxHp = getEffectiveMaxHp(profile);
 	const nextPlayerHp = Math.max(Math.min(battle.playerHp ?? profile.hp, effectiveMaxHp) - enemyDamage, 0);
 	const won = nextEnemyHp <= 0;
@@ -151,6 +148,13 @@ function calculateDamage(stats, stanceDamage, matchup, tuning, crit, defense) {
 		) - defense,
 		1
 	);
+}
+
+function calculateEnemyDamage(encounter, stats, matchup, stanceBonus) {
+	const rawDamage = Math.max((encounter.attack + randomInt(18, 76)) * matchup.incoming, 1);
+	const armorFloor = rawDamage * (encounter.boss ? 0.18 : 0.08);
+	const afterDefense = Math.max(rawDamage - stats.defense, armorFloor);
+	return Math.max(Math.round(afterDefense / stanceBonus.guard), 1);
 }
 
 function applyVictory(profile, encounter, stats, stanceBonus, result) {

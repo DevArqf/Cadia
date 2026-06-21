@@ -36,10 +36,21 @@ test('a successful escape ends the turn before the mob counterattacks', async ()
 	assert.equal(result.playerHp, 250);
 });
 
-async function resolveTurn({ stance, enemyHp = 500, random = 0.99 }) {
+test('admin-maxed defense cannot reduce a surviving boss counterattack to zero', async () => {
+	const attack = await resolveTurn({ stance: 'attack', boss: true, defense: 1_500, encounterAttack: 185 });
+	const defend = await resolveTurn({ stance: 'defend', boss: true, defense: 1_500, encounterAttack: 185 });
+
+	assert.equal(attack.done, false);
+	assert.ok(attack.enemyDamage > 0);
+	assert.ok(attack.playerHp < 2_000);
+	assert.ok(defend.enemyDamage > 0);
+	assert.ok(defend.enemyDamage < attack.enemyDamage);
+});
+
+async function resolveTurn({ stance, enemyHp = 500, random = 0.99, boss = false, defense = 20, encounterAttack = 70 }) {
 	const profile = {
 		userId: 'user',
-		hp: 250,
+		hp: boss ? 2_000 : 250,
 		battlesWon: 0,
 		battlesLost: 0,
 		gold: 0,
@@ -49,14 +60,14 @@ async function resolveTurn({ stance, enemyHp = 500, random = 0.99 }) {
 	};
 	const encounter = {
 		id: 'test-mob',
-		name: 'Test Mob',
+		name: boss ? 'Test Boss' : 'Test Mob',
 		hp: 500,
-		attack: 70,
+		attack: encounterAttack,
 		defense: 5,
 		gold: [1, 1],
 		xp: 1,
 		loot: [],
-		boss: false
+		boss
 	};
 	const paths = {
 		core: require.resolve('../src/lib/rpg/service/core'),
@@ -74,8 +85,8 @@ async function resolveTurn({ stance, enemyHp = 500, random = 0.99 }) {
 		advanceQuest: () => null,
 		encounters: {},
 		getDamageTuning: () => ({ scale: 0.62, focus: 0.14, speed: 0.08, randomMin: 15, randomMax: 55, crit: 1.45 }),
-		getEffectiveMaxHp: () => 250,
-		getEffectiveStats: () => ({ attack: 30, defense: 20, speed: 15, luck: 0, focus: 15 }),
+		getEffectiveMaxHp: () => (boss ? 2_000 : 250),
+		getEffectiveStats: () => ({ attack: 30, defense, speed: 15, luck: 0, focus: 15 }),
 		getEncounterById: () => encounter,
 		getEncounterMatchup: () => ({ damage: 1, incoming: 1 }),
 		getStanceBonus: (selectedStance, stats) =>

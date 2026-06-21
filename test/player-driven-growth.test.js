@@ -7,6 +7,7 @@ process.env.DEVELOPERS ??= 'test-developer';
 const { createAchievementShareCard, createCharacterShareCard } = require('../src/lib/rpg/shareCard');
 const { createSeasonCard } = require('../src/lib/rpg/seasonCanvas');
 const { createPlayerGrowthHandlers } = require('../src/lib/rpg/command/playerGrowthView');
+const { serverBossImage } = require('../src/lib/rpg/assets');
 const { componentReply, notice, panel } = require('../src/lib/util/components');
 
 test('shareable character and achievement cards render PNG attachments', () => {
@@ -47,6 +48,73 @@ test('season card renders quest progress and reward as a PNG attachment', () => 
 	assert.equal(attachment.name, 'rpg-season.png');
 	assert.ok(attachment.attachment.length > 10_000);
 	assert.deepEqual([...attachment.attachment.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+});
+
+test('server boss assets provide distinct active and defeated images', () => {
+	const active = serverBossImage('active');
+	const defeated = serverBossImage('defeated');
+
+	assert.equal(active.url, 'attachment://stormglass-colossus-battle.png');
+	assert.equal(active.attachment.name, 'stormglass-colossus-battle.png');
+	assert.equal(defeated.url, 'attachment://stormglass-colossus-defeat.png');
+	assert.equal(defeated.attachment.name, 'stormglass-colossus-defeat.png');
+	assert.ok(active.attachment.attachment.length > 1_000_000);
+	assert.ok(defeated.attachment.attachment.length > 1_000_000);
+});
+
+test('server boss responses switch from battle art to defeat art', async () => {
+	let status = 'active';
+	const replies = [];
+	const handlers = createPlayerGrowthHandlers({
+		actionButton: () => null,
+		color: { RPG: '#5946b2', success: '#46b26b' },
+		componentReply,
+		createAchievementShareCard: () => null,
+		createCharacterShareCard: () => null,
+		createRpgLeaderboardCard: () => null,
+		createSeasonCard,
+		growth: {
+			cosmetics: { raid: { name: 'Worldbreaker Sigil' } },
+			getServerBoss: async () => ({
+				name: 'Stormglass Colossus',
+				status,
+				hp: status === 'defeated' ? 0 : 5_000,
+				maxHp: 5_000,
+				contributions: {}
+			})
+		},
+		icon: {
+			arrowRight: '>',
+			coin: 'coin',
+			damageDealt: 'damage',
+			health: { full: 'health' },
+			loot: 'loot',
+			person: 'person',
+			rank: { s: 'rank' },
+			shards: 'shards',
+			success: 'success',
+			threat: 'threat'
+		},
+		notice,
+		panel,
+		serverBossImage,
+		service: { RpgError: Error }
+	});
+	const interaction = {
+		guild: { id: 'guild' },
+		user: { id: 'user' },
+		options: { getString: () => 'view' },
+		reply: async (payload) => replies.push(payload)
+	};
+
+	await handlers.serverBoss(interaction);
+	status = 'defeated';
+	await handlers.serverBoss(interaction);
+
+	assert.equal(replies[0].files[0].name, 'stormglass-colossus-battle.png');
+	assert.equal(replies[1].files[0].name, 'stormglass-colossus-defeat.png');
+	assert.match(JSON.stringify(replies[0].components), /attachment:\/\/stormglass-colossus-battle\.png/);
+	assert.match(JSON.stringify(replies[1].components), /attachment:\/\/stormglass-colossus-defeat\.png/);
 });
 
 test('global leaderboards sort across guilds and seasonal rewards are unique per season', async () => {
@@ -178,6 +246,7 @@ test('season handler edits an acknowledged interaction after database work', asy
 		},
 		notice,
 		panel,
+		serverBossImage,
 		service: { RpgError: Error }
 	});
 	const interaction = {

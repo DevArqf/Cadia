@@ -23,7 +23,8 @@ const {
 	createProfileImageAttachment,
 	createTravelImageAttachment,
 	npcPortrait,
-	sceneImages
+	sceneImages,
+	serverBossImage
 } = require('../../../lib/rpg/assets');
 const { createBossBattleCard, createEncounterBattleCard, hasEncounterBattleCard } = require('../../../lib/rpg/battleCanvas');
 const { classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
@@ -187,6 +188,7 @@ const playerGrowthHandlers = createPlayerGrowthHandlers({
 	icon,
 	notice,
 	panel,
+	serverBossImage,
 	service: rpg
 });
 

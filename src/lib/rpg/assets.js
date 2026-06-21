@@ -9,6 +9,16 @@ const profileImageFileName = 'rpg-profile-bg.png';
 const profileImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Profile BG.png');
 const travelImageFileName = 'rpg-travel-bg.png';
 const travelImagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Travel BG Image.png');
+const serverBossImages = {
+	active: {
+		fileName: 'stormglass-colossus-battle.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Stormglass Colossus Battle.png')
+	},
+	defeated: {
+		fileName: 'stormglass-colossus-defeat.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Stormglass Colossus Defeat.png')
+	}
+};
 const npcPortraitPath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'NPC Portraits');
 const attachmentBufferCache = new Map();
 const adventureStoryImages = {
@@ -112,6 +122,14 @@ function createTravelImageAttachment() {
 	return attachmentFromFile(travelImagePath, travelImageFileName);
 }
 
+function serverBossImage(status) {
+	const image = status === 'defeated' ? serverBossImages.defeated : serverBossImages.active;
+	return {
+		url: `attachment://${image.fileName}`,
+		attachment: attachmentFromFile(image.path, image.fileName)
+	};
+}
+
 function npcPortrait(portrait) {
 	if (!portrait) return null;
 	const extension = path.extname(portrait) || '.png';
@@ -157,5 +175,6 @@ module.exports = {
 	createTravelImageAttachment,
 	npcPortrait,
 	placeholderImage,
-	sceneImages
+	sceneImages,
+	serverBossImage
 };

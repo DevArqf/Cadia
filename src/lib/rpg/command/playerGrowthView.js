@@ -24,6 +24,7 @@ function createPlayerGrowthHandlers({
 	icon,
 	notice,
 	panel,
+	serverBossImage,
 	service
 }) {
 	const leaderboardPageSize = 6;
@@ -198,13 +199,19 @@ function createPlayerGrowthHandlers({
 		const boss = result.boss;
 		const contributors = Object.keys(boss.contributions || {}).length;
 		const progress = boss.maxHp ? Math.round(((boss.maxHp - boss.hp) / boss.maxHp) * 100) : 0;
+		const image = serverBossImage(boss.status);
 
-		return interaction.reply(
-			componentReply(
+		return interaction.reply({
+			...componentReply(
 				panel({
 					accentColor: boss.status === 'defeated' ? color.success : color.RPG,
 					title: `${icon.threat} **Server Boss: ${boss.name}**`,
 					subtitle: boss.status === 'defeated' ? 'Defeated by the community' : 'Cooperative seasonal encounter',
+					image: image.url,
+					imageDescription:
+						boss.status === 'defeated'
+							? `${boss.name} defeated with the community reward revealed`
+							: `${boss.name} facing the server's Wardens in the storm`,
 					sections: [
 						[
 							`${icon.health.full} **HP:** ${boss.hp.toLocaleString()} / ${boss.maxHp.toLocaleString()} (${progress}%)`,
@@ -217,8 +224,9 @@ function createPlayerGrowthHandlers({
 							: `${icon.arrowRight} Use \`/rpg server-boss action:Attack\` every 30 minutes. Damage scales with your Warden.`
 					]
 				})
-			)
-		);
+			),
+			files: [image.attachment]
+		});
 	}
 
 	async function season(interaction) {
