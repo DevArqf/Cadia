@@ -41,6 +41,7 @@ const rpgCommandNames = [
 	'rpg admin boss',
 	'rpg admin analytics'
 ];
+const commandCatalog = buildCommandCatalog();
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -190,6 +191,10 @@ function buildNoticeComponents(message) {
 }
 
 function getCommandCatalog() {
+	return commandCatalog;
+}
+
+function buildCommandCatalog() {
 	const categories = fs
 		.readdirSync(commandsRoot, { withFileTypes: true })
 		.filter((entry) => entry.isDirectory())
@@ -283,5 +288,6 @@ async function sendError(interaction) {
 
 module.exports = {
 	UserCommand,
-	buildHelpComponents
+	buildHelpComponents,
+	getCommandCatalog
 };

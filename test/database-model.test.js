@@ -70,6 +70,26 @@ test('model row locks append FOR UPDATE to transactional lookups', async () => {
 	}
 });
 
+test('model sort and limit execute inside MySQL for leaderboard queries', async () => {
+	const calls = [];
+	const { createModel, restore } = loadModelWithMysql({
+		execute: async (sql, params) => {
+			calls.push({ sql: sql.replace(/\s+/g, ' ').trim(), params });
+			return [[{ id: 1, data: { guildId: 'guild', totalXp: 900 } }]];
+		}
+	});
+
+	try {
+		const Model = createModel('levels');
+		const rows = await Model.find({ guildId: 'guild' }).sort({ totalXp: -1 }).limit(10);
+
+		assert.equal(rows.length, 1);
+		assert.match(calls[0].sql, /ORDER BY JSON_EXTRACT\(data, '\$\.totalXp'\) DESC, id ASC LIMIT 10$/);
+	} finally {
+		restore();
+	}
+});
+
 function loadModelWithMysql(overrides) {
 	const mysqlPath = require.resolve('../src/lib/database/mysql');
 	const modelPath = require.resolve('../src/lib/database/model');

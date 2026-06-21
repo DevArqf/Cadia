@@ -49,7 +49,7 @@ async function createBossBattleCard({ encounter, enemyHp, playerHp, playerMaxHp,
 		align: 'right'
 	});
 
-	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
+	return new AttachmentBuilder(await canvas.encode('png'), { name: fileName });
 }
 
 async function createHarlequinBattleCard(options) {
@@ -85,7 +85,7 @@ async function createEncounterBattleCard({ encounter, enemyHp, playerHp, playerM
 		align: 'right'
 	});
 
-	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
+	return new AttachmentBuilder(await canvas.encode('png'), { name: fileName });
 }
 
 function hasEncounterBattleCard(encounterId) {

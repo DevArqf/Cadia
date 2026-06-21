@@ -1,6 +1,8 @@
 const { Events, Listener } = require('@sapphire/framework');
 const { GuildSchema } = require('../../../lib/schemas/guildSchema');
 const { CountActivity } = require('../../../lib/schemas/countSchema');
+const CONFIG_CACHE_MS = 15_000;
+const guildConfigCache = new Map();
 
 class UserEvent extends Listener {
 	constructor(context, options) {
@@ -15,7 +17,7 @@ class UserEvent extends Listener {
 		const guild = message.guild;
 		if (!guild) return;
 
-		const data = await GuildSchema.findOne({ id: guild.id });
+		const data = await getCountingConfig(guild.id);
 		if (!data?.countChannel) return;
 
 		const channel = guild.channels.cache.get(data.countChannel);
@@ -40,6 +42,9 @@ class UserEvent extends Listener {
 					}
 				}
 			);
+			data.count = 0;
+			data.countLastUser = null;
+			data.countLastScore = lastNumber;
 			await channel.send({ content: 'The count has been reset to **0**' });
 			return;
 		}
@@ -60,6 +65,9 @@ class UserEvent extends Listener {
 			),
 			CountActivity.findOneAndUpdate({ userId: message.author.id, guildId: guild.id }, { $inc: { count: 1 } }, { upsert: true })
 		]);
+		data.count = currentNumber;
+		data.countLastUser = message.author.id;
+		data.countHighscore = Math.max(currentNumber, data.countHighscore || 0);
 
 		if (data.countGoal === currentNumber) {
 			await message.reply({ content: `Congratulations! You reached the goal of **${currentNumber}**!` });
@@ -68,4 +76,16 @@ class UserEvent extends Listener {
 	}
 }
 
-module.exports = { UserEvent };
+async function getCountingConfig(guildId) {
+	const cached = guildConfigCache.get(guildId);
+	if (cached && cached.expiresAt > Date.now()) return cached.config;
+	const config = await GuildSchema.findOne({ id: guildId });
+	guildConfigCache.set(guildId, { config, expiresAt: Date.now() + CONFIG_CACHE_MS });
+	return config;
+}
+
+function invalidateCountingConfig(guildId) {
+	guildConfigCache.delete(guildId);
+}
+
+module.exports = { UserEvent, getCountingConfig, invalidateCountingConfig };

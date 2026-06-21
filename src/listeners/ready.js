@@ -11,6 +11,7 @@ const { preloadRpgAssets } = require('../lib/rpg/preload');
 const { validateGrowthConfig } = require('../config/growth');
 const { configureRpgGrowth } = require('../lib/rpg/growth');
 const { configureBotAnalytics } = require('../lib/util/botAnalytics');
+const { initializeBlacklistCache } = require('../lib/policies/blacklist');
 const { version } = require('../../package.json');
 
 class UserEvent extends Listener {
@@ -30,6 +31,8 @@ class UserEvent extends Listener {
 		configureBotAnalytics({ logger: this.container.logger });
 
 		const info = await this._connectDb();
+		if (!info.error)
+			await initializeBlacklistCache().catch((error) => this.container.logger.warn(`Blacklist cache warmup failed: ${error.message}`));
 		console.clear();
 		this._reportGrowthConfiguration(info);
 

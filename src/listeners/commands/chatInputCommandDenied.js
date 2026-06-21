@@ -19,7 +19,7 @@ class UserEvent extends Listener {
 		// Use cases for this are for example permissions error when running the `eval` command.
 		if (Reflect.get(Object(context), 'silent')) return;
 
-		await recordCommandDenied({
+		void recordCommandDenied({
 			client: interaction.client,
 			interaction,
 			commandName: commandPathFromInteraction(interaction)

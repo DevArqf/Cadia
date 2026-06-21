@@ -9,6 +9,8 @@ const {
 } = require('discord.js');
 const { color, emojis } = require('../../config');
 const { AuditLogConfigSchema } = require('../schemas/auditLogConfigSchema');
+const AUDIT_CONFIG_CACHE_MS = 60_000;
+const auditConfigCache = new Map();
 
 const auditCategories = {
 	messages: { label: 'Messages', description: 'Message edits, deletes, and bulk deletes.' },
@@ -64,6 +66,9 @@ const auditActions = {
 };
 
 async function getAuditConfig(guildId) {
+	const cached = auditConfigCache.get(guildId);
+	if (cached && cached.expiresAt > Date.now()) return cached.config;
+
 	let config = await AuditLogConfigSchema.findOne({ guildId });
 	if (!config) {
 		config = await AuditLogConfigSchema.create({ guildId });
@@ -71,6 +76,7 @@ async function getAuditConfig(guildId) {
 
 	config.events = { ...defaultEvents(), ...(config.events || {}) };
 	config.channelIds = normalizeChannelIds(config.channelIds);
+	auditConfigCache.set(guildId, { config, expiresAt: Date.now() + AUDIT_CONFIG_CACHE_MS });
 	return config;
 }
 
@@ -86,6 +92,7 @@ async function updateAuditConfig(guildId, patch) {
 	if (patch.events) config.events = { ...defaultEvents(), ...(config.events || {}), ...patch.events };
 	config.updatedAt = Date.now();
 	await config.save();
+	auditConfigCache.set(guildId, { config, expiresAt: Date.now() + AUDIT_CONFIG_CACHE_MS });
 	return config;
 }
 
@@ -95,6 +102,7 @@ async function toggleAuditEvent(guildId, eventKey) {
 	config.events[eventKey] = !config.events[eventKey];
 	config.updatedAt = Date.now();
 	await config.save();
+	auditConfigCache.set(guildId, { config, expiresAt: Date.now() + AUDIT_CONFIG_CACHE_MS });
 	return config;
 }
 

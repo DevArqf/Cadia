@@ -19,14 +19,15 @@ class UserEvent extends Listener {
 		if (Reflect.get(Object(context), 'silent')) return;
 		if (isExpiredInteractionResponse(error)) return;
 
-		await recordCommandError({
-			client: interaction.client,
-			interaction,
-			commandName: commandPathFromInteraction(interaction)
-		});
-
-		await sendDeveloperErrorLog(error, payload);
 		await sendUserErrorReply(interaction);
+		void Promise.allSettled([
+			recordCommandError({
+				client: interaction.client,
+				interaction,
+				commandName: commandPathFromInteraction(interaction)
+			}),
+			sendDeveloperErrorLog(error, payload)
+		]);
 	}
 }
 

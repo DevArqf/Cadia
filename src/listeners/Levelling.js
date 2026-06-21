@@ -6,6 +6,8 @@ const LevelConfig = require('../lib/schemas/levelConfigSchema');
 
 const XP_PER_MESSAGE = 1;
 const XP_PER_LEVEL = 100;
+const CONFIG_CACHE_MS = 60_000;
+const configCache = new Map();
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -22,7 +24,7 @@ class UserEvent extends Listener {
 		try {
 			const guildId = message.guild.id;
 			const userId = message.author.id;
-			const config = await LevelConfig.findOne({ guildId });
+			const config = await getLevelConfig(guildId);
 
 			if (!config?.enabled) return;
 
@@ -45,6 +47,18 @@ class UserEvent extends Listener {
 			throw error;
 		}
 	}
+}
+
+async function getLevelConfig(guildId) {
+	const cached = configCache.get(guildId);
+	if (cached && cached.expiresAt > Date.now()) return cached.config;
+	const config = await LevelConfig.findOne({ guildId });
+	configCache.set(guildId, { config, expiresAt: Date.now() + CONFIG_CACHE_MS });
+	return config;
+}
+
+function updateLevelConfigCache(guildId, config) {
+	configCache.set(guildId, { config, expiresAt: Date.now() + CONFIG_CACHE_MS });
 }
 
 async function sendLevelUpMessage(message, config, level) {
@@ -78,5 +92,7 @@ function getLevelUpMessage(message, config, level) {
 }
 
 module.exports = {
-	UserEvent
+	UserEvent,
+	getLevelConfig,
+	updateLevelConfigCache
 };

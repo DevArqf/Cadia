@@ -11,42 +11,10 @@ class UserEvent extends Listener {
 	 *
 	 * @param {{message: Message, command: Command}} param0
 	 */
-	async run({ message, command }) {
-		const commandPath = normalizeCommandPath(command?.name);
-		const category = commandCategory(command, commandPath);
-		const developerCommand = isDeveloperCommand(command);
-		await recordCommandRun({
-			client: this.container.client,
-			user: message.author,
-			guild: message.guild,
-			commandName: commandPath,
-			commandCategory: category,
-			meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
-			type: 'message'
-		});
-
-		if (developerCommand) return;
-
-		const shard = this.shard(message.guild?.shardId ?? 0);
-		const commandName = this.command(command);
-		const author = this.author(message.author);
-		const sentAt = message.guild ? this.guild(message.guild) : this.direct();
-		this.container.logger.debug(`${shard} - ${commandName} ${author} ${sentAt}`);
-
-		const sentIn = message.guild ? `**${message.guild.name}** - \`${message.guild.id}\`` : '**Direct Messages**';
-		const channel = message.channel.name;
-		const time = message.createdTimestamp;
-
-		const loggingChannel = this.container.client.channels.cache.get(channels.commandLogging);
-		if (!loggingChannel) return;
-
-		const embed = new EmbedBuilder()
-			.setTimestamp(time)
-			.setColor('Random')
-			.setAuthor({ name: `${message.author.tag} (${message.author.id})`, iconURL: message.author.displayAvatarURL() })
-			.setDescription(`**Command:** ${commandName}\n**Sent In:** ${sentIn}\n**Channel:** ${channel}`);
-
-		await loggingChannel.send({ embeds: [embed] });
+	run(payload) {
+		void handleMessageCommandSuccess(this, payload).catch((error) =>
+			this.container.logger.warn(`Message command post-processing failed: ${error.message}`)
+		);
 	}
 
 	onLoad() {
@@ -73,6 +41,44 @@ class UserEvent extends Listener {
 	guild(guild) {
 		return `${guild.name}[${cyan(guild.id)}]`;
 	}
+}
+
+async function handleMessageCommandSuccess(listener, { message, command }) {
+	const commandPath = normalizeCommandPath(command?.name);
+	const category = commandCategory(command, commandPath);
+	const developerCommand = isDeveloperCommand(command);
+	await recordCommandRun({
+		client: listener.container.client,
+		user: message.author,
+		guild: message.guild,
+		commandName: commandPath,
+		commandCategory: category,
+		meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
+		type: 'message'
+	});
+
+	if (developerCommand) return;
+
+	const shard = listener.shard(message.guild?.shardId ?? 0);
+	const commandName = listener.command(command);
+	const author = listener.author(message.author);
+	const sentAt = message.guild ? listener.guild(message.guild) : listener.direct();
+	listener.container.logger.debug(`${shard} - ${commandName} ${author} ${sentAt}`);
+
+	const sentIn = message.guild ? `**${message.guild.name}** - \`${message.guild.id}\`` : '**Direct Messages**';
+	const channel = message.channel.name;
+	const time = message.createdTimestamp;
+
+	const loggingChannel = listener.container.client.channels.cache.get(channels.commandLogging);
+	if (!loggingChannel) return;
+
+	const embed = new EmbedBuilder()
+		.setTimestamp(time)
+		.setColor('Random')
+		.setAuthor({ name: `${message.author.tag} (${message.author.id})`, iconURL: message.author.displayAvatarURL() })
+		.setDescription(`**Command:** ${commandName}\n**Sent In:** ${sentIn}\n**Channel:** ${channel}`);
+
+	await loggingChannel.send({ embeds: [embed] });
 }
 
 module.exports = {

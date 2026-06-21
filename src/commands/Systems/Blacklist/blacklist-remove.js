@@ -2,6 +2,7 @@ const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
 const { branding, color, emojis } = require('../../../config');
 const Guild = require('../../../lib/schemas/blacklistSchema');
+const { removeGuildBlacklistFromCache } = require('../../../lib/policies/blacklist');
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 
 class UserCommand extends CadiaCommand {
@@ -44,6 +45,7 @@ class UserCommand extends CadiaCommand {
 
 				return await interaction.reply({ embeds: [embed] });
 			}
+			removeGuildBlacklistFromCache(guildIdToRemove);
 
 			const embed = new EmbedBuilder()
 				.setColor(color.success)

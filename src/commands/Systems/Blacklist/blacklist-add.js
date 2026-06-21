@@ -3,6 +3,7 @@ const { PermissionLevels } = require('../../../lib/types/Enums');
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const { branding, color, emojis, channels } = require('../../../config');
 const Guild = require('../../../lib/schemas/blacklistSchema');
+const { cacheGuildBlacklist } = require('../../../lib/policies/blacklist');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -59,7 +60,12 @@ class UserCommand extends CadiaCommand {
 			const targetGuild = interaction.client.guilds.cache.get(guildId);
 
 			if (!targetGuild) {
-				await Guild.create({ guildName: 'No name found in the database', guildId: guildId, reason: `${reason}, Bot not in guild` });
+				const createdGuild = await Guild.create({
+					guildName: 'No name found in the database',
+					guildId,
+					reason: `${reason}, Bot not in guild`
+				});
+				cacheGuildBlacklist(createdGuild);
 
 				const logEmbed1 = new EmbedBuilder()
 					.setColor(`${color.random}`)
@@ -159,7 +165,8 @@ class UserCommand extends CadiaCommand {
 
 			await logChannel?.send({ embeds: [logEmbed2] });
 
-			await Guild.create({ guildName: targetGuild.name, guildId: targetGuild.id, reason });
+			const createdGuild = await Guild.create({ guildName: targetGuild.name, guildId: targetGuild.id, reason });
+			cacheGuildBlacklist(createdGuild);
 
 			const owner = await targetGuild.fetchOwner().catch(() => null);
 			await owner?.send({ embeds: [embed] }).catch(() => null);

@@ -1,6 +1,8 @@
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 const { getLevelProgress } = require('./leveling');
+const avatarImageCache = new Map();
+const MAX_AVATAR_CACHE_ENTRIES = 100;
 
 async function createRankCard({ user, member, level, rank, guild }) {
 	const width = 1000;
@@ -16,7 +18,7 @@ async function createRankCard({ user, member, level, rank, guild }) {
 	drawStats(ctx, progress, rank);
 	drawProgressBar(ctx, progress);
 
-	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: 'rank-card.png' });
+	return new AttachmentBuilder(await canvas.encode('png'), { name: 'rank-card.png' });
 }
 
 function drawBackground(ctx, width, height) {
@@ -48,7 +50,7 @@ function drawAccent(ctx) {
 
 async function drawAvatar(ctx, avatarUrl) {
 	try {
-		const avatar = await loadImage(avatarUrl);
+		const avatar = await loadCachedAvatar(avatarUrl);
 		ctx.save();
 		ctx.beginPath();
 		ctx.arc(168, 160, 92, 0, Math.PI * 2);
@@ -68,6 +70,19 @@ async function drawAvatar(ctx, avatarUrl) {
 	ctx.beginPath();
 	ctx.arc(168, 160, 96, 0, Math.PI * 2);
 	ctx.stroke();
+}
+
+async function loadCachedAvatar(avatarUrl) {
+	if (!avatarImageCache.has(avatarUrl)) {
+		avatarImageCache.set(
+			avatarUrl,
+			loadImage(avatarUrl).catch(() => null)
+		);
+		if (avatarImageCache.size > MAX_AVATAR_CACHE_ENTRIES) avatarImageCache.delete(avatarImageCache.keys().next().value);
+	}
+	const avatar = await avatarImageCache.get(avatarUrl);
+	if (!avatar) throw new Error('Avatar image unavailable.');
+	return avatar;
 }
 
 function drawIdentity(ctx, user, member, guild) {

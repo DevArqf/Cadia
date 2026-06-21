@@ -1,8 +1,9 @@
 const { execute, isMysqlConnected } = require('./mysql');
 
 class DbQuery {
-	constructor(executor) {
+	constructor(executor, { databaseOptimized = false } = {}) {
 		this.executor = executor;
+		this.databaseOptimized = databaseOptimized;
 		this.sortSpec = null;
 		this.limitCount = null;
 	}
@@ -18,9 +19,9 @@ class DbQuery {
 	}
 
 	async exec() {
-		let rows = await this.executor();
+		let rows = await this.executor({ sortSpec: this.sortSpec, limitCount: this.limitCount });
 
-		if (this.sortSpec) {
+		if (this.sortSpec && !this.databaseOptimized) {
 			const [[field, direction]] = Object.entries(this.sortSpec);
 			rows = rows.sort((a, b) => {
 				const left = a[field] ?? 0;
@@ -29,7 +30,7 @@ class DbQuery {
 			});
 		}
 
-		if (typeof this.limitCount === 'number') rows = rows.slice(0, this.limitCount);
+		if (typeof this.limitCount === 'number' && !this.databaseOptimized) rows = rows.slice(0, this.limitCount);
 
 		return rows;
 	}
@@ -114,15 +115,16 @@ function createModel(modelName, defaults = {}) {
 			return deserializeRows(rows);
 		}
 
-		static async _matchingRows(filter = {}, limit = null, { forUpdate = false } = {}) {
+		static async _matchingRows(filter = {}, limit = null, { forUpdate = false, sortSpec = null } = {}) {
 			if (!isMysqlConnected()) return [];
 			const { databaseFilter, memoryFilter } = splitFilter(filter);
 			const hasDatabaseFilter = Object.keys(databaseFilter).length > 0;
 			const canLimitInDatabase = Object.keys(memoryFilter).length === 0 && Number.isInteger(limit);
+			const orderClause = databaseOrderClause(sortSpec);
 			const sql = [
 				'SELECT id, data FROM cadia_documents WHERE model = ?',
 				hasDatabaseFilter ? 'AND JSON_CONTAINS(data, ?)' : '',
-				'ORDER BY id ASC',
+				orderClause || 'ORDER BY id ASC',
 				canLimitInDatabase ? `LIMIT ${Math.max(limit, 0)}` : '',
 				forUpdate ? 'FOR UPDATE' : ''
 			]
@@ -137,10 +139,13 @@ function createModel(modelName, defaults = {}) {
 		}
 
 		static find(filter = {}) {
-			return new DbQuery(async () => {
-				const rows = await this._matchingRows(filter);
-				return rows.map((row) => createDocument(this, row.id, row.data));
-			});
+			return new DbQuery(
+				async ({ sortSpec, limitCount }) => {
+					const rows = await this._matchingRows(filter, limitCount, { sortSpec });
+					return rows.map((row) => createDocument(this, row.id, row.data));
+				},
+				{ databaseOptimized: true }
+			);
 		}
 
 		static async findOne(filter = {}) {
@@ -209,6 +214,14 @@ function createModel(modelName, defaults = {}) {
 	return Model;
 }
 
+function databaseOrderClause(sortSpec) {
+	if (!sortSpec || typeof sortSpec !== 'object') return null;
+	const [[field, direction] = []] = Object.entries(sortSpec);
+	if (!field || !/^[a-zA-Z0-9_]+$/.test(field)) return null;
+	const order = Number(direction) < 0 ? 'DESC' : 'ASC';
+	return `ORDER BY JSON_EXTRACT(data, '$.${field}') ${order}, id ASC`;
+}
+
 function toPlainObject(document) {
 	const data = {};
 	for (const [key, value] of Object.entries(document)) data[key] = value;
@@ -232,5 +245,6 @@ function resolveDefaults(defaults) {
 
 module.exports = {
 	createModel,
+	databaseOrderClause,
 	splitFilter
 };

@@ -44,9 +44,6 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
-		await interaction.client.user.fetch();
-		await interaction.client.application.fetch();
-
 		const databaseStatus = isMysqlConnected() ? `${emojis.custom.online} Connected` : `${emojis.custom.offline} Disconnected`;
 		const developers = 'Malik, Oreo & Navin';
 		const commandCount = this.container.stores.get('commands').size;

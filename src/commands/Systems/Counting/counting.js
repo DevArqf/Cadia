@@ -3,6 +3,7 @@ const { ChannelType, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require
 const { color, emojis } = require('../../../config');
 const { CountActivity, CountingReward } = require('../../../lib/schemas/countSchema');
 const { GuildSchema } = require('../../../lib/schemas/guildSchema');
+const { invalidateCountingConfig } = require('../../../listeners/messages/counting/counting');
 
 class CountingCommand extends Command {
 	constructor(context, options) {
@@ -83,6 +84,7 @@ class CountingCommand extends Command {
 			},
 			{ upsert: true }
 		);
+		invalidateCountingConfig(interaction.guildId);
 		return interaction.reply({
 			content: `${emojis.custom.success} Counting is ready in ${channel} with a goal of **${goal}**.`,
 			flags: MessageFlags.Ephemeral

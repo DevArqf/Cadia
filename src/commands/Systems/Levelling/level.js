@@ -36,10 +36,13 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		await interaction.deferReply();
 
-		const config = await LevelConfig.findOne({ guildId: interaction.guild.id });
 		const target = interaction.options.getUser('user') || interaction.user;
-		const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-		const levels = await Level.find({ guildId: interaction.guild.id });
+		const cachedMember = interaction.guild.members.cache.get(target.id);
+		const [config, member, levels] = await Promise.all([
+			LevelConfig.findOne({ guildId: interaction.guild.id }),
+			cachedMember ? Promise.resolve(cachedMember) : interaction.guild.members.fetch(target.id).catch(() => null),
+			Level.find({ guildId: interaction.guild.id })
+		]);
 		const level = levels.find((entry) => entry.userId === target.id) || new Level({ guildId: interaction.guild.id, userId: target.id });
 		const rank = getUserRank(levels, target.id);
 		const progress = getLevelProgress(level);

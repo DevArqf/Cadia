@@ -1,6 +1,5 @@
-const { Listener, LogLevel, Command } = require('@sapphire/framework');
-const { cyan } = require('colorette');
-const { Message, EmbedBuilder } = require('discord.js');
+const { Listener } = require('@sapphire/framework');
+const { EmbedBuilder } = require('discord.js');
 const { channels, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { sendAuditLog } = require('../../lib/util/auditLogger');
@@ -13,63 +12,77 @@ class UserEvent extends Listener {
 	/**
 	 * @param {import('@sapphire/framework').ChatInputCommandSuccessPayload} payload
 	 */
-	async run(payload) {
-		const commandPath = commandPathFromInteraction(payload.interaction);
-		const category = commandCategory(payload.command, commandPath);
-		const developerCommand = isDeveloperCommand(payload.command);
-		await recordCommandRun({
-			client: this.container.client,
+	run(payload) {
+		void handleCommandSuccess(this, payload).catch((error) => this.container.logger.warn(`Command post-processing failed: ${error.message}`));
+	}
+}
+
+async function handleCommandSuccess(listener, payload) {
+	const commandPath = commandPathFromInteraction(payload.interaction);
+	const category = commandCategory(payload.command, commandPath);
+	const developerCommand = isDeveloperCommand(payload.command);
+	const analyticsTasks = [
+		recordCommandRun({
+			client: listener.container.client,
 			user: payload.interaction.user,
 			guild: payload.interaction.guild,
 			commandName: commandPath,
 			commandCategory: category,
 			meaningful: isMeaningfulCommand({ commandPath, category, isDeveloper: developerCommand }),
 			type: 'slash'
-		});
-		if (category === 'rpg' && !commandPath.startsWith('rpg admin')) {
-			await recordRpgEvent({
+		})
+	];
+	if (category === 'rpg' && !commandPath.startsWith('rpg admin')) {
+		analyticsTasks.push(
+			recordRpgEvent({
 				guildId: payload.interaction.guild?.id,
 				userId: payload.interaction.user.id
-			});
-		}
+			})
+		);
+	}
+	await Promise.allSettled(analyticsTasks);
 
-		if (developerCommand) return;
+	if (developerCommand) return;
 
-		const guild = payload.interaction.guild;
-		const channel = payload.interaction.channel.name;
-		const time = payload.interaction.createdTimestamp;
-		const interaction = payload.interaction;
-		const sentIn = guild ? `\`${guild.name}\` - \`${guild.id}\`` : '**Direct Messages**';
+	const guild = payload.interaction.guild;
+	const interaction = payload.interaction;
+	const channel = interaction.channel;
+	const time = payload.interaction.createdTimestamp;
+	const sentIn = guild ? `\`${guild.name}\` - \`${guild.id}\`` : '**Direct Messages**';
 
-		if (guild) {
-			await sendAuditLog(
+	const postTasks = [sendGlobalAlertNudge(interaction)];
+	if (guild) {
+		postTasks.push(
+			sendAuditLog(
 				guild,
 				'commandUse',
 				'Command Used',
 				[
 					{ label: 'User', value: `${interaction.user} (${interaction.user.id})` },
 					{ label: 'Command', value: `/${interaction.commandName}` },
-					{ label: 'Channel', value: `${interaction.channel} (${interaction.channel.id})` }
+					{ label: 'Channel', value: `${channel} (${channel?.id ?? 'unknown'})` }
 				],
 				{ emoji: `${emojis.custom.slash}`, user: interaction.user }
-			);
-		}
+			)
+		);
+	}
 
-		await sendGlobalAlertNudge(interaction);
-
-		const loggingChannel = this.container.client.channels.cache.get(channels.commandLogging);
-		if (!loggingChannel) return;
-
+	const loggingChannel = listener.container.client.channels.cache.get(channels.commandLogging);
+	if (loggingChannel) {
 		const embed = new EmbedBuilder()
 			.setTimestamp(time)
 			.setColor('Random')
-			.setAuthor({ name: `${interaction.member.user.tag} (${interaction.member.id})`, iconURL: interaction.user.displayAvatarURL() })
+			.setAuthor({
+				name: `${interaction.user.tag} (${interaction.user.id})`,
+				iconURL: interaction.user.displayAvatarURL()
+			})
 			.setDescription(
-				`**Command:** \`/${interaction.commandName}\`\n**Sent In:** ${sentIn}\n**Channel:** \`#${channel}\` - \`${interaction.channel.id}\``
+				`**Command:** \`/${interaction.commandName}\`\n**Sent In:** ${sentIn}\n**Channel:** \`${channel?.name ? `#${channel.name}` : 'DM'}\` - \`${channel?.id ?? 'unknown'}\``
 			);
-
-		await loggingChannel.send({ embeds: [embed] });
+		postTasks.push(loggingChannel.send({ embeds: [embed] }));
 	}
+
+	await Promise.allSettled(postTasks);
 }
 
 module.exports = {

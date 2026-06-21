@@ -27,15 +27,19 @@ class UserCommand extends CadiaCommand {
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */
 	async chatInputRun(interaction) {
+		await interaction.deferReply();
 		const levels = sortLevels(await Level.find({ guildId: interaction.guild.id })).slice(0, 10);
 
 		if (!levels.length) {
-			return interaction.reply(`${emojis.custom.fail} No one has earned level XP in this server yet.`);
+			return interaction.editReply(`${emojis.custom.fail} No one has earned level XP in this server yet.`);
 		}
 
 		const lines = await Promise.all(
 			levels.map(async (level, index) => {
-				const user = await interaction.client.users.fetch(level.userId).catch(() => null);
+				const user =
+					interaction.client.users.cache.get(level.userId) ||
+					interaction.guild.members.cache.get(level.userId)?.user ||
+					(await interaction.client.users.fetch(level.userId).catch(() => null));
 				const name = user ? `**${user.username}**` : `\`${level.userId}\``;
 				return `${getMedal(index)} ${name}\n${emojis.custom.arrowright} Level **${level.userLevel}** | XP **${level.userXp}/100** | Total **${level.totalXp}**`;
 			})
@@ -47,7 +51,7 @@ class UserCommand extends CadiaCommand {
 			.setDescription(lines.join('\n\n'))
 			.setTimestamp();
 
-		return interaction.reply({ embeds: [embed] });
+		return interaction.editReply({ embeds: [embed] });
 	}
 }
 

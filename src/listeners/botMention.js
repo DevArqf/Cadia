@@ -19,7 +19,6 @@ class UserEvent extends Listener {
 		if (message.author.bot || !botId || !message.mentions.users.has(botId)) return;
 
 		const commands = this.container.stores.get('commands').size;
-		await message.client.guilds.fetch();
 		const members = message.client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
 		const servers = message.client.guilds.cache.size;
 		const inviteUrl = createInviteUrl(message.client);

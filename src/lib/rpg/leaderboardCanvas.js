@@ -22,7 +22,7 @@ async function createRpgLeaderboardCard({ guildName, leaders, type, page, totalP
 
 	if (!leaders.length) drawEmptyState(ctx);
 
-	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
+	return new AttachmentBuilder(await canvas.encode('png'), { name: fileName });
 }
 
 async function drawBackground(ctx) {

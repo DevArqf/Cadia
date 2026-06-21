@@ -29,7 +29,7 @@ async function createQuestPageCard({ profile, region, questText, rewards = null,
 	drawQuestText(ctx, { profile, region, questText });
 	await drawRewards(ctx, rewards);
 
-	const buffer = canvas.toBuffer('image/png');
+	const buffer = await canvas.encode('png');
 	rememberQuestCardBuffer(cacheKey, buffer);
 	return new AttachmentBuilder(buffer, { name: fileName });
 }

@@ -28,7 +28,7 @@ async function createInventoryCard({ profile, category, entries, fileName = 'rpg
 	drawHeader(ctx, profile, category, entries);
 	await drawSlots(ctx, entries);
 
-	const buffer = canvas.toBuffer('image/png');
+	const buffer = await canvas.encode('png');
 	rememberCardBuffer(cacheKey, buffer);
 	return new AttachmentBuilder(buffer, { name: fileName });
 }
@@ -159,16 +159,13 @@ async function loadItemEmojiImage(item) {
 	if (!match) return null;
 
 	const emojiId = match[1];
-	if (emojiImageCache.has(emojiId)) return emojiImageCache.get(emojiId);
-
-	try {
-		const image = await loadImage(`https://cdn.discordapp.com/emojis/${emojiId}.png?size=128&quality=lossless`);
-		emojiImageCache.set(emojiId, image);
-		return image;
-	} catch {
-		emojiImageCache.set(emojiId, null);
-		return null;
+	if (!emojiImageCache.has(emojiId)) {
+		emojiImageCache.set(
+			emojiId,
+			loadImage(`https://cdn.discordapp.com/emojis/${emojiId}.png?size=128&quality=lossless`).catch(() => null)
+		);
 	}
+	return emojiImageCache.get(emojiId);
 }
 
 function rarityColor(rarity) {

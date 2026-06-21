@@ -4,6 +4,7 @@ const { color, emojis } = require('../../../config');
 const { ChannelType, EmbedBuilder, MessageFlags } = require('discord.js');
 const Level = require('../../../lib/schemas/levelSchema');
 const LevelConfig = require('../../../lib/schemas/levelConfigSchema');
+const { updateLevelConfigCache } = require('../../../listeners/Levelling');
 const { XP_PER_LEVEL } = require('../../../lib/util/leveling');
 
 class UserCommand extends CadiaCommand {
@@ -142,7 +143,7 @@ class UserCommand extends CadiaCommand {
 			config.enabled = true;
 			if (channel) config.channelId = channel.id;
 			if (!config.channelId) config.channelId = interaction.channel.id;
-			await config.save();
+			await saveConfig(config);
 			return interaction.reply({
 				embeds: [createAdminEmbed('Levelling Enabled', `Level-up messages will be sent in <#${config.channelId}>.`)]
 			});
@@ -150,18 +151,18 @@ class UserCommand extends CadiaCommand {
 
 		if (subcommand === 'disable') {
 			config.enabled = false;
-			await config.save();
+			await saveConfig(config);
 			return interaction.reply({ embeds: [createAdminEmbed('Levelling Disabled', 'The levelling module is now disabled for this server.')] });
 		}
 
 		if (subcommand === 'channel') {
 			config.channelId = channel.id;
-			await config.save();
+			await saveConfig(config);
 			return interaction.reply({ embeds: [createAdminEmbed('Level Channel Updated', `Level-up messages will now be sent in ${channel}.`)] });
 		}
 
 		config.messages = [{ content: message }];
-		await config.save();
+		await saveConfig(config);
 		return interaction.reply({ embeds: [createAdminEmbed('Level Message Updated', `${emojis.custom.arrowright} ${message}`)] });
 	}
 
@@ -213,7 +214,13 @@ class UserCommand extends CadiaCommand {
 async function getOrCreateConfig(guildId) {
 	let config = await LevelConfig.findOne({ guildId });
 	if (!config) config = await LevelConfig.create({ guildId });
+	updateLevelConfigCache(guildId, config);
 	return config;
+}
+
+async function saveConfig(config) {
+	await config.save();
+	updateLevelConfigCache(config.guildId, config);
 }
 
 async function getOrCreateLevel(guildId, userId) {
