@@ -212,7 +212,8 @@ const badges = {
 		rarity: 'Limited',
 		source: 'Seasonal Quest',
 		description: 'Completed a seasonal quest during the Stormglass era.',
-		symbol: '◆'
+		emojiKey: 'StormglassPathfinder',
+		image: 'Stormglass Pathfinder.png'
 	},
 	'gatebound-guide': {
 		id: 'gatebound-guide',
@@ -220,7 +221,8 @@ const badges = {
 		rarity: 'Referral',
 		source: 'Referral Reward',
 		description: 'Helped another Warden enter Cadia through the referral system.',
-		symbol: '◇'
+		emojiKey: 'GateboundGuide',
+		image: 'Gatebound Guide.png'
 	},
 	worldbreaker: {
 		id: 'worldbreaker',
@@ -228,9 +230,121 @@ const badges = {
 		rarity: 'Cooperative',
 		source: 'Server Boss',
 		description: 'Contributed to the defeat of a seasonal server boss.',
-		symbol: '✦'
+		emojiKey: 'WorldBreaker',
+		image: 'Worldbreaker.png'
+	},
+	bloodmarked: {
+		id: 'bloodmarked',
+		name: 'Bloodmarked',
+		rarity: 'Achievement',
+		source: 'First Blood',
+		description: 'Won a first battle and began a Warden legend.',
+		emojiKey: 'Bloodmarked',
+		image: 'Bloodmarked.png'
+	},
+	'veteran-warden': {
+		id: 'veteran-warden',
+		name: 'Veteran Warden',
+		rarity: 'Achievement',
+		source: 'Veteran Warden',
+		description: 'Survived and won twenty-five encounters.',
+		emojiKey: 'VeteranWarden',
+		image: 'Veteran Warden.png'
+	},
+	'boss-breaker': {
+		id: 'boss-breaker',
+		name: 'Boss Breaker',
+		rarity: 'Achievement',
+		source: 'Boss Breaker',
+		description: 'Brought down a region boss.',
+		emojiKey: 'BossBreaker',
+		image: 'Boss Breaker.png'
+	},
+	'relic-vanguard': {
+		id: 'relic-vanguard',
+		name: 'Relic Vanguard',
+		rarity: 'Achievement',
+		source: 'Relic Vanguard',
+		description: 'Reached Rank 10 as a proven Warden.',
+		emojiKey: 'RelicVanguard',
+		image: 'Relic Vanguard.png'
+	},
+	'gold-hoarder': {
+		id: 'gold-hoarder',
+		name: 'Gate Treasury',
+		rarity: 'Achievement',
+		source: 'Gate Treasury',
+		description: 'Held ten thousand gold at one time.',
+		emojiKey: 'GateTreasury',
+		image: 'Gate Treasury.png'
+	},
+	centurion: {
+		id: 'centurion',
+		name: 'Cadia Centurion',
+		rarity: 'Achievement',
+		source: 'Cadia Centurion',
+		description: 'Won one hundred encounters across Cadia.',
+		emojiKey: 'CadiaCenturion',
+		image: 'Cadia Centurion.png'
 	}
 };
+
+const achievements = [
+	{
+		id: 'first-blood',
+		name: 'First Blood',
+		category: 'Combat',
+		description: 'Win your first encounter.',
+		badgeId: 'bloodmarked',
+		rewards: { gold: 150, shards: 0 },
+		test: (profile) => (profile.battlesWon || 0) >= 1
+	},
+	{
+		id: 'veteran',
+		name: 'Veteran Warden',
+		category: 'Combat',
+		description: 'Win 25 encounters.',
+		badgeId: 'veteran-warden',
+		rewards: { gold: 1_500, shards: 2 },
+		test: (profile) => (profile.battlesWon || 0) >= 25
+	},
+	{
+		id: 'boss-breaker',
+		name: 'Boss Breaker',
+		category: 'Combat',
+		description: 'Defeat your first region boss.',
+		badgeId: 'boss-breaker',
+		rewards: { gold: 900, shards: 3 },
+		test: (profile) => (profile.defeatedBosses || []).length >= 1
+	},
+	{
+		id: 'rank-ten',
+		name: 'Relic Vanguard',
+		category: 'Progression',
+		description: 'Reach Rank 10.',
+		badgeId: 'relic-vanguard',
+		rewards: { gold: 2_500, shards: 5 },
+		test: (profile) => (profile.level || 1) >= 10
+	},
+	{
+		id: 'gold-hoarder',
+		name: 'Gate Treasury',
+		category: 'Economy',
+		description: 'Hold 10,000 gold at one time.',
+		badgeId: 'gold-hoarder',
+		rewards: { gold: 1_000, shards: 2 },
+		test: (profile) => (profile.gold || 0) >= 10_000
+	},
+	{
+		id: 'centurion',
+		name: 'Cadia Centurion',
+		category: 'Combat',
+		description: 'Win 100 encounters.',
+		badgeId: 'centurion',
+		rewards: { gold: 5_000, shards: 8 },
+		test: (profile) => (profile.battlesWon || 0) >= 100
+	}
+];
 
 const encounters = {
 	'broken-gate': [
@@ -487,6 +601,7 @@ const npcQuests = [
 ];
 
 module.exports = {
+	achievements,
 	badges,
 	classes,
 	encounters,

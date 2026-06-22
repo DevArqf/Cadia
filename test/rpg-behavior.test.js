@@ -5,7 +5,7 @@ process.env.BOT_OWNERS ??= 'test-owner';
 process.env.DEVELOPERS ??= 'test-developer';
 
 const { SlashCommandBuilder } = require('discord.js');
-const { badges, classes, encounters, items, origins, regions } = require('../src/lib/rpg/data');
+const { achievements, badges, classes, encounters, items, origins, regions } = require('../src/lib/rpg/data');
 const { registerRpgCommand } = require('../src/lib/rpg/command/register');
 const { dispatchRpgCommand } = require('../src/lib/rpg/command/router');
 const { clearActiveAction, getActiveAction, setActiveAction } = require('../src/lib/rpg/command/sessions');
@@ -21,13 +21,14 @@ test('RPG registration preserves public and developer subcommands', () => {
 			}
 		},
 		'RPG',
-		{ badges, classes, encounters, items, origins, regions }
+		{ achievements, badges, classes, encounters, items, origins, regions }
 	);
 
 	const names = command.options.map((option) => option.name);
 	assert.ok(names.includes('adventure'));
 	assert.ok(names.includes('inventory'));
 	assert.ok(names.includes('leaderboard'));
+	assert.ok(names.includes('achievements'));
 	assert.ok(names.includes('badge'));
 	assert.ok(!names.includes('global-leaderboard'));
 	assert.ok(names.includes('share'));
@@ -98,6 +99,7 @@ test('RPG progression and travel rules preserve rank and boss gates', () => {
 
 test('season commands are acknowledged before tutorial and database work', () => {
 	assert.equal(shouldDeferRpgCommand(interactionFor('season')), true);
+	assert.equal(shouldDeferRpgCommand(interactionFor('achievements')), true);
 	assert.equal(shouldDeferRpgCommand(interactionFor('profile')), false);
 });
 
@@ -111,11 +113,16 @@ test('limited rewards are functional items and their badges are centrally define
 	for (const item of [items.stormglass_aura, items.gatebound_crest, items.worldbreaker_sigil]) {
 		assert.ok(Object.values(item.stats).some((amount) => amount > 0));
 	}
-	assert.deepEqual(Object.keys(badges).sort(), ['gatebound-guide', 'stormglass-pathfinder', 'worldbreaker']);
 	for (const badge of Object.values(badges)) {
 		assert.ok(badge.description);
 		assert.ok(badge.source);
-		assert.ok(badge.symbol);
+		assert.ok(badge.emojiKey);
+		assert.match(badge.image, /\.png$/);
+		assert.equal('symbol' in badge, false);
+	}
+	for (const achievement of achievements) {
+		assert.ok(achievement.rewards.gold > 0);
+		assert.ok(badges[achievement.badgeId]);
 	}
 });
 

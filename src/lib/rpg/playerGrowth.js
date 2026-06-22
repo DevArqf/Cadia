@@ -1,6 +1,6 @@
 const { randomBytes } = require('node:crypto');
 const repositories = require('./repositories');
-const { badges, items } = require('./data');
+const { achievements, badges, items } = require('./data');
 
 const BOSS_ATTACK_COOLDOWN = 30 * 60_000;
 const rewards = {
@@ -8,25 +8,46 @@ const rewards = {
 	referral: { item: items.gatebound_crest, badge: badges['gatebound-guide'] },
 	raid: { item: items.worldbreaker_sigil, badge: badges.worldbreaker }
 };
-const achievements = [
-	{ id: 'first-blood', name: 'First Blood', description: 'Win your first encounter.', test: (profile) => profile.battlesWon >= 1 },
-	{ id: 'veteran', name: 'Veteran Warden', description: 'Win 25 encounters.', test: (profile) => profile.battlesWon >= 25 },
-	{ id: 'boss-breaker', name: 'Boss Breaker', description: 'Defeat your first boss.', test: (profile) => profile.defeatedBosses.length >= 1 },
-	{ id: 'rank-ten', name: 'Relic Vanguard', description: 'Reach Rank 10.', test: (profile) => profile.level >= 10 }
-];
-
 function currentSeason(now = new Date()) {
 	const year = now.getUTCFullYear();
-	const quarter = Math.floor(now.getUTCMonth() / 3);
-	const startsAt = Date.UTC(year, quarter * 3, 1);
-	const endsAt = Date.UTC(year, quarter * 3 + 3, 1);
-	const id = `${year}-q${quarter + 1}`;
+	const month = now.getUTCMonth();
+	let name;
+	let seasonYear = year;
+	let startsAt;
+	let endsAt;
+
+	if (month < 2) {
+		name = 'Winter';
+		startsAt = Date.UTC(year - 1, 11, 1);
+		endsAt = Date.UTC(year, 2, 1);
+	} else if (month < 5) {
+		name = 'Spring';
+		startsAt = Date.UTC(year, 2, 1);
+		endsAt = Date.UTC(year, 5, 1);
+	} else if (month < 8) {
+		name = 'Summer';
+		startsAt = Date.UTC(year, 5, 1);
+		endsAt = Date.UTC(year, 8, 1);
+	} else if (month < 11) {
+		name = 'Autumn';
+		startsAt = Date.UTC(year, 8, 1);
+		endsAt = Date.UTC(year, 11, 1);
+	} else {
+		name = 'Winter';
+		seasonYear = year + 1;
+		startsAt = Date.UTC(year, 11, 1);
+		endsAt = Date.UTC(year + 1, 2, 1);
+	}
+
+	const id = `${seasonYear}-${name.toLowerCase()}`;
+	const legacyQuarter = `${year}-q${Math.floor(month / 3) + 1}`;
 	return {
 		id,
-		name: ['Frostwake', 'Stormglass', 'Sunscar', 'Nightfall'][quarter],
+		name,
 		startsAt,
 		endsAt,
-		quest: { victories: 5, activeDays: 3 },
+		legacyIds: [legacyQuarter],
+		quest: { victories: 5, consecutiveDays: 3 },
 		item: rewards.seasonal.item,
 		badge: rewards.seasonal.badge
 	};
@@ -55,18 +76,38 @@ async function loadPlayerGrowth(userId, forUpdate = false) {
 
 async function syncAchievements(profile) {
 	return withLockedAggregates([playerLock(profile.userId)], async () => {
-		const growth = await loadPlayerGrowth(profile.userId, true);
-		const unlocked = achievements.filter((achievement) => achievement.test(profile));
+		const [growth, lockedProfile] = await Promise.all([
+			loadPlayerGrowth(profile.userId, true),
+			repositories.profiles.findOneForUpdate({ userId: profile.userId })
+		]);
+		const rewardProfile = lockedProfile || profile;
+		const unlocked = achievements.filter((achievement) => achievement.test(rewardProfile));
 		const newlyUnlocked = [];
+		const rewardsEarned = { gold: 0, shards: 0, badges: [] };
 		for (const achievement of unlocked) {
 			if (!growth.achievements.includes(achievement.id)) {
 				growth.achievements.push(achievement.id);
 				newlyUnlocked.push(achievement);
+				const gold = achievement.rewards?.gold || 0;
+				const shards = achievement.rewards?.shards || 0;
+				rewardProfile.gold = (rewardProfile.gold || 0) + gold;
+				rewardProfile.relicShards = (rewardProfile.relicShards || 0) + shards;
+				rewardsEarned.gold += gold;
+				rewardsEarned.shards += shards;
+				if (achievement.badgeId) {
+					addBadge(growth, achievement.badgeId);
+					rewardsEarned.badges.push(badges[achievement.badgeId]);
+				}
 			}
 		}
 		growth.updatedAt = Date.now();
-		await growth.save();
-		return { unlocked, newlyUnlocked };
+		rewardProfile.updatedAt = Date.now();
+		await Promise.all([growth.save(), rewardProfile.save()]);
+		if (rewardProfile !== profile) {
+			profile.gold = rewardProfile.gold;
+			profile.relicShards = rewardProfile.relicShards;
+		}
+		return { growth, unlocked, newlyUnlocked, profile: rewardProfile, rewards: rewardsEarned };
 	});
 }
 
@@ -78,6 +119,19 @@ async function recordSeasonVictory(userId, now = new Date()) {
 		growth.updatedAt = Date.now();
 		await growth.save();
 		return growth.seasonVictories[season.id];
+	});
+}
+
+async function recordSeasonActivity(userId, now = new Date()) {
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		const season = currentSeason(now);
+		const day = now.toISOString().slice(0, 10);
+		growth.seasonActiveDays[season.id] ||= {};
+		growth.seasonActiveDays[season.id][day] = true;
+		growth.updatedAt = Date.now();
+		await growth.save();
+		return consecutiveDayStreak(Object.keys(growth.seasonActiveDays[season.id]), season);
 	});
 }
 
@@ -121,25 +175,27 @@ async function redeemReferral(userId, code) {
 
 async function seasonalProgress(userId, lockedGrowth = null) {
 	const season = currentSeason();
-	const [profile, activity, growth] = await Promise.all([
+	const [profile, activityRecords, growth] = await Promise.all([
 		repositories.profiles.findOne({ userId }),
-		repositories.activity.findOne({ userId }),
+		repositories.activity.find({ userId }),
 		lockedGrowth || getPlayerGrowth(userId)
 	]);
 	if (!profile) throw new Error('Create your Warden to participate in the season.');
-	const activeDays = Object.keys(activity?.activeDays || {}).filter((day) => {
-		const timestamp = Date.parse(`${day}T00:00:00.000Z`);
-		return timestamp >= season.startsAt && timestamp < season.endsAt;
-	}).length;
+	const migrated = migrateSeasonActivity(growth, activityRecords, season);
+	if (migrated) await growth.save();
+	const activeDays = Object.keys(growth.seasonActiveDays[season.id] || {});
+	const consecutiveDays = consecutiveDayStreak(activeDays, season);
+	const victoryIds = [season.id, ...season.legacyIds];
+	const victories = victoryIds.reduce((total, id) => total + (growth.seasonVictories[id] || 0), 0);
 	const progress = {
-		victories: Math.min(growth.seasonVictories[season.id] || 0, season.quest.victories),
-		activeDays: Math.min(activeDays, season.quest.activeDays)
+		victories: Math.min(victories, season.quest.victories),
+		consecutiveDays: Math.min(consecutiveDays, season.quest.consecutiveDays)
 	};
 	return {
 		season,
 		progress,
-		complete: progress.victories >= season.quest.victories && progress.activeDays >= season.quest.activeDays,
-		claimed: growth.seasonClaims.includes(season.id),
+		complete: progress.victories >= season.quest.victories && progress.consecutiveDays >= season.quest.consecutiveDays,
+		claimed: [season.id, ...season.legacyIds].some((id) => growth.seasonClaims.includes(id)),
 		growth
 	};
 }
@@ -298,13 +354,52 @@ function hydrate(record) {
 	record.achievements ||= [];
 	record.seasonClaims ||= [];
 	record.seasonVictories ||= {};
+	record.seasonActiveDays ||= {};
 	record.referrals ||= 0;
 	record.shareCount ||= 0;
+	for (const achievementId of record.achievements) {
+		const achievement = achievementById(achievementId);
+		if (achievement?.badgeId) addBadge(record, achievement.badgeId, { feature: false });
+	}
 	for (const legacyId of record.cosmetics) {
 		if (legacyId.startsWith('stormglass-aura')) addBadge(record, rewards.seasonal.badge.id, { feature: false });
 		if (legacyId === 'gatebound-crest') addBadge(record, rewards.referral.badge.id, { feature: false });
 		if (legacyId === 'worldbreaker-sigil') addBadge(record, rewards.raid.badge.id, { feature: false });
 	}
+}
+
+function migrateSeasonActivity(growth, activityRecords, season) {
+	growth.seasonActiveDays[season.id] ||= {};
+	let changed = false;
+	for (const activity of activityRecords || []) {
+		for (const day of Object.keys(activity.activeDays || {})) {
+			if (!isDayInSeason(day, season) || growth.seasonActiveDays[season.id][day]) continue;
+			growth.seasonActiveDays[season.id][day] = true;
+			changed = true;
+		}
+	}
+	return changed;
+}
+
+function consecutiveDayStreak(days, season) {
+	const timestamps = [...new Set(days)]
+		.filter((day) => isDayInSeason(day, season))
+		.map((day) => Date.parse(`${day}T00:00:00.000Z`))
+		.sort((left, right) => left - right);
+	let longest = 0;
+	let current = 0;
+	let previous = null;
+	for (const timestamp of timestamps) {
+		current = previous !== null && timestamp - previous === 86_400_000 ? current + 1 : 1;
+		longest = Math.max(longest, current);
+		previous = timestamp;
+	}
+	return longest;
+}
+
+function isDayInSeason(day, season) {
+	const timestamp = Date.parse(`${day}T00:00:00.000Z`);
+	return timestamp >= season.startsAt && timestamp < season.endsAt;
 }
 
 function hydrateBoss(boss) {
@@ -340,6 +435,7 @@ module.exports = {
 	globalLeaderboard,
 	recordShare,
 	recordSeasonVictory,
+	recordSeasonActivity,
 	redeemReferral,
 	rewards,
 	seasonalProgress,

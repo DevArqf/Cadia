@@ -6,11 +6,11 @@ const { items } = require('./data');
 const width = 1024;
 const height = 1024;
 const questPagePath = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Quests Page.png');
-const emojiAssetDir = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Emojis');
+const itemAssetDir = path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Items');
 const rewardEmojiPaths = {
-	gold: path.join(emojiAssetDir, 'Coin.png'),
-	xp: path.join(emojiAssetDir, 'Orb Purple.png'),
-	shards: path.join(emojiAssetDir, 'Shard.png')
+	gold: path.join(itemAssetDir, 'Coin.png'),
+	xp: path.join(itemAssetDir, 'Orb Purple.png'),
+	shards: path.join(itemAssetDir, 'Shard.png')
 };
 let questPageImagePromise = null;
 const emojiImageCache = new Map();
@@ -125,7 +125,7 @@ function rewardEntries(rewards) {
 
 function itemEmojiPath(item) {
 	if (!item?.name) return null;
-	return path.join(emojiAssetDir, `${item.name}.png`);
+	return path.join(itemAssetDir, `${item.name}.png`);
 }
 
 async function loadEmojiImage(imagePath) {

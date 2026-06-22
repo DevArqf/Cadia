@@ -11,6 +11,7 @@ const RpgPlayerGrowthSchema = createModel('RpgPlayerGrowthSchema', {
 	achievements: () => [],
 	seasonClaims: () => [],
 	seasonVictories: () => ({}),
+	seasonActiveDays: () => ({}),
 	shareCount: 0,
 	lastSharedAt: null,
 	createdAt: () => Date.now(),

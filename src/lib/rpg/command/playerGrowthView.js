@@ -11,6 +11,7 @@ const {
 	StringSelectMenuOptionBuilder,
 	TextDisplayBuilder
 } = require('discord.js');
+const { badgeEmoji, formatBadge } = require('../badges');
 
 function createPlayerGrowthHandlers({
 	actionButton,
@@ -165,11 +166,11 @@ function createPlayerGrowthHandlers({
 			const requestedId = interaction.options.getString('achievement');
 			const achievement = (requestedId ? unlocked.find((entry) => entry.id === requestedId) : unlocked.at(-1)) || null;
 			if (!achievement) throw new service.RpgError('You have not unlocked that achievement yet.');
-			attachment = createAchievementShareCard({ profile, userName: interaction.user.username, achievement });
+			attachment = await createAchievementShareCard({ profile, userName: interaction.user.username, achievement });
 			title = `${icon.success} **Achievement Shared: ${achievement.name}**`;
 		} else {
 			const badge = growth.badges[player.featuredBadge] || null;
-			attachment = createCharacterShareCard({
+			attachment = await createCharacterShareCard({
 				profile,
 				userName: interaction.user.username,
 				badge
@@ -189,13 +190,43 @@ function createPlayerGrowthHandlers({
 		return interaction.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
 	}
 
+	async function achievements(interaction) {
+		const profile = await service.requireProfile(interaction.guild.id, interaction.user.id);
+		const result = await executeGrowth(() => growth.syncAchievements(profile));
+		const unlockedIds = new Set(result.growth.achievements);
+		const entries = growth.achievements.map((achievement) => {
+			const unlocked = unlockedIds.has(achievement.id);
+			const badge = growth.badges[achievement.badgeId];
+			const rewardParts = [];
+			if (achievement.rewards.gold) rewardParts.push(`${icon.coin} **${achievement.rewards.gold.toLocaleString()} Gold**`);
+			if (achievement.rewards.shards) rewardParts.push(`${icon.shards} **${achievement.rewards.shards.toLocaleString()} Relic Shards**`);
+			rewardParts.push(formatBadge(badge));
+			return (
+				`**${achievement.name}** · ${unlocked ? 'Unlocked' : 'Locked'} · ${achievement.category}\n` +
+				`-# ${achievement.description}\n` +
+				`**Rewards**\n${rewardParts.join('\n')}`
+			);
+		});
+
+		const response = componentReply(
+			panel({
+				accentColor: color.RPG,
+				title: `**Warden Achievements**`,
+				subtitle: `${growth.achievements.filter((achievement) => unlockedIds.has(achievement.id)).length}/${growth.achievements.length} unlocked · rewards can only be claimed once`,
+				sections: entries,
+				footer: `Feature an earned badge with /rpg badge, or share an achievement with /rpg share.`
+			})
+		);
+		return interaction.deferred ? interaction.editReply(response) : interaction.reply(response);
+	}
+
 	async function badge(interaction) {
 		const badgeId = interaction.options.getString('badge', true);
 		const result = await executeGrowth(() => growth.setFeaturedBadge(interaction.user.id, badgeId));
 		return interaction.reply(
 			componentReply(
 				notice(
-					`${result.badge.symbol} **Badge Featured: ${result.badge.name}**`,
+					`${badgeEmoji(result.badge)} **Badge Featured: ${result.badge.name}**`,
 					`This badge now appears on your RPG profile and shared character card.`,
 					color.success
 				),
@@ -234,7 +265,7 @@ function createPlayerGrowthHandlers({
 							result.contribution ? `${icon.success} **Your Total:** ${result.contribution.toLocaleString()}` : null
 						].filter(Boolean),
 						boss.status === 'defeated'
-							? `${icon.loot} Every contributor received **${growth.rewards.raid.item.name}** and the **${growth.rewards.raid.badge.name}** badge.`
+							? `${icon.loot} Every contributor received **${growth.rewards.raid.item.name}** and the ${formatBadge(growth.rewards.raid.badge)}.`
 							: `${icon.arrowRight} Use \`/rpg server-boss action:Attack\` every 30 minutes. Damage scales with your Warden.`
 					]
 				})
@@ -245,6 +276,7 @@ function createPlayerGrowthHandlers({
 
 	async function season(interaction) {
 		const action = interaction.options.getString('action', true);
+		await executeGrowth(() => growth.recordSeasonActivity(interaction.user.id));
 		const status =
 			action === 'claim'
 				? await executeGrowth(() => growth.claimSeason(interaction.user.id))
@@ -252,7 +284,7 @@ function createPlayerGrowthHandlers({
 		const { season: activeSeason, progress } = status;
 		const claimed = status.claimed || action === 'claim';
 		const fileName = `rpg-season-${activeSeason.id || 'current'}.png`;
-		const attachment = createSeasonCard({
+		const attachment = await createSeasonCard({
 			season: activeSeason,
 			progress,
 			complete: status.complete,
@@ -260,7 +292,7 @@ function createPlayerGrowthHandlers({
 			fileName
 		});
 		const statusText = claimed
-			? `${icon.success} **${activeSeason.item.name}** and the **${activeSeason.badge.name}** badge are now yours.`
+			? `${icon.success} **${activeSeason.item.name}** and the ${formatBadge(activeSeason.badge)} are now yours.`
 			: status.complete
 				? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
 				: `${icon.arrowRight} Complete both objectives before the season ends.`;
@@ -289,7 +321,7 @@ function createPlayerGrowthHandlers({
 				componentReply(
 					notice(
 						`${icon.success} **Referral Redeemed**`,
-						`You and the referring Warden received **${result.item.name}** and the **${result.badge.name}** badge.`,
+						`You and the referring Warden received **${result.item.name}** and the ${formatBadge(result.badge)}.`,
 						color.success
 					)
 				)
@@ -307,7 +339,7 @@ function createPlayerGrowthHandlers({
 						`${icon.info} **Your Code:** \`${player.referralCode}\``,
 						`${icon.success} **Successful Referrals:** ${player.referrals}`,
 						`${icon.arrowRight} Your friend creates a Warden, then runs \`/rpg refer action:Redeem code:${player.referralCode}\`.`,
-						`${icon.loot} Both players receive **${growth.rewards.referral.item.name}** and the **${growth.rewards.referral.badge.name}** badge.`
+						`${icon.loot} Both players receive **${growth.rewards.referral.item.name}** and the ${formatBadge(growth.rewards.referral.badge)}.`
 					]
 				}),
 				true
@@ -315,7 +347,7 @@ function createPlayerGrowthHandlers({
 		);
 	}
 
-	return { badge, leaderboard, refer, season, serverBoss, share };
+	return { achievements, badge, leaderboard, refer, season, serverBoss, share };
 }
 
 module.exports = { createPlayerGrowthHandlers };

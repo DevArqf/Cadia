@@ -28,7 +28,7 @@ const {
 	serverBossImage
 } = require('../../../lib/rpg/assets');
 const { createBossBattleCard, createEncounterBattleCard, hasEncounterBattleCard } = require('../../../lib/rpg/battleCanvas');
-const { badges, classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
+const { achievements, badges, classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
@@ -51,6 +51,8 @@ const rpg = require('../../../lib/rpg/service');
 
 const icon = {
 	actions: emojis.custom.orbPurple || emojis.custom.rpgInfo || 'Actions',
+	achievement: emojis.custom.tada2 || emojis.custom.cadia || 'Achievement',
+	badge: emojis.custom.gem || emojis.custom.crown || 'Badge',
 	chapter: emojis.custom.rpgchapter || emojis.custom.rpgInfo || 'Chapter',
 	class: emojis.custom.user || emojis.custom.person || 'Class',
 	clock: emojis.custom.rpgtime || 'Time',
@@ -176,6 +178,7 @@ const {
 } = createBattleView({
 	actionButton,
 	adventureStoryImage,
+	badges,
 	battleResultImage,
 	classes,
 	color,
@@ -239,7 +242,7 @@ class UserCommand extends CadiaCommand {
 	}
 
 	registerApplicationCommands(registry) {
-		registerRpgCommand(registry, this.description, { badges, classes, encounters, items, origins, regions });
+		registerRpgCommand(registry, this.description, { achievements, badges, classes, encounters, items, origins, regions });
 	}
 
 	async chatInputRun(interaction) {
@@ -262,6 +265,7 @@ class UserCommand extends CadiaCommand {
 					inventory,
 					equip,
 					leaderboard: playerGrowthHandlers.leaderboard,
+					achievements: playerGrowthHandlers.achievements,
 					badge: playerGrowthHandlers.badge,
 					share: playerGrowthHandlers.share,
 					'server-boss': playerGrowthHandlers.serverBoss,
@@ -1345,7 +1349,7 @@ function isDeveloper(userId) {
 }
 
 function shouldDeferRpgCommand(interaction) {
-	return interaction.options.getSubcommand(false) === 'season';
+	return ['achievements', 'season'].includes(interaction.options.getSubcommand(false));
 }
 
 module.exports = {

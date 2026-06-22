@@ -1,10 +1,11 @@
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 
 const width = 1200;
 const height = 700;
+const emojiImageCache = new Map();
 
-function createSeasonCard({ season, progress, complete = false, claimed = false, fileName = 'rpg-season.png' }) {
+async function createSeasonCard({ season, progress, complete = false, claimed = false, fileName = 'rpg-season.png' }) {
 	const canvas = createCanvas(width, height);
 	const ctx = canvas.getContext('2d');
 	const state = claimed ? 'CLAIMED' : complete ? 'READY TO CLAIM' : 'IN PROGRESS';
@@ -27,12 +28,12 @@ function createSeasonCard({ season, progress, complete = false, claimed = false,
 		x: 626,
 		y: 250,
 		width: 500,
-		label: 'ACTIVE DAYS',
-		value: progress.activeDays,
-		target: season.quest.activeDays,
+		label: 'CONSECUTIVE RPG DAYS',
+		value: progress.consecutiveDays,
+		target: season.quest.consecutiveDays,
 		accent: '#6fd7ff'
 	});
-	drawReward(ctx, season.item, claimed, complete, accent);
+	await drawReward(ctx, season.item, claimed, complete, accent);
 	drawFooter(ctx, claimed, complete);
 
 	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
@@ -178,7 +179,7 @@ function drawProgressCard(ctx, { x, y, width: cardWidth, label, value, target, a
 	ctx.fillText(`${percentage}% complete`, x + 28, y + 128);
 }
 
-function drawReward(ctx, reward, claimed, complete, accent) {
+async function drawReward(ctx, reward, claimed, complete, accent) {
 	const y = 436;
 	ctx.fillStyle = 'rgba(113, 84, 186, 0.13)';
 	roundRect(ctx, 74, y, width - 148, 132, 22);
@@ -186,31 +187,31 @@ function drawReward(ctx, reward, claimed, complete, accent) {
 	ctx.strokeStyle = withAlpha(accent, 0.3);
 	ctx.stroke();
 
+	const rewardImage = await loadItemEmojiImage(reward);
 	ctx.save();
-	ctx.translate(142, y + 66);
-	ctx.rotate(Math.PI / 4);
-	ctx.fillStyle = withAlpha(accent, 0.17);
-	ctx.strokeStyle = accent;
-	ctx.lineWidth = 3;
-	ctx.fillRect(-30, -30, 60, 60);
-	ctx.strokeRect(-30, -30, 60, 60);
-	ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-	ctx.strokeRect(-19, -19, 38, 38);
+	ctx.shadowColor = accent;
+	ctx.shadowBlur = 22;
+	ctx.fillStyle = withAlpha(accent, 0.12);
+	ctx.beginPath();
+	ctx.arc(142, y + 66, 48, 0, Math.PI * 2);
+	ctx.fill();
 	ctx.restore();
+	if (rewardImage) {
+		ctx.drawImage(rewardImage, 98, y + 22, 88, 88);
+	} else {
+		ctx.fillStyle = accent;
+		ctx.font = '700 52px Arial';
+		ctx.textAlign = 'center';
+		ctx.fillText('◆', 142, y + 84);
+		ctx.textAlign = 'left';
+	}
 
 	ctx.fillStyle = '#a995e6';
 	ctx.font = '700 14px Arial';
 	ctx.fillText('LIMITED EQUIPMENT REWARD', 207, y + 38);
-	ctx.fillStyle = '#f4efff';
-	ctx.font = '700 31px Georgia';
-	ctx.fillText(trimText(ctx, reward.name, 580), 207, y + 79);
 	ctx.fillStyle = '#98a3c1';
 	ctx.font = '500 16px Arial';
-	ctx.fillText(
-		claimed ? 'Added to your collection' : complete ? 'Unlocked and ready to claim' : 'Complete both objectives to unlock',
-		207,
-		y + 105
-	);
+	ctx.fillText(claimed ? 'Added to your collection' : complete ? 'Unlocked and ready to claim' : 'Complete both objectives to unlock', 207, y + 82);
 
 	ctx.textAlign = 'right';
 	ctx.fillStyle = claimed ? '#65e6a5' : '#aab3ce';
@@ -219,12 +220,25 @@ function drawReward(ctx, reward, claimed, complete, accent) {
 	ctx.textAlign = 'left';
 }
 
+async function loadItemEmojiImage(item) {
+	const match = /^<a?:[^:]+:(\d+)>$/.exec(item?.emoji || '');
+	if (!match) return null;
+	const emojiId = match[1];
+	if (!emojiImageCache.has(emojiId)) {
+		emojiImageCache.set(
+			emojiId,
+			loadImage(`https://cdn.discordapp.com/emojis/${emojiId}.png?size=128&quality=lossless`).catch(() => null)
+		);
+	}
+	return emojiImageCache.get(emojiId);
+}
+
 function drawFooter(ctx, claimed, complete) {
 	const message = claimed
 		? 'Season reward secured. Your legend carries into the next chapter.'
 		: complete
 			? 'Quest complete. Use /rpg season action:Claim to secure your reward.'
-			: 'Win encounters and return on multiple days before the season ends.';
+			: 'Win encounters and play Cadia RPG on three consecutive days.';
 	ctx.fillStyle = '#a8b1cb';
 	ctx.font = '500 17px Arial';
 	ctx.textAlign = 'center';

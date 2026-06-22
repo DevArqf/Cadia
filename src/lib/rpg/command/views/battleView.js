@@ -9,10 +9,12 @@ const {
 	SeparatorSpacingSize,
 	TextDisplayBuilder
 } = require('discord.js');
+const { formatBadge } = require('../../badges');
 
 function createBattleView({
 	actionButton,
 	adventureStoryImage,
+	badges,
 	battleResultImage,
 	classes,
 	color,
@@ -249,12 +251,25 @@ function createBattleView({
 					`${icon.xpLabel} **XP:** +${result.xp}`,
 					`${icon.loot} **Loot:** ${result.loot ? formatItemName(items[result.loot]) : 'None'}`,
 					result.unlockedAchievements?.length
-						? `${icon.success} **Achievement:** ${result.unlockedAchievements.at(-1).name} — share it with \`/rpg share type:Achievement\`.`
+						? formatAchievementUnlock(result.unlockedAchievements.at(-1), result.achievementRewards)
 						: null
 				].filter(Boolean)
 			],
 			footer: `${icon.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
 		});
+	}
+
+	function formatAchievementUnlock(achievement, rewardSummary) {
+		const badge = badges[achievement.badgeId];
+		const rewards = [];
+		if (rewardSummary?.gold) rewards.push(`${icon.coin} **${rewardSummary.gold.toLocaleString()} Gold**`);
+		if (rewardSummary?.shards) rewards.push(`${icon.shards} **${rewardSummary.shards.toLocaleString()} Relic Shards**`);
+		if (badge) rewards.push(formatBadge(badge));
+		return (
+			`**Achievement Unlocked: ${achievement.name}**` +
+			(rewards.length ? `\n**Rewards**\n${rewards.join('\n')}` : '') +
+			`\n-# Share it with \`/rpg share type:Achievement\`.`
+		);
 	}
 
 	function explorationScene(regionId, encounterName) {

@@ -1,4 +1,4 @@
-function registerRpgCommand(registry, description, { badges, classes, encounters, items, origins, regions }) {
+function registerRpgCommand(registry, description, { achievements, badges, classes, encounters, items, origins, regions }) {
 	const adminBossChoices = Object.values(encounters)
 		.flat()
 		.filter((encounter) => encounter.boss)
@@ -65,6 +65,7 @@ function registerRpgCommand(registry, description, { badges, classes, encounters
 					.addStringOption((option) => option.setName('item').setDescription('The item to equip').setRequired(true).setAutocomplete(true))
 			)
 			.addSubcommand((subcommand) => subcommand.setName('leaderboard').setDescription('View the RPG leaderboard'))
+			.addSubcommand((subcommand) => subcommand.setName('achievements').setDescription('View achievement progress and one-time rewards'))
 			.addSubcommand((subcommand) =>
 				subcommand
 					.setName('badge')
@@ -92,12 +93,7 @@ function registerRpgCommand(registry, description, { badges, classes, encounters
 						option
 							.setName('achievement')
 							.setDescription('Achievement to share')
-							.addChoices(
-								{ name: 'First Blood', value: 'first-blood' },
-								{ name: 'Veteran Warden', value: 'veteran' },
-								{ name: 'Boss Breaker', value: 'boss-breaker' },
-								{ name: 'Relic Vanguard', value: 'rank-ten' }
-							)
+							.addChoices(...achievements.map((achievement) => ({ name: achievement.name, value: achievement.id })))
 					)
 			)
 			.addSubcommand((subcommand) =>

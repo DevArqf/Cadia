@@ -6,6 +6,7 @@ const { sendAuditLog } = require('../../lib/util/auditLogger');
 const { recordCommandRun } = require('../../lib/util/botAnalytics');
 const { commandCategory, commandPathFromInteraction, isMeaningfulCommand } = require('../../lib/analytics/growth');
 const { recordRpgEvent } = require('../../lib/rpg/growth');
+const { recordSeasonActivity } = require('../../lib/rpg/playerGrowth');
 const { buildAlertNudge, componentReply, getActiveAlert, markAlertNudged, shouldSendAlertNudge } = require('../../lib/util/globalAlerts');
 
 class UserEvent extends Listener {
@@ -37,7 +38,8 @@ async function handleCommandSuccess(listener, payload) {
 			recordRpgEvent({
 				guildId: payload.interaction.guild?.id,
 				userId: payload.interaction.user.id
-			})
+			}),
+			recordSeasonActivity(payload.interaction.user.id)
 		);
 	}
 	await Promise.allSettled(analyticsTasks);

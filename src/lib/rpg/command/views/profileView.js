@@ -1,5 +1,7 @@
 const { ButtonStyle } = require('discord.js');
 
+const { badgeEmoji } = require('../../badges');
+
 function createProfileView({
 	actionButton,
 	badges,
@@ -58,7 +60,7 @@ function createProfileView({
 	function formatBadge(playerGrowth) {
 		const badge = badges[playerGrowth?.featuredBadge];
 		if (!badge) return `${icon.info} **Featured Badge:** None\n-# Earn badges from seasons, referrals, and server bosses.`;
-		return `${badge.symbol} **Featured Badge: ${badge.name}**\n-# ${badge.description}`;
+		return `${badgeEmoji(badge)} **Featured Badge: ${badge.name}**\n-# ${badge.description}`;
 	}
 
 	function buildAdminProfilePanel(profile, owner, title, note) {

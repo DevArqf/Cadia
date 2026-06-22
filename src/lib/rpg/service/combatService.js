@@ -191,7 +191,10 @@ function applyVictory(profile, encounter, stats, stanceBonus, result) {
 async function recordVictory(guildId, userId, profile, result) {
 	await recordRpgEvent({ guildId, userId, event: 'first_victory' });
 	await recordSeasonVictory(userId);
-	result.unlockedAchievements = (await syncAchievements(profile)).newlyUnlocked;
+	const achievementResult = await syncAchievements(profile);
+	result.unlockedAchievements = achievementResult.newlyUnlocked;
+	result.achievementRewards = achievementResult.rewards;
+	result.profile = achievementResult.profile;
 }
 
 module.exports = { prepareBossFight, resolveAdventure, resolveAdventureTurn, startAdventure };
