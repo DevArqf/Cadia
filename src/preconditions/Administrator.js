@@ -2,6 +2,12 @@ const { Precondition } = require('@sapphire/framework');
 const CadiaCommand = require('../lib/structures/commands/CadiaCommand');
 
 class AdministratorPrecondition extends Precondition {
+	messageRun(message) {
+		return message.member.permissions.has('Administrator')
+			? this.ok()
+			: this.error({ message: 'Only admins are allowed to run this command', identifier: 'PermissionError' });
+	}
+
 	/**
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */

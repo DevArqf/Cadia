@@ -2,6 +2,7 @@ const { version } = require('../../package.json');
 
 const branding = {
 	name: 'Cadia',
+	version,
 	tagline: 'A story-driven Discord RPG with community tools',
 	userAgent: `Cadia-Bot/v${version}`,
 	supportServerUrl: 'https://discord.gg/26R7kXa6dx',

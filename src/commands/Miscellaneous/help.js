@@ -30,6 +30,11 @@ const rpgCommandNames = [
 	'rpg inventory',
 	'rpg equip',
 	'rpg leaderboard',
+	'rpg achievements',
+	'rpg badge',
+	'rpg server-boss',
+	'rpg season',
+	'rpg refer',
 	'rpg bestiary',
 	'rpg delete',
 	'rpg admin find',
@@ -134,7 +139,8 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 				.addTextDisplayComponents(
 					new TextDisplayBuilder().setContent(
 						`${emojis.custom.openfolder} **Cadia Command Center**\n` +
-							`${emojis.custom.rpguser} Begin with \`/rpg tutorial\`, \`/rpg create\`, and \`/rpg adventure\`.\n` +
+							`-# Cadia v${branding.version} · Slash commands and \`cd\` prefix commands\n` +
+							`${emojis.custom.rpguser} Begin with \`/rpg tutorial\` or \`cd rpg tutorial\`.\n` +
 							`Browse **${totalCommands} commands** across the RPG and **Community Tools** categories below.`
 					)
 				)
@@ -152,7 +158,10 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 		)
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
-			new TextDisplayBuilder().setContent(`**Tip:** Start typing \`/\` in Discord to see options and required inputs for any command.`)
+			new TextDisplayBuilder().setContent(
+				`**Prefix:** Use \`cd command\`. For options, use positional values or \`name=value\`, such as \`cd rpg create name="Aster" class=warden origin=gateborn\`.\n` +
+					`**Tip:** Slash commands still provide Discord's guided option menus.`
+			)
 		)
 		.addActionRowComponents(
 			new ActionRowBuilder().addComponents(
@@ -239,7 +248,7 @@ function getCommandFiles(directory) {
 function formatCommandList(commands) {
 	if (!commands.length) return `${emojis.custom.warning} No commands were found in this category.`;
 
-	return commands.map((command) => `${emojis.custom.arrowright} \`/${command}\``).join('\n');
+	return commands.map((command) => `${emojis.custom.arrowright} \`/${command}\` · \`cd ${command}\``).join('\n');
 }
 
 function getCategoryIcon(name = '') {

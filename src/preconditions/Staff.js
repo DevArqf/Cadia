@@ -2,6 +2,12 @@ const { Precondition } = require('@sapphire/framework');
 const CadiaCommand = require('../lib/structures/commands/CadiaCommand');
 
 class StaffPrecondition extends Precondition {
+	messageRun(message) {
+		return message.member.permissions.has('ManageMessages')
+			? this.ok()
+			: this.error({ message: 'Only staffs are allowed to run this command', identifier: 'PermissionError' });
+	}
+
 	/**
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */

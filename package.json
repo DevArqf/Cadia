@@ -1,6 +1,6 @@
 {
 	"name": "cadia-bot",
-	"version": "4.6.7",
+	"version": "5.7.8",
 	"main": "src/index.js",
 	"author": "@DevArqf",
 	"license": "UNLICENSE",

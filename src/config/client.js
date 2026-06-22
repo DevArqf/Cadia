@@ -22,6 +22,7 @@ const ClientConfig = {
 	},
 	caseInsensitiveCommands: true,
 	caseInsensitivePrefixes: true,
+	defaultPrefix: 'cd ',
 	defaultCooldown: {
 		delay: seconds(5),
 		filteredUsers: PrivilegedUsers,

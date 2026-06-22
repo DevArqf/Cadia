@@ -15,6 +15,7 @@ const {
 const { GuildMessage } = require('../../types/Discord');
 const { seconds } = require('../../util/common/time');
 const { PermissionLevels } = require('../../types/Enums');
+const { runPrefixCommand } = require('../../commands/prefixAdapter');
 
 /**
  * Represents a custom command class with extended functionality.
@@ -71,6 +72,17 @@ class CadiaCommand extends Command {
 	 */
 	error(message, context) {
 		throw typeof message === 'string' ? new UserError({ identifier: 'Error', message, context }) : new UserError(message);
+	}
+
+	async messageRun(message, _args, context) {
+		try {
+			return await runPrefixCommand(this, message, context);
+		} catch (error) {
+			if (error?.identifier || error?.name === 'UserError') throw error;
+			return message.reply(
+				`Could not run that prefix command: ${error.message}\nUse \`cd help\` or the slash-command form for guided options.`
+			);
+		}
 	}
 
 	/**

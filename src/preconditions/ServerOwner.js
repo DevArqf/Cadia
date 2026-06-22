@@ -2,6 +2,12 @@ const { Precondition } = require('@sapphire/framework');
 const CadiaCommand = require('../lib/structures/commands/CadiaCommand');
 
 class ServerOwnerPrecondition extends Precondition {
+	messageRun(message) {
+		return message.guild.ownerId === message.member.id
+			? this.ok()
+			: this.error({ message: 'Only the server owner is allowed to run this command', identifier: 'PermissionError' });
+	}
+
 	/**
 	 * @param {CadiaCommand.ChatInputCommandInteraction} interaction
 	 */

@@ -1,11 +1,11 @@
-const { Command } = require('@sapphire/framework');
+const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { ChannelType, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const { color, emojis } = require('../../../config');
 const { CountActivity, CountingReward } = require('../../../lib/schemas/countSchema');
 const { GuildSchema } = require('../../../lib/schemas/guildSchema');
 const { invalidateCountingConfig } = require('../../../listeners/messages/counting/counting');
 
-class CountingCommand extends Command {
+class CountingCommand extends CadiaCommand {
 	constructor(context, options) {
 		super(context, {
 			...options,
