@@ -10,6 +10,8 @@ const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema')
 const { TicketSchema } = require('../schemas/ticketSchema');
 const { UserSettingsSchema } = require('../schemas/usersettingSchema');
 
+const DEFAULT_ALERT_FOOTER = 'Thank you to all **[TOTAL USERS]** Cadia users. This is the foundation for the next era of Cadia RPG.';
+
 function addDraftOptions(builder, { messageRequired = false } = {}) {
 	return builder
 		.addStringOption((option) =>
@@ -491,7 +493,7 @@ function readDraft(interaction) {
 	return {
 		title: normalizeOptional(interaction.options.getString('title')),
 		message: normalizeAlertMessage(interaction.options.getString('message')),
-		footer: normalizeOptional(interaction.options.getString('footer')),
+		footer: normalizeOptional(interaction.options.getString('footer')) || DEFAULT_ALERT_FOOTER,
 		thumbnail: normalizeOptional(interaction.options.getString('thumbnail')),
 		style: interaction.options.getString('style') || null
 	};
@@ -529,11 +531,15 @@ function resolveDraftVariables(draft, client) {
 function resolveAlertVariables(value, client) {
 	if (!value) return value;
 	const botIcon = client.user.displayAvatarURL({ extension: 'png', size: 256 });
+	const totalUsers = client.guilds.cache.reduce((total, guild) => total + (guild.memberCount || 0), 0).toLocaleString('en-US');
 
-	return value.replace(/\{botIcon\}/gi, botIcon).replace(/\{emoji\.([a-z0-9_]+)\}/gi, (_, key) => {
-		const emoji = getCustomEmoji(key);
-		return emoji ?? `{emoji.${key}}`;
-	});
+	return value
+		.replace(/\{botIcon\}/gi, botIcon)
+		.replace(/\[TOTAL USERS\]|\{totalUsers\}/gi, totalUsers)
+		.replace(/\{emoji\.([a-z0-9_]+)\}/gi, (_, key) => {
+			const emoji = getCustomEmoji(key);
+			return emoji ?? `{emoji.${key}}`;
+		});
 }
 
 function getCustomEmoji(key) {
@@ -562,6 +568,7 @@ function normalizeDiscordSubtext(value) {
 }
 
 module.exports = {
+	DEFAULT_ALERT_FOOTER,
 	addDraftOptions,
 	addTemplateOption,
 	applyTemplate,

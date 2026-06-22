@@ -21,7 +21,7 @@ test('RPG registration preserves public and developer subcommands', () => {
 			}
 		},
 		'RPG',
-		{ achievements, badges, classes, encounters, items, origins, regions }
+		{ badges, classes, encounters, items, origins, regions }
 	);
 
 	const names = command.options.map((option) => option.name);
@@ -31,7 +31,7 @@ test('RPG registration preserves public and developer subcommands', () => {
 	assert.ok(names.includes('achievements'));
 	assert.ok(names.includes('badge'));
 	assert.ok(!names.includes('global-leaderboard'));
-	assert.ok(names.includes('share'));
+	assert.ok(!names.includes('share'));
 	assert.ok(names.includes('server-boss'));
 	assert.ok(names.includes('season'));
 	assert.ok(names.includes('refer'));

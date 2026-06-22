@@ -28,14 +28,13 @@ const {
 	serverBossImage
 } = require('../../../lib/rpg/assets');
 const { createBossBattleCard, createEncounterBattleCard, hasEncounterBattleCard } = require('../../../lib/rpg/battleCanvas');
-const { achievements, badges, classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
+const { badges, classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
 const { createSeasonCard } = require('../../../lib/rpg/seasonCanvas');
 const { createDefeatStory } = require('../../../lib/rpg/defeatStory');
 const growth = require('../../../lib/rpg/playerGrowth');
-const { createAchievementShareCard, createCharacterShareCard } = require('../../../lib/rpg/shareCard');
 const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
 const { createBattleFlow } = require('../../../lib/rpg/command/battleFlow');
 const { createPlayerGrowthHandlers } = require('../../../lib/rpg/command/playerGrowthView');
@@ -220,8 +219,6 @@ const playerGrowthHandlers = createPlayerGrowthHandlers({
 	actionButton,
 	color,
 	componentReply,
-	createAchievementShareCard,
-	createCharacterShareCard,
 	createRpgLeaderboardCard,
 	createSeasonCard,
 	growth,
@@ -242,7 +239,7 @@ class UserCommand extends CadiaCommand {
 	}
 
 	registerApplicationCommands(registry) {
-		registerRpgCommand(registry, this.description, { achievements, badges, classes, encounters, items, origins, regions });
+		registerRpgCommand(registry, this.description, { badges, classes, encounters, items, origins, regions });
 	}
 
 	async chatInputRun(interaction) {
@@ -267,7 +264,6 @@ class UserCommand extends CadiaCommand {
 					leaderboard: playerGrowthHandlers.leaderboard,
 					achievements: playerGrowthHandlers.achievements,
 					badge: playerGrowthHandlers.badge,
-					share: playerGrowthHandlers.share,
 					'server-boss': playerGrowthHandlers.serverBoss,
 					season: playerGrowthHandlers.season,
 					refer: playerGrowthHandlers.refer,

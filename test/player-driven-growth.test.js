@@ -4,42 +4,10 @@ const test = require('node:test');
 process.env.BOT_OWNERS ??= 'test-owner';
 process.env.DEVELOPERS ??= 'test-developer';
 
-const { createAchievementShareCard, createCharacterShareCard } = require('../src/lib/rpg/shareCard');
 const { createSeasonCard } = require('../src/lib/rpg/seasonCanvas');
 const { createPlayerGrowthHandlers } = require('../src/lib/rpg/command/playerGrowthView');
 const { serverBossImage } = require('../src/lib/rpg/assets');
 const { componentReply, notice, panel } = require('../src/lib/util/components');
-
-test('shareable character and achievement cards render PNG attachments', async () => {
-	const profile = {
-		characterId: 'RPG-ABC123',
-		name: 'Aster',
-		level: 8,
-		battlesWon: 14,
-		region: 'broken-gate',
-		gold: 500,
-		relicShards: 3
-	};
-	const character = await createCharacterShareCard({
-		profile,
-		userName: 'warden',
-		badge: {
-			name: 'Stormglass Pathfinder',
-			image: 'Stormglass Pathfinder.png',
-			emojiKey: 'StormglassPathfinder'
-		}
-	});
-	const achievement = await createAchievementShareCard({
-		profile,
-		userName: 'warden',
-		achievement: { id: 'first-blood', name: 'First Blood', description: 'Win your first encounter.' }
-	});
-
-	assert.match(character.name, /\.png$/);
-	assert.match(achievement.name, /\.png$/);
-	assert.ok(character.attachment.length > 1_000);
-	assert.ok(achievement.attachment.length > 1_000);
-});
 
 test('season card renders quest progress and reward emoji as a PNG attachment', async () => {
 	const attachment = await createSeasonCard({
@@ -77,8 +45,6 @@ test('server boss responses switch from battle art to defeat art', async () => {
 		actionButton: () => null,
 		color: { RPG: '#5946b2', success: '#46b26b' },
 		componentReply,
-		createAchievementShareCard: () => null,
-		createCharacterShareCard: () => null,
 		createRpgLeaderboardCard: () => null,
 		createSeasonCard,
 		growth: {
@@ -310,8 +276,6 @@ test('season handler edits an acknowledged interaction after database work', asy
 		actionButton: () => null,
 		color: { RPG: '#5946b2', success: '#46b26b' },
 		componentReply,
-		createAchievementShareCard: () => null,
-		createCharacterShareCard: () => null,
 		createRpgLeaderboardCard: () => null,
 		createSeasonCard,
 		growth: {
@@ -372,8 +336,6 @@ test('players can feature an unlocked badge on profiles and shared cards', async
 		actionButton: () => null,
 		color: { RPG: '#5946b2', success: '#46b26b' },
 		componentReply,
-		createAchievementShareCard: () => null,
-		createCharacterShareCard: () => null,
 		createRpgLeaderboardCard: () => null,
 		createSeasonCard,
 		growth: {
@@ -412,8 +374,6 @@ test('achievement handler shows progress, rewards, and badge ownership', async (
 		actionButton: () => null,
 		color: { RPG: '#5946b2', success: '#46b26b' },
 		componentReply,
-		createAchievementShareCard: () => null,
-		createCharacterShareCard: () => null,
 		createRpgLeaderboardCard: () => null,
 		createSeasonCard,
 		growth: {

@@ -141,17 +141,6 @@ async function recordSeasonActivity(userId, now = new Date()) {
 	});
 }
 
-async function recordShare(userId) {
-	return withLockedAggregates([playerLock(userId)], async () => {
-		const growth = await loadPlayerGrowth(userId, true);
-		growth.shareCount += 1;
-		growth.lastSharedAt = Date.now();
-		growth.updatedAt = Date.now();
-		await growth.save();
-		return growth;
-	});
-}
-
 async function redeemReferral(userId, code) {
 	const referralCode = String(code).trim().toUpperCase();
 	return withLockedAggregates([playerLock(userId), `rpg:referral:${referralCode}`], async () => {
@@ -439,7 +428,6 @@ module.exports = {
 	getPlayerGrowth,
 	getServerBoss,
 	globalLeaderboard,
-	recordShare,
 	recordSeasonVictory,
 	recordSeasonActivity,
 	redeemReferral,

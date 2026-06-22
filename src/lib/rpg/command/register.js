@@ -1,4 +1,4 @@
-function registerRpgCommand(registry, description, { achievements, badges, classes, encounters, items, origins, regions }) {
+function registerRpgCommand(registry, description, { badges, classes, encounters, items, origins, regions }) {
 	const adminBossChoices = Object.values(encounters)
 		.flat()
 		.filter((encounter) => encounter.boss)
@@ -76,24 +76,6 @@ function registerRpgCommand(registry, description, { achievements, badges, class
 							.setDescription('An unlocked badge to feature')
 							.setRequired(true)
 							.addChoices(...Object.values(badges).map((badge) => ({ name: badge.name, value: badge.id })))
-					)
-			)
-			.addSubcommand((subcommand) =>
-				subcommand
-					.setName('share')
-					.setDescription('Share your Warden or an achievement card')
-					.addStringOption((option) =>
-						option
-							.setName('type')
-							.setDescription('What to share')
-							.setRequired(true)
-							.addChoices({ name: 'Character', value: 'character' }, { name: 'Achievement', value: 'achievement' })
-					)
-					.addStringOption((option) =>
-						option
-							.setName('achievement')
-							.setDescription('Achievement to share')
-							.addChoices(...achievements.map((achievement) => ({ name: achievement.name, value: achievement.id })))
 					)
 			)
 			.addSubcommand((subcommand) =>

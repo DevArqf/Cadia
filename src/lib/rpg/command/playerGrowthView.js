@@ -17,8 +17,6 @@ function createPlayerGrowthHandlers({
 	actionButton,
 	color,
 	componentReply,
-	createAchievementShareCard,
-	createCharacterShareCard,
 	createRpgLeaderboardCard,
 	createSeasonCard,
 	growth,
@@ -154,42 +152,6 @@ function createPlayerGrowthHandlers({
 		};
 	}
 
-	async function share(interaction) {
-		const profile = await service.requireProfile(interaction.guild.id, interaction.user.id);
-		const player = await executeGrowth(() => growth.getPlayerGrowth(interaction.user.id));
-		const { unlocked } = await executeGrowth(() => growth.syncAchievements(profile));
-		const type = interaction.options.getString('type', true);
-		let attachment;
-		let title;
-
-		if (type === 'achievement') {
-			const requestedId = interaction.options.getString('achievement');
-			const achievement = (requestedId ? unlocked.find((entry) => entry.id === requestedId) : unlocked.at(-1)) || null;
-			if (!achievement) throw new service.RpgError('You have not unlocked that achievement yet.');
-			attachment = await createAchievementShareCard({ profile, userName: interaction.user.username, achievement });
-			title = `${icon.success} **Achievement Shared: ${achievement.name}**`;
-		} else {
-			const badge = growth.badges[player.featuredBadge] || null;
-			attachment = await createCharacterShareCard({
-				profile,
-				userName: interaction.user.username,
-				badge
-			});
-			title = `${icon.person} **${profile.name}'s Warden Card**`;
-		}
-
-		await executeGrowth(() => growth.recordShare(interaction.user.id));
-		const fileName = attachment.name;
-		const container = new ContainerBuilder()
-			.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
-			.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${title}\n-# Shared by ${interaction.user.username}`))
-			.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${fileName}`)))
-			.addTextDisplayComponents(
-				new TextDisplayBuilder().setContent(`${icon.arrowRight} Create your own legend with \`/rpg tutorial\` and \`/rpg create\`.`)
-			);
-		return interaction.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
-	}
-
 	async function achievements(interaction) {
 		const profile = await service.requireProfile(interaction.guild.id, interaction.user.id);
 		const result = await executeGrowth(() => growth.syncAchievements(profile));
@@ -214,7 +176,7 @@ function createPlayerGrowthHandlers({
 				title: `**Warden Achievements**`,
 				subtitle: `${growth.achievements.filter((achievement) => unlockedIds.has(achievement.id)).length}/${growth.achievements.length} unlocked · rewards can only be claimed once`,
 				sections: entries,
-				footer: `Feature an earned badge with /rpg badge, or share an achievement with /rpg share.`
+				footer: `Feature an earned badge on your profile with /rpg badge.`
 			})
 		);
 		return interaction.deferred ? interaction.editReply(response) : interaction.reply(response);
@@ -347,7 +309,7 @@ function createPlayerGrowthHandlers({
 		);
 	}
 
-	return { achievements, badge, leaderboard, refer, season, serverBoss, share };
+	return { achievements, badge, leaderboard, refer, season, serverBoss };
 }
 
 module.exports = { createPlayerGrowthHandlers };

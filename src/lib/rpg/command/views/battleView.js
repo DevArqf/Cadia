@@ -268,7 +268,7 @@ function createBattleView({
 		return (
 			`**Achievement Unlocked: ${achievement.name}**` +
 			(rewards.length ? `\n**Rewards**\n${rewards.join('\n')}` : '') +
-			`\n-# Share it with \`/rpg share type:Achievement\`.`
+			`\n-# Feature its badge on your profile with \`/rpg badge\`.`
 		);
 	}
 
