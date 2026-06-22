@@ -10,6 +10,7 @@ process.env.DEVELOPERS ??= 'developer';
 const { ClientConfig } = require('../src/config');
 const { getCommandSchema, parsePrefixOptions, tokenize } = require('../src/lib/commands/prefixAdapter');
 const { findClosestCommand } = require('../src/listeners/commands/unknownMessageCommand');
+const { UserEvent: PrefixOnlyEvent } = require('../src/listeners/commands/unknownMessageCommandName');
 const CadiaCommand = require('../src/lib/structures/commands/CadiaCommand');
 const { branding } = require('../src/config');
 
@@ -135,6 +136,24 @@ test('unknown prefix commands suggest the closest available command', () => {
 	assert.equal(findClosestCommand('pnig', commands), 'ping');
 	assert.equal(findClosestCommand('leaderbord', commands), 'leaderboard');
 	assert.equal(findClosestCommand('completely-different', commands), null);
+});
+
+test('typing only cd asks whether the user needs help', async () => {
+	let reply = null;
+	const listener = Object.create(PrefixOnlyEvent.prototype);
+
+	await listener.run({
+		commandPrefix: 'cd ',
+		message: {
+			reply: async (payload) => {
+				reply = payload;
+			}
+		}
+	});
+
+	assert.match(reply, /Need help using Cadia/);
+	assert.match(reply, /cd help/);
+	assert.match(reply, /cd rpg tutorial/);
 });
 
 function fakeMessage({ user, channel, role } = {}) {
