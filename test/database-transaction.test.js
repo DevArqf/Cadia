@@ -38,6 +38,36 @@ test('transactions roll back failed work', async () => {
 	}
 });
 
+test('transactions retry a reset while acquiring the first lock before domain work starts', async () => {
+	const events = [];
+	const connection = transactionConnection(events);
+	let lockAttempts = 0;
+	connection.query = async (sql, params) => {
+		if (sql.includes('RELEASE_LOCK')) {
+			events.push(`unlock:${params[0]}`);
+			return [[{ acquired: 1 }]];
+		}
+		lockAttempts += 1;
+		events.push(`lock:${params[0]}:${lockAttempts}`);
+		if (lockAttempts === 1) throw Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' });
+		return [[{ acquired: 1 }]];
+	};
+	const loaded = loadMysql(connection);
+
+	try {
+		const result = await loaded.mysql.withTransaction(async () => {
+			await loaded.mysql.acquireTransactionLock('rpg:retry');
+			return 'done';
+		});
+
+		assert.equal(result, 'done');
+		assert.equal(lockAttempts, 2);
+		assert.equal(events.filter((event) => event === 'commit').length, 1);
+	} finally {
+		loaded.restore();
+	}
+});
+
 function transactionConnection(events) {
 	return {
 		events,

@@ -59,6 +59,12 @@ async function globalLeaderboard(type = 'level', limit = 100) {
 }
 
 async function getPlayerGrowth(userId) {
+	const existing = await repositories.players.findOne({ userId });
+	if (existing) {
+		hydrate(existing);
+		if (!(existing.cosmetics || []).length) return existing;
+	}
+
 	return withLockedAggregates([playerLock(userId)], async () => {
 		const [growth, profile] = await Promise.all([loadPlayerGrowth(userId, true), repositories.profiles.findOneForUpdate({ userId })]);
 		if (profile && migrateLegacyRewards(growth, profile)) await Promise.all([growth.save(), profile.save()]);

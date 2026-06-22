@@ -156,6 +156,19 @@ test('global leaderboards sort across guilds and seasonal rewards are unique per
 	}
 });
 
+test('reading existing player growth does not open a write transaction', async () => {
+	const player = growthRecord('reader');
+	const loaded = loadGrowth({ growthRecords: [player] });
+
+	try {
+		const result = await loaded.module.getPlayerGrowth('reader');
+		assert.equal(result, player);
+		assert.deepEqual(loaded.transactionEvents, []);
+	} finally {
+		loaded.restore();
+	}
+});
+
 test('achievements atomically award currency and a special badge only once', async () => {
 	const userProfile = profile('winner', 'guild', { battlesWon: 1 });
 	const player = growthRecord('winner');

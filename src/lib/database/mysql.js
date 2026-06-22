@@ -59,23 +59,40 @@ async function query(sql, params = []) {
 
 async function withTransaction(operation) {
 	if (transactionStorage.getStore()) return operation();
-	if (!connected) await reconnect();
+	const attempts = Math.max(Number(process.env.MYSQL_RETRY_ATTEMPTS) || 3, 1);
 
-	const connection = await getPool().getConnection();
-	const transaction = { connection, locks: new Set() };
-	try {
-		await connection.beginTransaction();
-		const result = await transactionStorage.run(transaction, operation);
-		await connection.commit();
-		return result;
-	} catch (error) {
-		await connection.rollback().catch(() => null);
-		throw error;
-	} finally {
-		for (const lockName of [...transaction.locks].reverse()) {
-			await connection.query('SELECT RELEASE_LOCK(?)', [lockName]).catch(() => null);
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		let connection;
+		let transaction;
+		try {
+			if (!connected) await reconnect();
+			connection = await getPool().getConnection();
+			transaction = { connection, locks: new Set(), operationInvoked: false };
+			await connection.beginTransaction();
+			const result = await transactionStorage.run(transaction, async () => {
+				transaction.operationInvoked = true;
+				return operation();
+			});
+			await connection.commit();
+			connected = true;
+			lastError = null;
+			return result;
+		} catch (error) {
+			lastError = error;
+			await connection?.rollback().catch(() => null);
+			const retrySafe = isTransientConnectionError(error) && (!transaction?.operationInvoked || error.retryTransactionBeforeOperation === true);
+			if (!retrySafe || attempt === attempts) {
+				if (isTransientConnectionError(error)) connected = false;
+				throw error;
+			}
+			connected = false;
+			await delay(Math.min(250 * 2 ** (attempt - 1), 2_000));
+		} finally {
+			for (const lockName of [...(transaction?.locks || [])].reverse()) {
+				await connection?.query('SELECT RELEASE_LOCK(?)', [lockName]).catch(() => null);
+			}
+			connection?.release();
 		}
-		connection.release();
 	}
 }
 
@@ -85,7 +102,13 @@ async function acquireTransactionLock(name, timeoutSeconds = 5) {
 	const lockName = String(name);
 	if (transaction.locks.has(lockName)) return;
 
-	const [rows] = await transaction.connection.query('SELECT GET_LOCK(?, ?) AS acquired', [lockName, timeoutSeconds]);
+	let rows;
+	try {
+		[rows] = await transaction.connection.query('SELECT GET_LOCK(?, ?) AS acquired', [lockName, timeoutSeconds]);
+	} catch (error) {
+		if (transaction.locks.size === 0) error.retryTransactionBeforeOperation = true;
+		throw error;
+	}
 	if (Number(rows[0]?.acquired) !== 1) throw new Error(`Could not acquire transaction lock: ${name}`);
 	transaction.locks.add(lockName);
 }
