@@ -30,16 +30,7 @@ class UserCommand extends CadiaCommand {
 		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
 
 		try {
-			const response = await axios.get('https://meme-api.com/gimme/memes', {
-				headers: {
-					'User-Agent': branding.userAgent
-				},
-				timeout: 10000
-			});
-
-			if (!response.data?.url || response.data.nsfw) throw new Error('Invalid meme response');
-
-			const { postLink, title, url, ups } = response.data;
+			const { postLink, title, url, ups, provider } = await fetchRandomMeme();
 			const container = new ContainerBuilder()
 				.setAccentColor(Number.parseInt(color.default.replace('#', ''), 16))
 				.addTextDisplayComponents(
@@ -50,7 +41,9 @@ class UserCommand extends CadiaCommand {
 				.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 				.addTextDisplayComponents(
 					new TextDisplayBuilder().setContent(
-						`${emojis.custom.upvote} **Upvotes:** ${ups ?? 0}\n${emojis.custom.person} Requested by **${interaction.user.displayName}**`
+						`${emojis.custom.upvote} **Upvotes:** ${ups ?? 'Unavailable'}\n` +
+							`${emojis.custom.info} **Source:** ${provider}\n` +
+							`${emojis.custom.person} Requested by **${interaction.user.displayName}**`
 					)
 				)
 				.addActionRowComponents(
@@ -62,7 +55,7 @@ class UserCommand extends CadiaCommand {
 				flags: MessageFlags.IsComponentsV2
 			});
 		} catch (error) {
-			console.error(`Failed to fetch meme: ${error.response?.status ?? error.code ?? error.message}`);
+			this.container.logger.warn(`Meme providers unavailable: ${error.message}`);
 
 			return interaction.editReply({
 				components: [
@@ -78,6 +71,57 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
+async function fetchRandomMeme(request = axios) {
+	const failures = [];
+	try {
+		const response = await request.get('https://meme-api.com/gimme/memes', requestOptions());
+		if (response.data?.url && !response.data.nsfw) {
+			return {
+				postLink: response.data.postLink || response.data.url,
+				title: response.data.title || 'Random Meme',
+				url: response.data.url,
+				ups: response.data.ups,
+				provider: 'Meme API'
+			};
+		}
+		failures.push('Meme API returned an invalid or NSFW response');
+	} catch (error) {
+		failures.push(`Meme API ${errorCode(error)}`);
+	}
+
+	try {
+		const response = await request.get('https://api.imgflip.com/get_memes?type=image', requestOptions());
+		const memes = response.data?.success ? response.data.data?.memes : null;
+		if (Array.isArray(memes) && memes.length) {
+			const meme = memes[Math.floor(Math.random() * memes.length)];
+			return {
+				postLink: `https://imgflip.com/memetemplate/${meme.id}`,
+				title: meme.name || 'Popular Meme',
+				url: meme.url,
+				ups: null,
+				provider: 'Imgflip'
+			};
+		}
+		failures.push('Imgflip returned no meme templates');
+	} catch (error) {
+		failures.push(`Imgflip ${errorCode(error)}`);
+	}
+
+	throw new Error(failures.join('; '));
+}
+
+function requestOptions() {
+	return {
+		headers: { 'User-Agent': branding.userAgent },
+		timeout: 10_000
+	};
+}
+
+function errorCode(error) {
+	return error.response?.status ?? error.code ?? error.message;
+}
+
 module.exports = {
-	UserCommand
+	UserCommand,
+	fetchRandomMeme
 };
