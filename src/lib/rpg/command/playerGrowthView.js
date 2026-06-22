@@ -168,12 +168,11 @@ function createPlayerGrowthHandlers({
 			attachment = createAchievementShareCard({ profile, userName: interaction.user.username, achievement });
 			title = `${icon.success} **Achievement Shared: ${achievement.name}**`;
 		} else {
-			const cosmeticId = player.cosmetics.at(-1);
-			const cosmetic = Object.values(growth.cosmetics).find((entry) => entry.id === cosmeticId);
+			const badge = growth.badges[player.featuredBadge] || null;
 			attachment = createCharacterShareCard({
 				profile,
 				userName: interaction.user.username,
-				cosmetic: cosmetic?.name
+				badge
 			});
 			title = `${icon.person} **${profile.name}'s Warden Card**`;
 		}
@@ -188,6 +187,21 @@ function createPlayerGrowthHandlers({
 				new TextDisplayBuilder().setContent(`${icon.arrowRight} Create your own legend with \`/rpg tutorial\` and \`/rpg create\`.`)
 			);
 		return interaction.reply({ components: [container], files: [attachment], flags: MessageFlags.IsComponentsV2 });
+	}
+
+	async function badge(interaction) {
+		const badgeId = interaction.options.getString('badge', true);
+		const result = await executeGrowth(() => growth.setFeaturedBadge(interaction.user.id, badgeId));
+		return interaction.reply(
+			componentReply(
+				notice(
+					`${result.badge.symbol} **Badge Featured: ${result.badge.name}**`,
+					`This badge now appears on your RPG profile and shared character card.`,
+					color.success
+				),
+				true
+			)
+		);
 	}
 
 	async function serverBoss(interaction) {
@@ -220,7 +234,7 @@ function createPlayerGrowthHandlers({
 							result.contribution ? `${icon.success} **Your Total:** ${result.contribution.toLocaleString()}` : null
 						].filter(Boolean),
 						boss.status === 'defeated'
-							? `${icon.loot} Every contributor received the limited **${growth.cosmetics.raid.name}** cosmetic.`
+							? `${icon.loot} Every contributor received **${growth.rewards.raid.item.name}** and the **${growth.rewards.raid.badge.name}** badge.`
 							: `${icon.arrowRight} Use \`/rpg server-boss action:Attack\` every 30 minutes. Damage scales with your Warden.`
 					]
 				})
@@ -246,7 +260,7 @@ function createPlayerGrowthHandlers({
 			fileName
 		});
 		const statusText = claimed
-			? `${icon.success} The limited cosmetic is now in your collection.`
+			? `${icon.success} **${activeSeason.item.name}** and the **${activeSeason.badge.name}** badge are now yours.`
 			: status.complete
 				? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
 				: `${icon.arrowRight} Complete both objectives before the season ends.`;
@@ -275,7 +289,7 @@ function createPlayerGrowthHandlers({
 				componentReply(
 					notice(
 						`${icon.success} **Referral Redeemed**`,
-						`You and the referring Warden unlocked **${result.cosmetic.name}**. Cosmetic rewards do not affect combat power.`,
+						`You and the referring Warden received **${result.item.name}** and the **${result.badge.name}** badge.`,
 						color.success
 					)
 				)
@@ -288,12 +302,12 @@ function createPlayerGrowthHandlers({
 				panel({
 					accentColor: color.RPG,
 					title: `${icon.person} **Invite Another Warden**`,
-					subtitle: 'Cosmetic-only referral rewards',
+					subtitle: 'Item and badge referral rewards',
 					sections: [
 						`${icon.info} **Your Code:** \`${player.referralCode}\``,
 						`${icon.success} **Successful Referrals:** ${player.referrals}`,
 						`${icon.arrowRight} Your friend creates a Warden, then runs \`/rpg refer action:Redeem code:${player.referralCode}\`.`,
-						`${icon.loot} Both players unlock **${growth.cosmetics.referral.name}**.`
+						`${icon.loot} Both players receive **${growth.rewards.referral.item.name}** and the **${growth.rewards.referral.badge.name}** badge.`
 					]
 				}),
 				true
@@ -301,7 +315,7 @@ function createPlayerGrowthHandlers({
 		);
 	}
 
-	return { leaderboard, refer, season, serverBoss, share };
+	return { badge, leaderboard, refer, season, serverBoss, share };
 }
 
 module.exports = { createPlayerGrowthHandlers };

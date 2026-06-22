@@ -175,7 +175,10 @@ function rarityColor(rarity) {
 			uncommon: '#22c55e',
 			rare: '#3b82f6',
 			epic: '#a855f7',
-			legendary: '#f59e0b'
+			legendary: '#f59e0b',
+			limited: '#67e8f9',
+			referral: '#f472b6',
+			cooperative: '#facc15'
 		}[rarity] || '#9ca3af'
 	);
 }

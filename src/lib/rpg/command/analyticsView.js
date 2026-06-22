@@ -120,7 +120,7 @@ function createAnalyticsView({ classes, color, icon, items, panel, regions, serv
 			[
 				`${icon.person} **Shared Cards:** ${number(growth.shares)}`,
 				`${icon.success} **Referral Conversions:** ${number(growth.referrals)}`,
-				`${icon.loot} **Cosmetics Owned:** ${number(growth.cosmeticsOwned)}`,
+				`${icon.loot} **Badges Owned:** ${number(growth.badgesOwned)}`,
 				`${icon.info} **Achievement Unlocks:** ${number(growth.achievementUnlocks)}`
 			],
 			[
@@ -129,7 +129,7 @@ function createAnalyticsView({ classes, color, icon, items, panel, regions, serv
 				`${icon.success} **Defeated Server Bosses:** ${number(growth.defeatedServerBosses)}`,
 				`${icon.person} **Boss Contributors:** ${number(growth.bossContributors)}`
 			],
-			`${icon.info} **Growth Principle**\nThese rewards are cosmetic and social. They do not increase combat power or bypass progression.`
+			`${icon.info} **Growth Principle**\nLimited rewards provide usable equipment, while badges preserve visible social and progression achievements.`
 		];
 	}
 

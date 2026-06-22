@@ -1,4 +1,4 @@
-function registerRpgCommand(registry, description, { classes, encounters, items, origins, regions }) {
+function registerRpgCommand(registry, description, { badges, classes, encounters, items, origins, regions }) {
 	const adminBossChoices = Object.values(encounters)
 		.flat()
 		.filter((encounter) => encounter.boss)
@@ -67,6 +67,18 @@ function registerRpgCommand(registry, description, { classes, encounters, items,
 			.addSubcommand((subcommand) => subcommand.setName('leaderboard').setDescription('View the RPG leaderboard'))
 			.addSubcommand((subcommand) =>
 				subcommand
+					.setName('badge')
+					.setDescription('Choose a badge to display on your profile and character card')
+					.addStringOption((option) =>
+						option
+							.setName('badge')
+							.setDescription('An unlocked badge to feature')
+							.setRequired(true)
+							.addChoices(...Object.values(badges).map((badge) => ({ name: badge.name, value: badge.id })))
+					)
+			)
+			.addSubcommand((subcommand) =>
+				subcommand
 					.setName('share')
 					.setDescription('Share your Warden or an achievement card')
 					.addStringOption((option) =>
@@ -107,7 +119,7 @@ function registerRpgCommand(registry, description, { classes, encounters, items,
 					.addStringOption((option) =>
 						option
 							.setName('action')
-							.setDescription('View progress or claim the limited cosmetic')
+							.setDescription('View progress or claim the limited item and badge')
 							.setRequired(true)
 							.addChoices({ name: 'View', value: 'view' }, { name: 'Claim', value: 'claim' })
 					)

@@ -176,7 +176,7 @@ async function adminAnalytics() {
 		growth: {
 			shares: sumBy(playerGrowthRecords, (record) => record.shareCount || 0),
 			referrals: sumBy(playerGrowthRecords, (record) => record.referrals || 0),
-			cosmeticsOwned: sumBy(playerGrowthRecords, (record) => (record.cosmetics || []).length),
+			badgesOwned: sumBy(playerGrowthRecords, (record) => (record.badges || record.cosmetics || []).length),
 			achievementUnlocks: sumBy(playerGrowthRecords, (record) => (record.achievements || []).length),
 			seasonClaims: sumBy(playerGrowthRecords, (record) => (record.seasonClaims || []).length),
 			activeServerBosses: serverBossRecords.filter((record) => record.status === 'active').length,

@@ -2,6 +2,7 @@ const { ButtonStyle } = require('discord.js');
 
 function createProfileView({
 	actionButton,
+	badges,
 	classes,
 	color,
 	formatCompactStats,
@@ -19,7 +20,7 @@ function createProfileView({
 	titleCase,
 	xpRemaining
 }) {
-	function buildProfilePanel(profile, user) {
+	function buildProfilePanel(profile, user, playerGrowth = null) {
 		const region = regions[profile.region];
 		const archetype = classes[profile.classId];
 		const stats = service.getEffectiveStats(profile);
@@ -41,6 +42,7 @@ function createProfileView({
 				],
 				`${icon.settings} **Stats**\n${formatCompactStats(stats)}`,
 				formatProfileEquipment(profile),
+				formatBadge(playerGrowth),
 				`${profileFlavor(profile)}\n${icon.arrowRight} **Next Unlock:** ${nextUnlock(profile)}`
 			],
 			buttons: [
@@ -51,6 +53,12 @@ function createProfileView({
 			],
 			footer: `${icon.clock} Last updated <t:${Math.floor(profile.updatedAt / 1000)}:R>`
 		});
+	}
+
+	function formatBadge(playerGrowth) {
+		const badge = badges[playerGrowth?.featuredBadge];
+		if (!badge) return `${icon.info} **Featured Badge:** None\n-# Earn badges from seasons, referrals, and server bosses.`;
+		return `${badge.symbol} **Featured Badge: ${badge.name}**\n-# ${badge.description}`;
 	}
 
 	function buildAdminProfilePanel(profile, owner, title, note) {

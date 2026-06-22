@@ -169,6 +169,66 @@ const items = {
 		rarity: 'common',
 		stats: { hp: 260 },
 		description: 'Restores a small amount of HP after an expedition.'
+	},
+	stormglass_aura: {
+		id: 'stormglass_aura',
+		name: 'Stormglass Aura',
+		emojiKey: 'stormglassAura',
+		emoji: '<:StormglassAura:1518462673485041714>',
+		slot: 'armor',
+		rarity: 'limited',
+		stats: { defense: 88, hp: 320, focus: 28 },
+		traits: ['warded', 'crystal'],
+		description: 'Limited storm-forged armor earned by completing a seasonal quest.'
+	},
+	gatebound_crest: {
+		id: 'gatebound_crest',
+		name: 'Gatebound Crest',
+		emojiKey: 'gateboundCrest',
+		emoji: '<:GateboundCrest:1518462671953989713>',
+		slot: 'charm',
+		rarity: 'referral',
+		stats: { luck: 38, focus: 34, speed: 12 },
+		traits: ['arcane', 'warded'],
+		description: 'A referral charm that strengthens a Warden through luck, focus, and speed.'
+	},
+	worldbreaker_sigil: {
+		id: 'worldbreaker_sigil',
+		name: 'Worldbreaker Sigil',
+		emojiKey: 'worldbreakerSigil',
+		emoji: '<:WorldbreakerSigil:1518462690714980543>',
+		slot: 'weapon',
+		rarity: 'cooperative',
+		stats: { attack: 128, defense: 24, focus: 20 },
+		traits: ['steel', 'pierce', 'crystal'],
+		description: 'A cooperative boss weapon awarded to Wardens who helped break a seasonal colossus.'
+	}
+};
+
+const badges = {
+	'stormglass-pathfinder': {
+		id: 'stormglass-pathfinder',
+		name: 'Stormglass Pathfinder',
+		rarity: 'Limited',
+		source: 'Seasonal Quest',
+		description: 'Completed a seasonal quest during the Stormglass era.',
+		symbol: '◆'
+	},
+	'gatebound-guide': {
+		id: 'gatebound-guide',
+		name: 'Gatebound Guide',
+		rarity: 'Referral',
+		source: 'Referral Reward',
+		description: 'Helped another Warden enter Cadia through the referral system.',
+		symbol: '◇'
+	},
+	worldbreaker: {
+		id: 'worldbreaker',
+		name: 'Worldbreaker',
+		rarity: 'Cooperative',
+		source: 'Server Boss',
+		description: 'Contributed to the defeat of a seasonal server boss.',
+		symbol: '✦'
 	}
 };
 
@@ -427,6 +487,7 @@ const npcQuests = [
 ];
 
 module.exports = {
+	badges,
 	classes,
 	encounters,
 	items,

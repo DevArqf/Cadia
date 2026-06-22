@@ -32,7 +32,7 @@ function createSeasonCard({ season, progress, complete = false, claimed = false,
 		target: season.quest.activeDays,
 		accent: '#6fd7ff'
 	});
-	drawReward(ctx, season.cosmetic, claimed, complete, accent);
+	drawReward(ctx, season.item, claimed, complete, accent);
 	drawFooter(ctx, claimed, complete);
 
 	return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: fileName });
@@ -178,7 +178,7 @@ function drawProgressCard(ctx, { x, y, width: cardWidth, label, value, target, a
 	ctx.fillText(`${percentage}% complete`, x + 28, y + 128);
 }
 
-function drawReward(ctx, cosmetic, claimed, complete, accent) {
+function drawReward(ctx, reward, claimed, complete, accent) {
 	const y = 436;
 	ctx.fillStyle = 'rgba(113, 84, 186, 0.13)';
 	roundRect(ctx, 74, y, width - 148, 132, 22);
@@ -200,10 +200,10 @@ function drawReward(ctx, cosmetic, claimed, complete, accent) {
 
 	ctx.fillStyle = '#a995e6';
 	ctx.font = '700 14px Arial';
-	ctx.fillText('LIMITED COSMETIC REWARD', 207, y + 38);
+	ctx.fillText('LIMITED EQUIPMENT REWARD', 207, y + 38);
 	ctx.fillStyle = '#f4efff';
 	ctx.font = '700 31px Georgia';
-	ctx.fillText(trimText(ctx, cosmetic.name, 580), 207, y + 79);
+	ctx.fillText(trimText(ctx, reward.name, 580), 207, y + 79);
 	ctx.fillStyle = '#98a3c1';
 	ctx.font = '500 16px Arial';
 	ctx.fillText(
@@ -215,7 +215,7 @@ function drawReward(ctx, cosmetic, claimed, complete, accent) {
 	ctx.textAlign = 'right';
 	ctx.fillStyle = claimed ? '#65e6a5' : '#aab3ce';
 	ctx.font = '700 17px Arial';
-	ctx.fillText(claimed ? 'OWNED' : cosmetic.rarity || 'LIMITED', width - 104, y + 72);
+	ctx.fillText(claimed ? 'OWNED' : reward.rarity || 'LIMITED', width - 104, y + 72);
 	ctx.textAlign = 'left';
 }
 

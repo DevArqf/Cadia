@@ -6,6 +6,8 @@ const RpgPlayerGrowthSchema = createModel('RpgPlayerGrowthSchema', {
 	referredBy: null,
 	referrals: 0,
 	cosmetics: () => [],
+	badges: () => [],
+	featuredBadge: null,
 	achievements: () => [],
 	seasonClaims: () => [],
 	seasonVictories: () => ({}),

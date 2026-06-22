@@ -1,14 +1,14 @@
 const { createCanvas } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 
-function createCharacterShareCard({ profile, userName, cosmetic = null }) {
+function createCharacterShareCard({ profile, userName, badge = null }) {
 	return renderCard({
 		title: profile.name,
 		subtitle: `${userName} • Rank ${profile.level} • ${profile.battlesWon || 0} victories`,
 		lines: [
 			`Region: ${profile.region}`,
 			`Gold: ${(profile.gold || 0).toLocaleString()}  •  Shards: ${(profile.relicShards || 0).toLocaleString()}`,
-			cosmetic ? `Featured Cosmetic: ${cosmetic}` : 'A Warden of Cadia'
+			badge ? `Featured Badge: ${badge.symbol || ''} ${badge.name}`.trim() : 'Featured Badge: None'
 		],
 		fileName: `cadia-character-${profile.characterId}.png`
 	});

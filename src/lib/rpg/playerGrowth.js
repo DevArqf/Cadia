@@ -1,11 +1,12 @@
 const { randomBytes } = require('node:crypto');
 const repositories = require('./repositories');
+const { badges, items } = require('./data');
 
 const BOSS_ATTACK_COOLDOWN = 30 * 60_000;
-const cosmetics = {
-	seasonal: { id: 'stormglass-aura', name: 'Stormglass Aura', rarity: 'Limited' },
-	referral: { id: 'gatebound-crest', name: 'Gatebound Crest', rarity: 'Referral' },
-	raid: { id: 'worldbreaker-sigil', name: 'Worldbreaker Sigil', rarity: 'Cooperative' }
+const rewards = {
+	seasonal: { item: items.stormglass_aura, badge: badges['stormglass-pathfinder'] },
+	referral: { item: items.gatebound_crest, badge: badges['gatebound-guide'] },
+	raid: { item: items.worldbreaker_sigil, badge: badges.worldbreaker }
 };
 const achievements = [
 	{ id: 'first-blood', name: 'First Blood', description: 'Win your first encounter.', test: (profile) => profile.battlesWon >= 1 },
@@ -26,7 +27,8 @@ function currentSeason(now = new Date()) {
 		startsAt,
 		endsAt,
 		quest: { victories: 5, activeDays: 3 },
-		cosmetic: { ...cosmetics.seasonal, id: `${cosmetics.seasonal.id}-${id}` }
+		item: rewards.seasonal.item,
+		badge: rewards.seasonal.badge
 	};
 }
 
@@ -36,7 +38,11 @@ async function globalLeaderboard(type = 'level', limit = 100) {
 }
 
 async function getPlayerGrowth(userId) {
-	return withLockedAggregates([playerLock(userId)], () => loadPlayerGrowth(userId, true));
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const [growth, profile] = await Promise.all([loadPlayerGrowth(userId, true), repositories.profiles.findOneForUpdate({ userId })]);
+		if (profile && migrateLegacyRewards(growth, profile)) await Promise.all([growth.save(), profile.save()]);
+		return growth;
+	});
 }
 
 async function loadPlayerGrowth(userId, forUpdate = false) {
@@ -87,8 +93,6 @@ async function recordShare(userId) {
 }
 
 async function redeemReferral(userId, code) {
-	const profile = await repositories.profiles.findOne({ userId });
-	if (!profile) throw new Error('Create your Warden before redeeming a referral code.');
 	const referralCode = String(code).trim().toUpperCase();
 	return withLockedAggregates([playerLock(userId), `rpg:referral:${referralCode}`], async () => {
 		const growth = await loadPlayerGrowth(userId, true);
@@ -96,14 +100,22 @@ async function redeemReferral(userId, code) {
 		const referrer = await repositories.players.findOneForUpdate({ referralCode });
 		if (!referrer) throw new Error('That referral code does not exist.');
 		if (referrer.userId === userId) throw new Error('You cannot redeem your own referral code.');
+		const [profile, referrerProfile] = await Promise.all([
+			repositories.profiles.findOneForUpdate({ userId }),
+			repositories.profiles.findOneForUpdate({ userId: referrer.userId })
+		]);
+		if (!profile) throw new Error('Create your Warden before redeeming a referral code.');
+		if (!referrerProfile) throw new Error('The referring Warden no longer has an RPG profile.');
 
 		growth.referredBy = referrer.userId;
-		addCosmetic(growth, cosmetics.referral.id);
+		addBadge(growth, rewards.referral.badge.id);
+		addInventoryItem(profile, rewards.referral.item.id);
 		referrer.referrals = (referrer.referrals || 0) + 1;
-		addCosmetic(referrer, cosmetics.referral.id);
+		addBadge(referrer, rewards.referral.badge.id);
+		addInventoryItem(referrerProfile, rewards.referral.item.id);
 		growth.updatedAt = referrer.updatedAt = Date.now();
-		await Promise.all([growth.save(), referrer.save()]);
-		return { growth, referrer, cosmetic: cosmetics.referral };
+		await Promise.all([growth.save(), profile.save(), referrer.save(), referrerProfile.save()]);
+		return { growth, profile, referrer, referrerProfile, item: rewards.referral.item, badge: rewards.referral.badge };
 	});
 }
 
@@ -136,13 +148,16 @@ async function claimSeason(userId) {
 	return withLockedAggregates([playerLock(userId)], async () => {
 		const growth = await loadPlayerGrowth(userId, true);
 		const status = await seasonalProgress(userId, growth);
-		if (!status.complete) throw new Error('Complete the seasonal quest before claiming its cosmetic.');
+		if (!status.complete) throw new Error('Complete the seasonal quest before claiming its limited item and badge.');
 		if (status.claimed) throw new Error('You already claimed this season reward.');
+		const profile = await repositories.profiles.findOneForUpdate({ userId });
+		if (!profile) throw new Error('Create your Warden to claim the seasonal reward.');
 		status.growth.seasonClaims.push(status.season.id);
-		addCosmetic(status.growth, status.season.cosmetic.id);
+		addBadge(status.growth, status.season.badge.id);
+		addInventoryItem(profile, status.season.item.id);
 		status.growth.updatedAt = Date.now();
-		await status.growth.save();
-		return status;
+		await Promise.all([status.growth.save(), profile.save()]);
+		return { ...status, profile, item: status.season.item, badge: status.season.badge };
 	});
 }
 
@@ -201,10 +216,12 @@ async function attackServerBoss(guildId, userId, now = Date.now()) {
 async function rewardBossContributors(boss) {
 	for (const userId of Object.keys(boss.contributions).sort()) {
 		await repositories.database.acquireLock(playerLock(userId));
-		const growth = await loadPlayerGrowth(userId, true);
-		addCosmetic(growth, cosmetics.raid.id);
+		const [growth, profile] = await Promise.all([loadPlayerGrowth(userId, true), repositories.profiles.findOneForUpdate({ userId })]);
+		if (!profile) continue;
+		addBadge(growth, rewards.raid.badge.id);
+		addInventoryItem(profile, rewards.raid.item.id);
 		growth.updatedAt = Date.now();
-		await growth.save();
+		await Promise.all([growth.save(), profile.save()]);
 	}
 }
 
@@ -227,17 +244,67 @@ function achievementById(id) {
 	return achievements.find((entry) => entry.id === id) || null;
 }
 
-function addCosmetic(growth, cosmeticId) {
-	if (!growth.cosmetics.includes(cosmeticId)) growth.cosmetics.push(cosmeticId);
+async function setFeaturedBadge(userId, badgeId) {
+	return withLockedAggregates([playerLock(userId)], async () => {
+		const growth = await loadPlayerGrowth(userId, true);
+		if (!badges[badgeId]) throw new Error('That badge does not exist.');
+		if (!growth.badges.includes(badgeId)) throw new Error('You have not unlocked that badge.');
+		growth.featuredBadge = badgeId;
+		growth.updatedAt = Date.now();
+		await growth.save();
+		return { growth, badge: badges[badgeId] };
+	});
+}
+
+function addBadge(growth, badgeId, { feature = true } = {}) {
+	if (!growth.badges.includes(badgeId)) growth.badges.push(badgeId);
+	if (feature || !growth.featuredBadge) growth.featuredBadge = badgeId;
+}
+
+function addInventoryItem(profile, itemId) {
+	profile.inventory ||= [];
+	const existing = profile.inventory.find((entry) => entry.itemId === itemId);
+	if (existing) existing.quantity = Math.max(existing.quantity || 0, 1);
+	else profile.inventory.push({ itemId, quantity: 1 });
+	profile.updatedAt = Date.now();
+}
+
+function migrateLegacyRewards(growth, profile) {
+	let changed = false;
+	const migrations = [
+		{ matches: (id) => id.startsWith('stormglass-aura'), reward: rewards.seasonal },
+		{ matches: (id) => id === 'gatebound-crest', reward: rewards.referral },
+		{ matches: (id) => id === 'worldbreaker-sigil', reward: rewards.raid }
+	];
+	for (const legacyId of growth.cosmetics || []) {
+		const migration = migrations.find((entry) => entry.matches(legacyId));
+		if (!migration) continue;
+		const badgeCount = growth.badges.length;
+		const featuredBadge = growth.featuredBadge;
+		addBadge(growth, migration.reward.badge.id, { feature: false });
+		const itemCount = profile.inventory?.length || 0;
+		addInventoryItem(profile, migration.reward.item.id);
+		if (growth.badges.length !== badgeCount || growth.featuredBadge !== featuredBadge || (profile.inventory?.length || 0) !== itemCount) {
+			changed = true;
+		}
+	}
+	return changed;
 }
 
 function hydrate(record) {
 	record.cosmetics ||= [];
+	record.badges ||= [];
+	record.featuredBadge ||= null;
 	record.achievements ||= [];
 	record.seasonClaims ||= [];
 	record.seasonVictories ||= {};
 	record.referrals ||= 0;
 	record.shareCount ||= 0;
+	for (const legacyId of record.cosmetics) {
+		if (legacyId.startsWith('stormglass-aura')) addBadge(record, rewards.seasonal.badge.id, { feature: false });
+		if (legacyId === 'gatebound-crest') addBadge(record, rewards.referral.badge.id, { feature: false });
+		if (legacyId === 'worldbreaker-sigil') addBadge(record, rewards.raid.badge.id, { feature: false });
+	}
 }
 
 function hydrateBoss(boss) {
@@ -265,8 +332,8 @@ module.exports = {
 	achievementById,
 	achievements,
 	attackServerBoss,
+	badges,
 	claimSeason,
-	cosmetics,
 	currentSeason,
 	getPlayerGrowth,
 	getServerBoss,
@@ -274,6 +341,8 @@ module.exports = {
 	recordShare,
 	recordSeasonVictory,
 	redeemReferral,
+	rewards,
 	seasonalProgress,
+	setFeaturedBadge,
 	syncAchievements
 };

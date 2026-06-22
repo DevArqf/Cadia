@@ -20,7 +20,11 @@ test('shareable character and achievement cards render PNG attachments', () => {
 		gold: 500,
 		relicShards: 3
 	};
-	const character = createCharacterShareCard({ profile, userName: 'warden', cosmetic: 'Stormglass Aura' });
+	const character = createCharacterShareCard({
+		profile,
+		userName: 'warden',
+		badge: { name: 'Stormglass Pathfinder', symbol: '◆' }
+	});
 	const achievement = createAchievementShareCard({
 		profile,
 		userName: 'warden',
@@ -40,7 +44,7 @@ test('season card renders quest progress and reward as a PNG attachment', () => 
 			name: 'Stormglass',
 			endsAt: Date.parse('2026-07-01T00:00:00Z'),
 			quest: { victories: 5, activeDays: 3 },
-			cosmetic: { name: 'Stormglass Aura', rarity: 'Limited' }
+			item: { name: 'Stormglass Aura', rarity: 'Limited' }
 		},
 		progress: { victories: 3, activeDays: 2 }
 	});
@@ -74,7 +78,12 @@ test('server boss responses switch from battle art to defeat art', async () => {
 		createRpgLeaderboardCard: () => null,
 		createSeasonCard,
 		growth: {
-			cosmetics: { raid: { name: 'Worldbreaker Sigil' } },
+			rewards: {
+				raid: {
+					item: { name: 'Worldbreaker Sigil' },
+					badge: { name: 'Worldbreaker' }
+				}
+			},
 			getServerBoss: async () => ({
 				name: 'Stormglass Colossus',
 				status,
@@ -130,14 +139,15 @@ test('global leaderboards sort across guilds and seasonal rewards are unique per
 		);
 		const first = loaded.module.currentSeason(new Date('2026-01-15T00:00:00Z'));
 		const second = loaded.module.currentSeason(new Date('2026-04-15T00:00:00Z'));
-		assert.notEqual(first.cosmetic.id, second.cosmetic.id);
+		assert.notEqual(first.id, second.id);
+		assert.equal(first.item.id, 'stormglass_aura');
 		assert.ok(first.endsAt > first.startsAt);
 	} finally {
 		loaded.restore();
 	}
 });
 
-test('referrals reward both players with cosmetics and cannot be self-redeemed', async () => {
+test('referrals reward both players with items and badges and cannot be self-redeemed', async () => {
 	const profiles = [profile('referrer', 'guild'), profile('new-player', 'guild')];
 	const growthRecords = [growthRecord('referrer', { referralCode: 'CADIA-REF123' }), growthRecord('new-player', { referralCode: 'CADIA-NEW123' })];
 	const loaded = loadGrowth({ profiles, growthRecords });
@@ -146,8 +156,10 @@ test('referrals reward both players with cosmetics and cannot be self-redeemed',
 		const result = await loaded.module.redeemReferral('new-player', 'CADIA-REF123');
 		assert.equal(result.growth.referredBy, 'referrer');
 		assert.equal(result.referrer.referrals, 1);
-		assert.ok(result.growth.cosmetics.includes('gatebound-crest'));
-		assert.ok(result.referrer.cosmetics.includes('gatebound-crest'));
+		assert.ok(result.growth.badges.includes('gatebound-guide'));
+		assert.ok(result.referrer.badges.includes('gatebound-guide'));
+		assert.ok(result.profile.inventory.some((entry) => entry.itemId === 'gatebound_crest'));
+		assert.ok(result.referrerProfile.inventory.some((entry) => entry.itemId === 'gatebound_crest'));
 		assert.ok(loaded.transactionEvents.includes('lock:rpg:player:new-player'));
 		assert.ok(loaded.transactionEvents.includes('lock:rpg:referral:CADIA-REF123'));
 		await assert.rejects(() => loaded.module.redeemReferral('referrer', 'CADIA-REF123'), /own referral/i);
@@ -169,7 +181,8 @@ test('server boss aggregates player damage, enforces cooldown, and rewards contr
 		const result = await loaded.module.attackServerBoss('guild', 'one', now);
 		assert.equal(result.defeated, true);
 		assert.equal(result.boss.status, 'defeated');
-		assert.ok(growthRecords[0].cosmetics.includes('worldbreaker-sigil'));
+		assert.ok(growthRecords[0].badges.includes('worldbreaker'));
+		assert.ok(profiles[0].inventory.some((entry) => entry.itemId === 'worldbreaker_sigil'));
 		assert.ok(loaded.transactionEvents.includes('lock:rpg:boss:guild:2026-q2'));
 		assert.ok(loaded.transactionEvents.includes('lock:rpg:player:one'));
 
@@ -203,7 +216,8 @@ test('seasonal quest requires in-season victories and active days before cosmeti
 		assert.equal(status.complete, true);
 		const claimed = await loaded.module.claimSeason('one');
 		assert.equal(claimed.growth.seasonClaims.includes(seasonId), true);
-		assert.ok(claimed.growth.cosmetics.some((id) => id.endsWith(seasonId)));
+		assert.ok(claimed.growth.badges.includes('stormglass-pathfinder'));
+		assert.ok(claimed.profile.inventory.some((entry) => entry.itemId === 'stormglass_aura'));
 	} finally {
 		loaded.restore();
 	}
@@ -226,7 +240,8 @@ test('season handler edits an acknowledged interaction after database work', asy
 					name: 'Stormglass',
 					endsAt: Date.parse('2026-07-01T00:00:00Z'),
 					quest: { victories: 5, activeDays: 3 },
-					cosmetic: { name: 'Stormglass Aura' }
+					item: { name: 'Stormglass Aura' },
+					badge: { name: 'Stormglass Pathfinder' }
 				},
 				progress: { victories: 1, activeDays: 1 },
 				complete: false,
@@ -267,6 +282,61 @@ test('season handler edits an acknowledged interaction after database work', asy
 	assert.equal(edited.files.length, 1);
 	assert.equal(edited.files[0].name, 'rpg-season-2026-q2.png');
 	assert.equal(edited.flags, 32768);
+});
+
+test('players can feature an unlocked badge on profiles and shared cards', async () => {
+	let reply;
+	const handlers = createPlayerGrowthHandlers({
+		actionButton: () => null,
+		color: { RPG: '#5946b2', success: '#46b26b' },
+		componentReply,
+		createAchievementShareCard: () => null,
+		createCharacterShareCard: () => null,
+		createRpgLeaderboardCard: () => null,
+		createSeasonCard,
+		growth: {
+			setFeaturedBadge: async (_userId, badgeId) => ({
+				badge: { id: badgeId, name: 'Worldbreaker', symbol: '✦' },
+				growth: { featuredBadge: badgeId }
+			})
+		},
+		icon: {
+			coin: 'coin',
+			rank: { s: 'rank' },
+			shards: 'shards',
+			success: 'success'
+		},
+		notice,
+		panel,
+		serverBossImage,
+		service: { RpgError: Error }
+	});
+
+	await handlers.badge({
+		options: { getString: () => 'worldbreaker' },
+		reply: async (payload) => {
+			reply = payload;
+		},
+		user: { id: 'user' }
+	});
+
+	assert.match(JSON.stringify(reply), /Badge Featured: Worldbreaker/);
+});
+
+test('legacy cosmetic rewards migrate into usable items and profile badges', async () => {
+	const userProfile = profile('legacy', 'guild');
+	const player = growthRecord('legacy', {
+		cosmetics: ['stormglass-aura-2026-q2', 'gatebound-crest', 'worldbreaker-sigil']
+	});
+	const loaded = loadGrowth({ profiles: [userProfile], growthRecords: [player] });
+
+	try {
+		const migrated = await loaded.module.getPlayerGrowth('legacy');
+		assert.deepEqual(migrated.badges.sort(), ['gatebound-guide', 'stormglass-pathfinder', 'worldbreaker']);
+		assert.deepEqual(userProfile.inventory.map((entry) => entry.itemId).sort(), ['gatebound_crest', 'stormglass_aura', 'worldbreaker_sigil']);
+	} finally {
+		loaded.restore();
+	}
 });
 
 function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss = null }) {
@@ -351,7 +421,7 @@ function loadGrowth({ profiles = [], growthRecords = [], activities = [], boss =
 }
 
 function profile(userId, guildId, overrides = {}) {
-	return {
+	const record = {
 		userId,
 		guildId,
 		level: 1,
@@ -360,8 +430,11 @@ function profile(userId, guildId, overrides = {}) {
 		battlesWon: 0,
 		defeatedBosses: [],
 		stats: { attack: 5 },
+		inventory: [],
 		...overrides
 	};
+	record.save ||= async () => record;
+	return record;
 }
 
 function growthRecord(userId, overrides = {}) {
@@ -371,6 +444,8 @@ function growthRecord(userId, overrides = {}) {
 		referredBy: null,
 		referrals: 0,
 		cosmetics: [],
+		badges: [],
+		featuredBadge: null,
 		achievements: [],
 		seasonClaims: [],
 		seasonVictories: {},

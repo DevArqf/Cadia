@@ -28,7 +28,7 @@ const {
 	serverBossImage
 } = require('../../../lib/rpg/assets');
 const { createBossBattleCard, createEncounterBattleCard, hasEncounterBattleCard } = require('../../../lib/rpg/battleCanvas');
-const { classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
+const { badges, classes, encounters, items, npcQuests, origins, regions } = require('../../../lib/rpg/data');
 const { createInventoryCard } = require('../../../lib/rpg/inventoryCanvas');
 const { createRpgLeaderboardCard } = require('../../../lib/rpg/leaderboardCanvas');
 const { createQuestPageCard } = require('../../../lib/rpg/questCanvas');
@@ -94,6 +94,9 @@ const icon = {
 		gate_cloak: emojis.custom.gateCloak || '',
 		rootguard_plate: emojis.custom.rootguardPlate || '',
 		echo_lens: emojis.custom.echoLens || '',
+		gatebound_crest: emojis.custom.gateboundCrest || '',
+		stormglass_aura: emojis.custom.stormglassAura || '',
+		worldbreaker_sigil: emojis.custom.worldbreakerSigil || '',
 		star_salve: emojis.custom.starSalve || ''
 	},
 	rank: {
@@ -143,6 +146,7 @@ const { buildLockedRegionPanel, buildTravelCompletePanel, buildTravelCompleteRep
 });
 const { buildAdminProfilePanel, buildProfilePanel } = createProfileView({
 	actionButton,
+	badges,
 	classes,
 	color,
 	formatCompactStats,
@@ -235,7 +239,7 @@ class UserCommand extends CadiaCommand {
 	}
 
 	registerApplicationCommands(registry) {
-		registerRpgCommand(registry, this.description, { classes, encounters, items, origins, regions });
+		registerRpgCommand(registry, this.description, { badges, classes, encounters, items, origins, regions });
 	}
 
 	async chatInputRun(interaction) {
@@ -258,6 +262,7 @@ class UserCommand extends CadiaCommand {
 					inventory,
 					equip,
 					leaderboard: playerGrowthHandlers.leaderboard,
+					badge: playerGrowthHandlers.badge,
 					share: playerGrowthHandlers.share,
 					'server-boss': playerGrowthHandlers.serverBoss,
 					season: playerGrowthHandlers.season,
@@ -525,9 +530,9 @@ async function forceBossFight(interaction, bossId) {
 async function showProfile(interaction) {
 	await interaction.deferReply();
 	const user = interaction.options.getUser('user') || interaction.user;
-	const profile = await rpg.requireProfile(interaction.guild.id, user.id);
+	const [profile, playerGrowth] = await Promise.all([rpg.requireProfile(interaction.guild.id, user.id), growth.getPlayerGrowth(user.id)]);
 	await interaction.editReply({
-		...componentReply(buildProfilePanel(profile, user)),
+		...componentReply(buildProfilePanel(profile, user, playerGrowth)),
 		files: [createProfileImageAttachment()]
 	});
 	const message = await interaction.fetchReply();
@@ -1349,5 +1354,6 @@ module.exports = {
 	buildBattleResultReply,
 	buildBossBattlePanel,
 	buildEncounterPanel,
+	buildProfilePanel,
 	shouldDeferRpgCommand
 };
