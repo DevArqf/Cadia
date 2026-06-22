@@ -32,8 +32,9 @@ class UserCommand extends CadiaCommand {
 		if (!deferred) return null;
 		const templateKey = interaction.options.getString('template', true);
 		const dmUsers = interaction.options.getBoolean('dm-users') ?? false;
+		const exportCsv = interaction.options.getBoolean('export-csv') ?? false;
 		const draft = resolveDraftVariables(applyTemplate(templateKey, readDraft(interaction)), interaction.client);
-		return previewTemplate(interaction, draft, dmUsers);
+		return previewTemplate(interaction, draft, dmUsers, exportCsv);
 	}
 }
 

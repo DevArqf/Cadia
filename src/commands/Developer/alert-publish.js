@@ -23,12 +23,13 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		const draft = resolveDraftVariables(readDraft(interaction), interaction.client);
 		const dmUsers = interaction.options.getBoolean('dm-users') ?? false;
+		const exportCsv = interaction.options.getBoolean('export-csv') ?? false;
 
 		if (draft.message === '') {
 			return interaction.reply(componentReply(notice(`${emojis.custom.warning} **Empty Alert**`, 'The alert message cannot be empty.')));
 		}
 
-		return publishDraft(interaction, draft, dmUsers);
+		return publishDraft(interaction, draft, dmUsers, false, { exportCsv });
 	}
 }
 

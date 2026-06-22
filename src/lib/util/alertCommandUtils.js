@@ -1,4 +1,13 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const {
+	ActionRowBuilder,
+	AttachmentBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+	MessageFlags,
+	ModalBuilder,
+	TextInputBuilder,
+	TextInputStyle
+} = require('discord.js');
 const { color, emojis } = require('../../config');
 const { alertStyles, alertTemplates, buildAlertPanel, componentReply, publishAlert, updateAlertDmStats } = require('./globalAlerts');
 const { notice, panel } = require('./components');
@@ -33,8 +42,9 @@ function addDraftOptions(builder, { messageRequired = false } = {}) {
 				.setRequired(false)
 				.addChoices(...Object.entries(alertStyles).map(([value, style]) => ({ name: style.label, value })))
 		)
+		.addBooleanOption((option) => option.setName('dm-users').setDescription('Also DM every unique non-bot user Cadia can see').setRequired(false))
 		.addBooleanOption((option) =>
-			option.setName('dm-users').setDescription('Also DM every unique non-bot user Cadia can see').setRequired(false)
+			option.setName('export-csv').setDescription('Attach a CSV report of successful and failed user DMs').setRequired(false)
 		);
 }
 
@@ -52,39 +62,44 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false, op
 	if (!fromPreview) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 	const alert = await publishAlert({ ...draft, developer: interaction.user, dmEnabled: dmUsers });
-	const targetData = dmUsers ? await collectBroadcastUserIds(interaction.client) : { userIds: new Set(), sources: {} };
+	const targetData = dmUsers ? await collectBroadcastUserIds(interaction.client) : { userGuilds: new Map(), userIds: new Set(), sources: {} };
 	if (dmUsers) await options.onTargetsCollected?.(targetData);
 	const stats = dmUsers
 		? await sendUserDms(interaction.client, alert, targetData, { onProgress: options.onProgress })
 		: { sent: 0, failed: 0, total: 0, sources: {} };
 	await options.onBroadcastComplete?.(stats);
 	await updateAlertDmStats(alert, stats);
+	const csvAttachment = options.exportCsv && dmUsers ? createDmReportAttachment(alert, stats.deliveries) : null;
 
-	const response = componentReply(
-		panel({
-			accentColor: color.success,
-			title: `${emojis.custom.success} **Global Alert Published**`,
-			subtitle: dmUsers ? 'User DM broadcast complete' : 'DM broadcast skipped',
-			sections: [
-				`${emojis.custom.info} **Alert ID:** \`${alert.alertId}\``,
-				`${emojis.custom.success} **Final Status:** Published successfully`,
-				`${emojis.custom.mail} **User DMs Sent:** ${stats.sent}`,
-				`${emojis.custom.warning} **User DMs Failed:** ${stats.failed}`,
-				`${emojis.custom.community} **Unique Users Targeted:** ${stats.total}`,
-				`${emojis.custom.openfolder} **Target Sources:** ${formatTargetSources(stats.sources)}`,
-				`${emojis.custom.info} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`
-			],
-			footer: `${emojis.custom.arrowright} Users will be prompted to run /alert after using Cadia commands.`
-		})
-	);
+	const response = {
+		...componentReply(
+			panel({
+				accentColor: color.success,
+				title: `${emojis.custom.success} **Global Alert Published**`,
+				subtitle: dmUsers ? 'User DM broadcast complete' : 'DM broadcast skipped',
+				sections: [
+					`${emojis.custom.info} **Alert ID:** \`${alert.alertId}\``,
+					`${emojis.custom.success} **Final Status:** Published successfully`,
+					`${emojis.custom.mail} **User DMs Sent:** ${stats.sent}`,
+					`${emojis.custom.warning} **User DMs Failed:** ${stats.failed}`,
+					`${emojis.custom.community} **Unique Users Targeted:** ${stats.total}`,
+					`${emojis.custom.openfolder} **Target Sources:** ${formatTargetSources(stats.sources)}`,
+					`${emojis.custom.info} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
+					`${emojis.custom.openfolder} **CSV Report:** ${csvAttachment ? 'Attached' : 'Not requested'}`
+				],
+				footer: `${emojis.custom.arrowright} Users will be prompted to run /alert after using Cadia commands.`
+			})
+		),
+		...(csvAttachment ? { files: [csvAttachment] } : {})
+	};
 
 	return interaction.editReply(response);
 }
 
-async function previewTemplate(interaction, draft, dmUsers) {
+async function previewTemplate(interaction, draft, dmUsers, exportCsv = false) {
 	const componentId = `alert:${interaction.id}`;
 	const payload = {
-		components: buildPreviewComponents(draft, componentId, dmUsers),
+		components: buildPreviewComponents(draft, componentId, dmUsers, exportCsv),
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 	};
 	let message;
@@ -125,6 +140,7 @@ async function previewTemplate(interaction, draft, dmUsers) {
 			let progressUpdater;
 			try {
 				return await publishDraft(interaction, draft, dmUsers, true, {
+					exportCsv,
 					onTargetsCollected: async (targetData) => {
 						progressUpdater = startPublishProgressUpdates({ interaction, draft, dmUsers, targetData });
 						await progressUpdater.refresh();
@@ -157,7 +173,7 @@ async function previewTemplate(interaction, draft, dmUsers) {
 			if (!submitted) return;
 			Object.assign(draft, resolveDraftVariables(readModalDraft(submitted, draft), interaction.client));
 			return submitted.update({
-				components: buildPreviewComponents(draft, componentId, dmUsers),
+				components: buildPreviewComponents(draft, componentId, dmUsers, exportCsv),
 				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 			});
 		}
@@ -167,7 +183,7 @@ async function previewTemplate(interaction, draft, dmUsers) {
 		if (reason === 'published' || reason === 'cancelled') return;
 		await interaction
 			.editReply({
-				components: buildPreviewComponents(draft, componentId, dmUsers, true),
+				components: buildPreviewComponents(draft, componentId, dmUsers, exportCsv, true),
 				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 			})
 			.catch(() => null);
@@ -177,7 +193,7 @@ async function previewTemplate(interaction, draft, dmUsers) {
 async function sendUserDms(client, alert, targetData = null, options = {}) {
 	targetData ??= await collectBroadcastUserIds(client);
 	const userIds = targetData.userIds;
-	const stats = { sent: 0, failed: 0, total: userIds.size, sources: targetData.sources };
+	const stats = { sent: 0, failed: 0, total: userIds.size, sources: targetData.sources, deliveries: [] };
 	const startedAt = Date.now();
 	options.onProgress?.({ ...stats, processed: 0, remaining: stats.total, startedAt });
 
@@ -185,16 +201,22 @@ async function sendUserDms(client, alert, targetData = null, options = {}) {
 		const user = await client.users.fetch(userId).catch(() => null);
 		if (!user || user.bot) {
 			stats.failed += 1;
+			stats.deliveries.push(createDeliveryRecord(userId, user, targetData, 'failed', user?.bot ? 'Bot account' : 'User fetch failed'));
 			reportBroadcastProgress(options.onProgress, stats, startedAt);
 			continue;
 		}
 
+		let failureReason = '';
 		const sent = await user.send({ components: [buildAlertPanel(alert)], flags: MessageFlags.IsComponentsV2 }).then(
 			() => true,
-			() => false
+			(error) => {
+				failureReason = error?.message || 'DM delivery failed';
+				return false;
+			}
 		);
 		if (sent) stats.sent += 1;
 		else stats.failed += 1;
+		stats.deliveries.push(createDeliveryRecord(userId, user, targetData, sent ? 'sent' : 'failed', failureReason));
 		reportBroadcastProgress(options.onProgress, stats, startedAt);
 	}
 
@@ -205,15 +227,19 @@ function reportBroadcastProgress(onProgress, stats, startedAt) {
 	if (!onProgress) return;
 	const processed = stats.sent + stats.failed;
 	onProgress({
-		...stats,
+		failed: stats.failed,
 		processed,
 		remaining: Math.max(stats.total - processed, 0),
+		sent: stats.sent,
+		sources: stats.sources,
+		total: stats.total,
 		startedAt
 	});
 }
 
 async function collectBroadcastUserIds(client) {
 	const userIds = new Set();
+	const userGuilds = new Map();
 	const sources = {
 		cachedUsers: 0,
 		cachedMembers: 0,
@@ -223,27 +249,27 @@ async function collectBroadcastUserIds(client) {
 	};
 
 	for (const user of client.users.cache.values()) {
-		if (!user.bot && addUserId(userIds, user.id)) sources.cachedUsers += 1;
+		if (!user.bot && addBroadcastTarget(userIds, userGuilds, user.id)) sources.cachedUsers += 1;
 	}
 
 	for (const guild of client.guilds.cache.values()) {
-		if (addUserId(userIds, guild.ownerId)) sources.guildOwners += 1;
+		if (addBroadcastTarget(userIds, userGuilds, guild.ownerId, guild)) sources.guildOwners += 1;
 
 		for (const member of guild.members.cache.values()) {
-			if (!member.user?.bot && addUserId(userIds, member.id)) sources.cachedMembers += 1;
+			if (!member.user?.bot && addBroadcastTarget(userIds, userGuilds, member.id, guild)) sources.cachedMembers += 1;
 		}
 
 		const fetchedMembers = await guild.members.fetch().catch(() => null);
 		if (fetchedMembers) {
 			for (const member of fetchedMembers.values()) {
-				if (!member.user?.bot && addUserId(userIds, member.id)) sources.fetchedMembers += 1;
+				if (!member.user?.bot && addBroadcastTarget(userIds, userGuilds, member.id, guild)) sources.fetchedMembers += 1;
 			}
 		}
 	}
 
 	sources.database = await collectDatabaseUserIds(userIds);
 
-	return { userIds, sources };
+	return { userIds, userGuilds, sources };
 }
 
 async function collectDatabaseUserIds(userIds) {
@@ -282,6 +308,49 @@ function addUserId(userIds, userId) {
 	return true;
 }
 
+function addBroadcastTarget(userIds, userGuilds, userId, guild = null) {
+	const value = String(userId || '').trim();
+	if (!/^\d{17,20}$/.test(value)) return false;
+	const added = addUserId(userIds, value);
+	if (guild) {
+		if (!userGuilds.has(value)) userGuilds.set(value, new Map());
+		userGuilds.get(value).set(guild.id, guild.name || 'Unknown Server');
+	}
+	return added;
+}
+
+function createDeliveryRecord(userId, user, targetData, status, failureReason = '') {
+	const guilds = [...(targetData.userGuilds?.get(userId) || new Map()).entries()];
+	return {
+		status,
+		username: user?.tag || user?.username || user?.globalName || 'Unknown',
+		userId,
+		serverNames: guilds.length ? guilds.map(([, name]) => name) : ['Unknown / database record'],
+		serverIds: guilds.length ? guilds.map(([id]) => id) : [],
+		failureReason
+	};
+}
+
+function createDmReportAttachment(alert, deliveries = []) {
+	const headers = ['status', 'username', 'user_id', 'server_names', 'server_ids', 'failure_reason'];
+	const rows = deliveries.map((delivery) => [
+		delivery.status,
+		delivery.username,
+		delivery.userId,
+		delivery.serverNames.join(' | '),
+		delivery.serverIds.join(' | '),
+		delivery.failureReason
+	]);
+	const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+	const safeAlertId = String(alert?.alertId || Date.now()).replace(/[^a-z0-9_-]/gi, '-');
+	return new AttachmentBuilder(Buffer.from(csv, 'utf8'), { name: `cadia-alert-dm-report-${safeAlertId}.csv` });
+}
+
+function csvCell(value) {
+	const text = String(value ?? '');
+	return `"${text.replace(/"/g, '""')}"`;
+}
+
 function formatTargetSources(sources = {}) {
 	const entries = [
 		['cache users', sources.cachedUsers],
@@ -298,7 +367,7 @@ function shorten(value, maxLength) {
 	return text.length <= maxLength ? text : `${text.slice(0, maxLength - 3)}...`;
 }
 
-function buildPreviewComponents(draft, componentId, dmUsers, disabled = false) {
+function buildPreviewComponents(draft, componentId, dmUsers, exportCsv = false, disabled = false) {
 	const previewAlert = {
 		...draft,
 		developerTag: 'Preview',
@@ -319,6 +388,7 @@ function buildPreviewComponents(draft, componentId, dmUsers, disabled = false) {
 			title: `${emojis.custom.info} **Preview Settings**`,
 			sections: [
 				`${emojis.custom.mail} **DM Users:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
+				`${emojis.custom.openfolder} **CSV Report:** ${exportCsv && dmUsers ? 'Enabled' : 'Skipped'}`,
 				`${emojis.custom.settings} **Style:** ${alertStyles[draft.style]?.label ?? alertStyles.update.label}`
 			]
 		})
@@ -573,6 +643,7 @@ module.exports = {
 	addTemplateOption,
 	applyTemplate,
 	buildPublishStatusComponents,
+	createDmReportAttachment,
 	estimateRemainingSeconds,
 	normalizeAlertMessage,
 	publishEtaText,
