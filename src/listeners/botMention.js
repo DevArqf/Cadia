@@ -16,7 +16,7 @@ class UserEvent extends Listener {
 
 	async run(message) {
 		const botId = message.client.user?.id;
-		if (message.author.bot || !botId || !message.mentions.has(botId, { ignoreRepliedUser: true })) return;
+		if (message.author.bot || !botId || !hasDirectBotMention(message, botId)) return;
 
 		const commands = this.container.stores.get('commands').size;
 		const members = message.client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
@@ -83,8 +83,27 @@ function isMentionDeleteInteraction(interaction, replyId, authorId) {
 	);
 }
 
+function hasDirectBotMention(message, botId) {
+	if (!botId) return false;
+
+	if (typeof message.mentions?.has === 'function') {
+		return message.mentions.has(botId, { ignoreRepliedUser: true });
+	}
+
+	const hasUserMention = message.mentions?.users?.has?.(botId);
+	if (!hasUserMention) return false;
+
+	const content = message.content ?? '';
+	const directMention = content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`);
+
+	if (directMention) return true;
+
+	return !message.reference;
+}
+
 module.exports = {
 	INVITE_PERMISSIONS: invitePermissions,
 	UserEvent,
+	hasDirectBotMention,
 	isMentionDeleteInteraction
 };
