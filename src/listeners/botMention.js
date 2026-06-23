@@ -16,7 +16,7 @@ class UserEvent extends Listener {
 
 	async run(message) {
 		const botId = message.client.user?.id;
-		if (message.author.bot || !botId || !message.mentions.users.has(botId)) return;
+		if (message.author.bot || !botId || !message.mentions.has(botId, { ignoreRepliedUser: true })) return;
 
 		const commands = this.container.stores.get('commands').size;
 		const members = message.client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
