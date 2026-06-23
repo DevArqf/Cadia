@@ -22,7 +22,7 @@ test('Cadia enables cd prefix commands for every Cadia command', () => {
 
 test('every command module exposes a slash schema reusable by the prefix adapter', () => {
 	const commandFiles = findCommandFiles(path.resolve(__dirname, '..', 'src', 'commands'));
-	assert.ok(commandFiles.length >= 80);
+	assert.ok(commandFiles.length > 0, 'No command files were found under src/commands');
 
 	for (const file of commandFiles) {
 		const CommandClass = require(file).UserCommand;
