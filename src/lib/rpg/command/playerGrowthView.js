@@ -12,6 +12,7 @@ const {
 	TextDisplayBuilder
 } = require('discord.js');
 const { badgeEmoji, formatBadge } = require('../badges');
+const { emojis } = require('../../../config');
 
 function createPlayerGrowthHandlers({
 	actionButton,
@@ -164,7 +165,7 @@ function createPlayerGrowthHandlers({
 			if (achievement.rewards.shards) rewardParts.push(`${icon.shards} **${achievement.rewards.shards.toLocaleString()} Relic Shards**`);
 			rewardParts.push(formatBadge(badge));
 			return (
-				`**${achievement.name}** · ${unlocked ? 'Unlocked' : 'Locked'} · ${achievement.category}\n` +
+				`${unlocked ? emojis.custom.success : emojis.custom.fail} **${achievement.name}** · ${unlocked ? 'Unlocked' : 'Locked'} · ${achievement.category}\n` +
 				`-# ${achievement.description}\n` +
 				`**Rewards**\n${rewardParts.join('\n')}`
 			);
