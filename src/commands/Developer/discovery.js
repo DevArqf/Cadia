@@ -11,6 +11,7 @@ const {
 	MessageFlags,
 	PermissionFlagsBits
 } = require('discord.js');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 const DISCOVERY_PAGE_LIMIT = 3800;
 const PAGINATION_TIMEOUT = 300_000;
@@ -69,65 +70,36 @@ class UserCommand extends CadiaCommand {
 			const firstInvite = rows.find((row) => row.invite)?.invite?.url ?? null;
 			const paginationId = interaction.id;
 			let pageIndex = 0;
+			const discoveryState = {
+				firstInvite,
+				guildCount: guilds.length,
+				pageIndex,
+				pages,
+				requesterTag: interaction.user.tag,
+				totalMembers
+			};
 
 			const reply = await interaction.editReply({
 				embeds: [
 					discoveryEmbed({
 						interaction,
-						guilds,
-						totalMembers,
+						guildCount: discoveryState.guildCount,
+						totalMembers: discoveryState.totalMembers,
 						pages,
 						pageIndex
 					})
 				],
 				components: [paginationRow(pageIndex, pages.length, firstInvite, paginationId)]
 			});
-
-			const collector = reply.createMessageComponentCollector({
-				componentType: ComponentType.Button,
-				time: PAGINATION_TIMEOUT,
-				filter: (buttonInteraction) =>
-					buttonInteraction.user.id === interaction.user.id && buttonInteraction.customId.startsWith(`discovery:${paginationId}:`)
-			});
-
-			collector.on('collect', async (buttonInteraction) => {
-				const action = buttonInteraction.customId.split(':').pop();
-
-				if (action === 'close') {
-					await buttonInteraction.update({
-						embeds: [closedEmbed()],
-						components: []
-					});
-
-					collector.stop('closed');
-					return;
-				}
-
-				if (action === 'previous') pageIndex = Math.max(pageIndex - 1, 0);
-				if (action === 'next') pageIndex = Math.min(pageIndex + 1, pages.length - 1);
-
-				await buttonInteraction.update({
-					embeds: [
-						discoveryEmbed({
-							interaction,
-							guilds,
-							totalMembers,
-							pages,
-							pageIndex
-						})
-					],
-					components: [paginationRow(pageIndex, pages.length, firstInvite, paginationId)]
-				});
-			});
-
-			collector.on('end', async (_, reason) => {
-				if (reason === 'closed') return;
-
-				await interaction
-					.editReply({
-						components: [paginationRow(pageIndex, pages.length, firstInvite, paginationId, true)]
-					})
-					.catch(() => null);
+			await saveInteractionSession({
+				kind: 'discovery',
+				sessionId: paginationId,
+				ownerId: interaction.user.id,
+				guildId: interaction.guildId || interaction.guild?.id || null,
+				channelId: interaction.channelId || interaction.channel?.id || null,
+				messageId: reply?.id || null,
+				state: discoveryState,
+				ttlMs: PAGINATION_TIMEOUT
 			});
 		} catch (error) {
 			console.error(error);
@@ -140,6 +112,57 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
+async function handleDiscoveryInteraction(buttonInteraction) {
+	if (!buttonInteraction.isButton?.() || !buttonInteraction.customId?.startsWith('discovery:')) return false;
+	const [, sessionId, action] = buttonInteraction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: buttonInteraction.message?.id });
+	if (!session) {
+		await buttonInteraction.reply({ content: `${emojis.custom.clock} Discovery panel expired.`, flags: MessageFlags.Ephemeral });
+		return true;
+	}
+	if (buttonInteraction.user.id !== session.ownerId) {
+		await buttonInteraction.reply({ content: `${emojis.custom.forbidden} This discovery panel belongs to another developer.`, flags: MessageFlags.Ephemeral });
+		return true;
+	}
+
+	if (action === 'close') {
+		await buttonInteraction.update({ embeds: [closedEmbed()], components: [] });
+		return true;
+	}
+
+	const state = { ...(session.state || {}) };
+	const pages = Array.isArray(state.pages) ? state.pages : [`${emojis.custom.warning} No server data was found.`];
+	let pageIndex = Number(state.pageIndex || 0);
+	if (action === 'previous') pageIndex = Math.max(pageIndex - 1, 0);
+	if (action === 'next') pageIndex = Math.min(pageIndex + 1, pages.length - 1);
+	state.pageIndex = pageIndex;
+
+	await updateInteractionSession(session.sessionId, {
+		kind: 'discovery',
+		ownerId: session.ownerId,
+		guildId: buttonInteraction.guildId || buttonInteraction.guild?.id || session.guildId || null,
+		channelId: buttonInteraction.channelId || buttonInteraction.channel?.id || session.channelId || null,
+		messageId: buttonInteraction.message?.id || session.messageId || null,
+		state,
+		ttlMs: PAGINATION_TIMEOUT
+	});
+
+	await buttonInteraction.update({
+		embeds: [
+			discoveryEmbed({
+				interaction: buttonInteraction,
+				guildCount: state.guildCount,
+				requesterTag: state.requesterTag,
+				totalMembers: state.totalMembers,
+				pages,
+				pageIndex
+			})
+		],
+		components: [paginationRow(pageIndex, pages.length, state.firstInvite, session.sessionId)]
+	});
+	return true;
+}
+
 function loadingEmbed(message) {
 	return new EmbedBuilder()
 		.setColor(color.default)
@@ -147,7 +170,8 @@ function loadingEmbed(message) {
 		.setTimestamp();
 }
 
-function discoveryEmbed({ interaction, guilds, totalMembers, pages, pageIndex }) {
+function discoveryEmbed({ interaction, guilds, guildCount, requesterTag, totalMembers, pages, pageIndex }) {
+	const serverCount = guildCount ?? guilds?.length ?? 0;
 	return new EmbedBuilder()
 		.setColor(color.default)
 		.setTitle(`${emojis.custom.compass} Cadia Server Discovery`)
@@ -155,7 +179,7 @@ function discoveryEmbed({ interaction, guilds, totalMembers, pages, pageIndex })
 		.addFields(
 			{
 				name: `${emojis.custom.community} Servers`,
-				value: `**${guilds.length.toLocaleString()}**`,
+				value: `**${serverCount.toLocaleString()}**`,
 				inline: true
 			},
 			{
@@ -169,7 +193,7 @@ function discoveryEmbed({ interaction, guilds, totalMembers, pages, pageIndex })
 				inline: true
 			}
 		)
-		.setFooter({ text: `Requested by ${interaction.user.tag}` })
+		.setFooter({ text: `Requested by ${requesterTag || interaction.user.tag}` })
 		.setTimestamp();
 }
 
@@ -302,5 +326,6 @@ function escapeMarkdown(text = '') {
 }
 
 module.exports = {
+	handleDiscoveryInteraction,
 	UserCommand
 };

@@ -110,14 +110,15 @@ test('moderation acknowledges before the action and edits the deferred response'
 
 test('mention delete button belongs only to the requesting author', () => {
 	const interaction = {
-		customId: 'deleteMentionReply',
+		customId: 'mention-delete:author',
 		message: { id: 'reply' },
 		user: { id: 'author' },
 		isButton: () => true
 	};
 
 	assert.equal(isMentionDeleteInteraction(interaction, 'reply', 'author'), true);
-	assert.equal(isMentionDeleteInteraction({ ...interaction, user: { id: 'other' } }, 'reply', 'author'), false);
+	assert.equal(isMentionDeleteInteraction({ ...interaction, customId: 'mention-delete:other' }, 'reply', 'author'), false);
+	assert.equal(isMentionDeleteInteraction({ ...interaction, customId: 'deleteMentionReply' }, 'reply', 'author'), true);
 });
 
 test('unban validates Discord IDs and acknowledges before removing a ban', async () => {

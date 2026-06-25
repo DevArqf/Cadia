@@ -6,6 +6,7 @@ const { isMysqlConnected } = require('./lib/database/mysql');
 const { color, emojis } = require('./config');
 
 const client = new CadiaClient();
+let shuttingDown = false;
 
 // Reminder System //
 const reminderSchema = require('./lib/schemas/reminderSchema');
@@ -61,3 +62,19 @@ const main = async () => {
 };
 
 main();
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.once(signal, () => gracefulShutdown(signal));
+}
+
+async function gracefulShutdown(signal) {
+	if (shuttingDown) return;
+	shuttingDown = true;
+	client.logger.warn(`Received ${signal}. Starting graceful shutdown.`);
+	try {
+		client.disableActivityRotation = true;
+		client.destroy();
+	} finally {
+		setTimeout(() => process.exit(0), 500).unref();
+	}
+}

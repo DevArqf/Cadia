@@ -14,6 +14,7 @@ const {
 const { badgeEmoji, formatBadge } = require('../badges');
 const { emojis } = require('../../../config');
 const { commandMention } = require('../../util/commandMentions');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../runtime/interactionSessions');
 
 function createPlayerGrowthHandlers({
 	actionButton,
@@ -49,39 +50,63 @@ function createPlayerGrowthHandlers({
 		const customIdBase = `rpg-lb:${interaction.id}`;
 		await interaction.deferReply({ flags: MessageFlags.IsComponentsV2 });
 		const message = await interaction.editReply(await buildLeaderboardReply(interaction, state, customIdBase));
-		const collector = message.createMessageComponentCollector({ time: 180_000 });
-
-		collector.on('collect', async (componentInteraction) => {
-			if (componentInteraction.user.id !== interaction.user.id) {
-				return componentInteraction.reply(
-					componentReply(
-						notice(`${icon.forbidden} **Not Your Leaderboard**`, `Run ${commandMention('rpg leaderboard')} to open your own panel.`),
-						true
-					)
-				);
-			}
-			if (!componentInteraction.customId.startsWith(customIdBase)) return;
-
-			await componentInteraction.deferUpdate();
-			const action = componentInteraction.customId.split(':').at(-1);
-			if (action === 'type') {
-				state.type = componentInteraction.values[0];
-				state.page = 0;
-			} else if (action === 'scope') {
-				state.scope = state.scope === 'guild' ? 'global' : 'guild';
-				state.page = 0;
-			} else if (action === 'prev') {
-				state.page = Math.max(state.page - 1, 0);
-			} else if (action === 'next') {
-				state.page += 1;
-			}
-
-			await interaction.editReply(await buildLeaderboardReply(interaction, state, customIdBase));
+		await saveInteractionSession({
+			kind: 'rpg-lb',
+			sessionId: interaction.id,
+			ownerId: interaction.user.id,
+			guildId: interaction.guild.id,
+			channelId: interaction.channelId || interaction.channel?.id || null,
+			messageId: message?.id || null,
+			state,
+			ttlMs: 180_000
 		});
+	}
 
-		collector.on('end', async () => {
-			await interaction.editReply(await buildLeaderboardReply(interaction, state, customIdBase, true)).catch(() => null);
+	async function handleLeaderboardInteraction(componentInteraction) {
+		if (!componentInteraction.customId?.startsWith('rpg-lb:')) return false;
+		const [, sessionId] = componentInteraction.customId.split(':');
+		const session = await getInteractionSession({ sessionId, messageId: componentInteraction.message?.id });
+		const ownerId = session?.ownerId || sessionId;
+		if (componentInteraction.user.id !== ownerId) {
+			await componentInteraction.reply(
+				componentReply(
+					notice(`${icon.forbidden} **Not Your Leaderboard**`, `Run ${commandMention('rpg leaderboard')} to open your own panel.`),
+					true
+				)
+			);
+			return true;
+		}
+
+		const state = {
+			type: session?.state?.type || 'level',
+			scope: session?.state?.scope || 'guild',
+			page: Number(session?.state?.page || 0)
+		};
+		await componentInteraction.deferUpdate();
+		const action = componentInteraction.customId.split(':').at(-1);
+		if (action === 'type') {
+			state.type = componentInteraction.values[0];
+			state.page = 0;
+		} else if (action === 'scope') {
+			state.scope = state.scope === 'guild' ? 'global' : 'guild';
+			state.page = 0;
+		} else if (action === 'prev') {
+			state.page = Math.max(state.page - 1, 0);
+		} else if (action === 'next') {
+			state.page += 1;
+		}
+
+		await updateInteractionSession(session?.sessionId || sessionId, {
+			kind: 'rpg-lb',
+			ownerId,
+			guildId: componentInteraction.guildId || componentInteraction.guild?.id || session?.guildId || null,
+			channelId: componentInteraction.channelId || componentInteraction.channel?.id || session?.channelId || null,
+			messageId: componentInteraction.message?.id || session?.messageId || null,
+			state,
+			ttlMs: 180_000
 		});
+		await componentInteraction.editReply(await buildLeaderboardReply(componentInteraction, state, `rpg-lb:${session?.sessionId || sessionId}`));
+		return true;
 	}
 
 	async function buildLeaderboardReply(interaction, state, customIdBase, disabled = false) {
@@ -310,7 +335,7 @@ function createPlayerGrowthHandlers({
 		);
 	}
 
-	return { achievements, badge, leaderboard, refer, season, serverBoss };
+	return { achievements, badge, handleLeaderboardInteraction, leaderboard, refer, season, serverBoss };
 }
 
 module.exports = { createPlayerGrowthHandlers };

@@ -13,6 +13,7 @@ const {
 const { BugReportBlacklist } = require('../../lib/schemas/bugreportSchema');
 const { isDeveloper } = require('../../lib/util/authorization');
 const { actionButton, componentReply, notice, panel } = require('../../lib/util/components');
+const { getInteractionSession, saveInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 const bugReportForumChannelId = channels.bugReportForum;
 const maxForumTitleLength = 100;
@@ -273,32 +274,48 @@ class UserCommand extends CadiaCommand {
 
 		const sent = await thread.fetchStarterMessage().catch(() => null);
 		if (!sent) return;
-
-		const collector = sent.createMessageComponentCollector({ time: 604_800_000 });
-		collector.on('collect', async (i) => {
-			if (!i.isButton() || i.customId !== `${reportId}:solve`) return;
-
-			await i.update(
-				componentReply(
-					panel({
-						accentColor: color.success,
-						title: `${emojis.custom.success} **Bug Report Resolved**`,
-						subtitle: `Report ID ${reportId}`,
-						sections: [
-							[
-								`${emojis.custom.person} **Reporter:** ${interaction.user}`,
-								`${bugIcon.report} **Title**\n${title}`,
-								`${emojis.custom.pencil} **Description**\n${description}`,
-								`${severityDetails.icon} **Severity:** ${severityDetails.label}`,
-								`${emojis.custom.success} **Resolved by:** ${i.user}`
-							].join('\n\n')
-						],
-						footer: `${emojis.custom.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
-					})
-				)
-			);
+		await saveInteractionSession({
+			kind: 'bug-report',
+			sessionId: reportId,
+			ownerId: interaction.user.id,
+			guildId: interaction.guildId || interaction.guild?.id || null,
+			channelId: thread.id,
+			messageId: sent.id,
+			state: { description, reportId, reporterId: interaction.user.id, severity, title },
+			ttlMs: 604_800_000
 		});
 	}
+}
+
+async function handleBugReportInteraction(interaction) {
+	if (!interaction.isButton?.() || !interaction.customId?.endsWith(':solve')) return false;
+	const parts = interaction.customId.split(':');
+	const reportId = parts.length >= 3 ? `${parts[0]}:${parts[1]}` : parts[0];
+	const session = await getInteractionSession({ sessionId: reportId, messageId: interaction.message?.id });
+	if (!session || session.kind !== 'bug-report') return false;
+	await interaction.update(buildResolvedBugReportReply(session.state || { reportId }, interaction.user));
+	return true;
+}
+
+function buildResolvedBugReportReply(data, resolver) {
+	const severityDetails = getSeverityDetails(data.severity);
+	return componentReply(
+		panel({
+			accentColor: color.success,
+			title: `${emojis.custom.success} **Bug Report Resolved**`,
+			subtitle: `Report ID ${data.reportId}`,
+			sections: [
+				[
+					`${emojis.custom.person} **Reporter:** <@${data.reporterId}>`,
+					`${bugIcon.report} **Title**\n${data.title || 'Unknown'}`,
+					`${emojis.custom.pencil} **Description**\n${data.description || 'No description stored.'}`,
+					`${severityDetails.icon} **Severity:** ${severityDetails.label}`,
+					`${emojis.custom.success} **Resolved by:** ${resolver}`
+				].join('\n\n')
+			],
+			footer: `${emojis.custom.clock} Resolved <t:${Math.floor(Date.now() / 1000)}:R>`
+		})
+	);
 }
 
 function buildBugReportMessage({ reportId, reporter, title, description, severity, system, notes, images }) {
@@ -383,5 +400,6 @@ function unauthorized(interaction) {
 }
 
 module.exports = {
+	handleBugReportInteraction,
 	UserCommand
 };

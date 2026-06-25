@@ -16,6 +16,7 @@ const {
 	TextDisplayBuilder
 } = require('discord.js');
 const { commandMention } = require('../../../lib/util/commandMentions');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../../lib/runtime/interactionSessions');
 const {
 	auditActions,
 	auditCategories,
@@ -48,64 +49,82 @@ class UserCommand extends CadiaCommand {
 			withResponse: true
 		});
 		const message = response.resource?.message ?? (await interaction.fetchReply());
-		const collector = message.createMessageComponentCollector({ time: 180_000 });
-
-		collector.on('collect', async (i) => {
-			if (i.user.id !== interaction.user.id) {
-				return i.reply({
-					components: [buildNotice(`${emojis.custom.forbidden} **Not Your Panel**`, `Run ${commandMention('logging')} to open your own audit panel.`)],
-					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-				});
-			}
-
-			if (!i.customId.startsWith(componentId)) return;
-
-			let nextConfig = await getAuditConfig(interaction.guild.id);
-			const action = i.customId.split(':').at(-1);
-
-			if (action === 'enable') nextConfig = await updateAuditConfig(interaction.guild.id, { enabled: true });
-			if (action === 'disable') nextConfig = await updateAuditConfig(interaction.guild.id, { enabled: false });
-			if (action === 'channel') {
-				const channelId = i.values[0];
-				if (state.channelTarget === 'default') {
-					nextConfig = await updateAuditConfig(interaction.guild.id, { channelId });
-				} else {
-					nextConfig = await updateAuditConfig(interaction.guild.id, { channelIds: { [state.channelTarget]: channelId } });
-				}
-			}
-			if (action === 'clearChannel') {
-				if (state.channelTarget === 'default') {
-					nextConfig = await updateAuditConfig(interaction.guild.id, { channelId: null });
-				} else {
-					nextConfig = await updateAuditConfig(interaction.guild.id, { channelIds: { [state.channelTarget]: null } });
-				}
-			}
-			if (action === 'clearAllChannels') nextConfig = await updateAuditConfig(interaction.guild.id, { channelId: null, channelIds: {} });
-			if (action === 'category') {
-				state.category = i.values[0];
-				state.channelTarget = 'default';
-			}
-			if (action === 'channelTarget') state.channelTarget = i.values[0];
-			if (action === 'actions') {
-				for (const eventKey of i.values) nextConfig = await toggleAuditEvent(interaction.guild.id, eventKey);
-			}
-
-			await i.update({
-				components: [buildLoggingPanel(interaction, nextConfig, componentId, state.category, state.channelTarget)],
-				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-			});
-		});
-
-		collector.on('end', async () => {
-			const latestConfig = await getAuditConfig(interaction.guild.id).catch(() => config);
-			await interaction
-				.editReply({
-					components: [buildLoggingPanel(interaction, latestConfig, componentId, state.category, state.channelTarget, true)],
-					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-				})
-				.catch(() => null);
+		await saveInteractionSession({
+			kind: 'logging',
+			sessionId: interaction.id,
+			ownerId: interaction.user.id,
+			guildId: interaction.guild.id,
+			channelId: interaction.channelId || interaction.channel?.id || null,
+			messageId: message?.id || null,
+			state
 		});
 	}
+}
+
+async function handleLoggingInteraction(interaction) {
+	if (!interaction.customId?.startsWith('logging:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+
+	if (interaction.user.id !== ownerId) {
+		return interaction.reply({
+			components: [buildNotice(`${emojis.custom.forbidden} **Not Your Panel**`, `Run ${commandMention('logging')} to open your own audit panel.`)],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+
+	const guildId = interaction.guildId || interaction.guild?.id || session?.guildId;
+	if (!guildId) {
+		return interaction.reply({
+			components: [buildNotice(`${emojis.custom.fail} **Missing Server**`, 'I could not identify the server for this logging panel.')],
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+
+	const componentId = `logging:${session?.sessionId || sessionId}`;
+	const state = {
+		category: session?.state?.category || 'messages',
+		channelTarget: session?.state?.channelTarget || 'default'
+	};
+	let nextConfig = await getAuditConfig(guildId);
+	const action = interaction.customId.split(':').at(-1);
+
+	if (action === 'enable') nextConfig = await updateAuditConfig(guildId, { enabled: true });
+	if (action === 'disable') nextConfig = await updateAuditConfig(guildId, { enabled: false });
+	if (action === 'channel') {
+		const channelId = interaction.values[0];
+		if (state.channelTarget === 'default') nextConfig = await updateAuditConfig(guildId, { channelId });
+		else nextConfig = await updateAuditConfig(guildId, { channelIds: { [state.channelTarget]: channelId } });
+	}
+	if (action === 'clearChannel') {
+		if (state.channelTarget === 'default') nextConfig = await updateAuditConfig(guildId, { channelId: null });
+		else nextConfig = await updateAuditConfig(guildId, { channelIds: { [state.channelTarget]: null } });
+	}
+	if (action === 'clearAllChannels') nextConfig = await updateAuditConfig(guildId, { channelId: null, channelIds: {} });
+	if (action === 'category') {
+		state.category = interaction.values[0];
+		state.channelTarget = 'default';
+	}
+	if (action === 'channelTarget') state.channelTarget = interaction.values[0];
+	if (action === 'actions') {
+		for (const eventKey of interaction.values) nextConfig = await toggleAuditEvent(guildId, eventKey);
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'logging',
+		ownerId,
+		guildId,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state
+	});
+
+	await interaction.update({
+		components: [buildLoggingPanel(interaction, nextConfig, componentId, state.category, state.channelTarget)],
+		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+	});
+	return true;
 }
 
 function buildLoggingPanel(interaction, config, componentId, selectedCategory = 'messages', channelTarget = 'default', disabled = false) {
@@ -278,5 +297,7 @@ function buildNotice(title, message) {
 }
 
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildLoggingPanel,
+	handleLoggingInteraction
 };

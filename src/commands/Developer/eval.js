@@ -5,6 +5,7 @@ const { inspect } = require('node:util');
 const beautify = require('beautify');
 const { ButtonStyle, MessageFlags } = require('discord.js');
 const { actionButton, componentReply, notice, panel } = require('../../lib/util/components');
+const { getInteractionSession, saveInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -60,17 +61,15 @@ class UserCommand extends CadiaCommand {
 			});
 
 			const message = response.resource?.message ?? (await interaction.fetchReply());
-			const collector = message.createMessageComponentCollector({ time: 120_000 });
-			collector.on('collect', async (i) => {
-				if (i.user.id !== interaction.user.id) {
-					return i.reply(
-						componentReply(
-							notice(`${emojis.custom.forbidden} **Not Your Output**`, 'Only the command runner can delete this evaluation.'),
-							true
-						)
-					);
-				}
-				if (i.customId === `eval-delete:${interaction.id}`) await i.message.delete().catch(() => null);
+			await saveInteractionSession({
+				kind: 'eval-delete',
+				sessionId: interaction.id,
+				ownerId: interaction.user.id,
+				guildId: interaction.guildId || interaction.guild?.id || null,
+				channelId: interaction.channelId || interaction.channel?.id || null,
+				messageId: message?.id || null,
+				state: {},
+				ttlMs: 120_000
 			});
 		} catch (error) {
 			console.error(error);
@@ -88,10 +87,27 @@ class UserCommand extends CadiaCommand {
 	}
 }
 
+async function handleEvalDeleteInteraction(interaction) {
+	if (!interaction.isButton?.() || !interaction.customId?.startsWith('eval-delete:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (interaction.user.id !== ownerId) {
+		await interaction.reply(
+			componentReply(notice(`${emojis.custom.forbidden} **Not Your Output**`, 'Only the command runner can delete this evaluation.'), true)
+		);
+		return true;
+	}
+
+	await interaction.message.delete().catch(() => null);
+	return true;
+}
+
 function truncate(value, max) {
 	return value.length > max ? `${value.slice(0, max - 3)}...` : value;
 }
 
 module.exports = {
+	handleEvalDeleteInteraction,
 	UserCommand
 };

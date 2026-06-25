@@ -45,6 +45,52 @@ test('help command catalog is built once and reused', () => {
 	assert.ok(first.some((category) => category.id === 'rpg'));
 });
 
+test('help category select can be handled globally after restart', async () => {
+	const { handleHelpInteraction } = require('../src/commands/Miscellaneous/help');
+	const updates = [];
+	const interaction = {
+		client: {
+			generateInvite: () => 'https://example.com/invite',
+			user: { displayAvatarURL: () => 'https://example.com/bot.png' }
+		},
+		customId: 'help:user:category',
+		isStringSelectMenu: () => true,
+		reply: assert.fail,
+		update: async (payload) => updates.push(payload),
+		user: { id: 'user' },
+		values: ['rpg']
+	};
+
+	const handled = await handleHelpInteraction(interaction);
+
+	assert.equal(handled, true);
+	assert.equal(updates.length, 1);
+	assert.ok(JSON.stringify(updates[0].components).includes('RPG Leaderboard') || JSON.stringify(updates[0].components).includes('rpg leaderboard'));
+});
+
+test('ping refresh can be handled globally after restart', async () => {
+	const { handlePingInteraction } = require('../src/commands/Miscellaneous/ping');
+	const updates = [];
+	const interaction = {
+		client: {
+			user: { displayAvatarURL: () => 'https://example.com/bot.png' },
+			ws: { ping: 42 }
+		},
+		createdTimestamp: Date.now(),
+		customId: 'ping:user:refresh',
+		isButton: () => true,
+		reply: assert.fail,
+		update: async (payload) => updates.push(payload),
+		user: { id: 'user' }
+	};
+
+	const handled = await handlePingInteraction(interaction);
+
+	assert.equal(handled, true);
+	assert.equal(updates.length, 1);
+	assert.ok(JSON.stringify(updates[0].components).includes('Cadia Latency'));
+});
+
 test('bot mention response uses the gateway cache without fetching every guild', async () => {
 	const { UserEvent } = require('../src/listeners/botMention');
 	const listener = Object.create(UserEvent.prototype);
@@ -77,7 +123,6 @@ test('bot mention response uses the gateway cache without fetching every guild',
 		client,
 		mentions: { users: { has: () => true } },
 		reply: async () => ({
-			createMessageComponentCollector: () => ({ on() {} }),
 			id: 'reply'
 		})
 	});

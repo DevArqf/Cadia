@@ -19,6 +19,7 @@ const { RpgProfileSchema } = require('../schemas/RPG System/rpgProfileSchema');
 const { RpgTutorialSchema } = require('../schemas/RPG System/rpgTutorialSchema');
 const { TicketSchema } = require('../schemas/ticketSchema');
 const { UserSettingsSchema } = require('../schemas/usersettingSchema');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../runtime/interactionSessions');
 
 const DEFAULT_ALERT_FOOTER = 'Thank you to all **[TOTAL USERS]** Cadia users. This is the foundation for the next era of Cadia RPG.';
 
@@ -115,80 +116,98 @@ async function previewTemplate(interaction, draft, dmUsers, exportCsv = false) {
 		message = response.resource?.message ?? (await interaction.fetchReply());
 	}
 	if (!message) return null;
-	const collector = message.createMessageComponentCollector({ time: 180_000 });
+	await saveInteractionSession({
+		kind: 'alert',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guildId || interaction.guild?.id || null,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: { draft, dmUsers, exportCsv },
+		ttlMs: 180_000
+	});
+}
 
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${emojis.custom.forbidden} **Not Your Preview**`, `Run ${commandMention('alert-template')} to open your own preview.`))
-			);
-		}
-		if (!i.customId.startsWith(componentId)) return;
+async function handleAlertInteraction(interaction) {
+	if (!interaction.customId?.startsWith('alert:')) return false;
+	const [, sessionId, action] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	if (!session) {
+		await interaction.reply(componentReply(notice(`${emojis.custom.warning} **Preview Expired**`, 'Open a new alert preview and try again.')));
+		return true;
+	}
+	if (interaction.user.id !== session.ownerId) {
+		await interaction.reply(
+			componentReply(notice(`${emojis.custom.forbidden} **Not Your Preview**`, `Run ${commandMention('alert-template')} to open your own preview.`))
+		);
+		return true;
+	}
 
-		const action = i.customId.split(':').at(-1);
-		if (action === 'cancel') {
-			collector.stop('cancelled');
-			return i.update(componentReply(notice(`${emojis.custom.warning} **Alert Cancelled**`, 'The preview was discarded.')));
-		}
+	const draft = session.state?.draft || {};
+	const dmUsers = Boolean(session.state?.dmUsers);
+	const exportCsv = Boolean(session.state?.exportCsv);
+	const componentId = `alert:${session.sessionId}`;
 
-		if (action === 'publish') {
-			collector.stop('published');
-			await i.update({
-				components: buildPublishStatusComponents(draft, dmUsers, 'publishing', { etaText: publishEtaText(null, dmUsers) }),
-				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+	if (interaction.isModalSubmit?.() && action === 'modal') {
+		const nextDraft = resolveDraftVariables(readModalDraft(interaction, draft), interaction.client);
+		await updateInteractionSession(session.sessionId, {
+			kind: 'alert',
+			ownerId: session.ownerId,
+			guildId: interaction.guildId || interaction.guild?.id || session.guildId || null,
+			channelId: interaction.channelId || interaction.channel?.id || session.channelId || null,
+			messageId: interaction.message?.id || session.messageId || null,
+			state: { draft: nextDraft, dmUsers, exportCsv },
+			ttlMs: 180_000
+		});
+		await interaction.update({
+			components: buildPreviewComponents(nextDraft, componentId, dmUsers, exportCsv),
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+		return true;
+	}
+
+	if (action === 'cancel') {
+		await interaction.update(componentReply(notice(`${emojis.custom.warning} **Alert Cancelled**`, 'The preview was discarded.')));
+		return true;
+	}
+
+	if (action === 'edit') {
+		await interaction.showModal(buildEditModal(`${componentId}:modal`, draft));
+		return true;
+	}
+
+	if (action === 'publish') {
+		await interaction.update({
+			components: buildPublishStatusComponents(draft, dmUsers, 'publishing', { etaText: publishEtaText(null, dmUsers) }),
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+
+		let progressUpdater;
+		try {
+			await publishDraft(interaction, draft, dmUsers, true, {
+				exportCsv,
+				onTargetsCollected: async (targetData) => {
+					progressUpdater = startPublishProgressUpdates({ interaction, draft, dmUsers, targetData });
+					await progressUpdater.refresh();
+				},
+				onProgress: (progress) => progressUpdater?.update(progress),
+				onBroadcastComplete: () => progressUpdater?.stop()
 			});
-
-			let progressUpdater;
-			try {
-				return await publishDraft(interaction, draft, dmUsers, true, {
-					exportCsv,
-					onTargetsCollected: async (targetData) => {
-						progressUpdater = startPublishProgressUpdates({ interaction, draft, dmUsers, targetData });
-						await progressUpdater.refresh();
-					},
-					onProgress: (progress) => progressUpdater?.update(progress),
-					onBroadcastComplete: () => progressUpdater?.stop()
-				});
-			} catch (error) {
-				await interaction
-					.editReply({
-						components: buildPublishStatusComponents(draft, dmUsers, 'failed', { error }),
-						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-					})
-					.catch(() => null);
-				throw error;
-			} finally {
-				await progressUpdater?.stop();
-			}
-		}
-
-		if (action === 'edit') {
-			await i.showModal(buildEditModal(`${componentId}:modal`, draft));
-			const submitted = await i
-				.awaitModalSubmit({
-					time: 120_000,
-					filter: (modal) => modal.customId === `${componentId}:modal` && modal.user.id === interaction.user.id
+		} catch (error) {
+			await interaction
+				.editReply({
+					components: buildPublishStatusComponents(draft, dmUsers, 'failed', { error }),
+					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 				})
 				.catch(() => null);
-
-			if (!submitted) return;
-			Object.assign(draft, resolveDraftVariables(readModalDraft(submitted, draft), interaction.client));
-			return submitted.update({
-				components: buildPreviewComponents(draft, componentId, dmUsers, exportCsv),
-				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-			});
+			throw error;
+		} finally {
+			await progressUpdater?.stop();
 		}
-	});
+		return true;
+	}
 
-	collector.on('end', async (_, reason) => {
-		if (reason === 'published' || reason === 'cancelled') return;
-		await interaction
-			.editReply({
-				components: buildPreviewComponents(draft, componentId, dmUsers, exportCsv, true),
-				flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-			})
-			.catch(() => null);
-	});
+	return false;
 }
 
 async function sendUserDms(client, alert, targetData = null, options = {}) {
@@ -647,6 +666,7 @@ module.exports = {
 	buildPublishStatusComponents,
 	createDmReportAttachment,
 	estimateRemainingSeconds,
+	handleAlertInteraction,
 	normalizeAlertMessage,
 	publishEtaText,
 	publishDraft,

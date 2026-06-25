@@ -47,6 +47,7 @@ const { createInventoryView } = require('../../../lib/rpg/command/views/inventor
 const { createProfileView } = require('../../../lib/rpg/command/views/profileView');
 const { createTravelView } = require('../../../lib/rpg/command/views/travelView');
 const { createTutorialView } = require('../../../lib/rpg/command/views/tutorialView');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../../lib/runtime/interactionSessions');
 const rpg = require('../../../lib/rpg/service');
 
 const icon = {
@@ -338,23 +339,15 @@ async function offerTutorial(interaction) {
 	const customIdBase = `rpg-tutorial-offer:${interaction.id}`;
 	const message = await sendInteractiveRpgReply(interaction, componentReply(buildTutorialOfferPanel(customIdBase), true));
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 120_000, max: 1 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, `Run ${commandMention('rpg tutorial')} to open your own guide.`), true)
-			);
-		}
-
-		if (i.customId === `${customIdBase}:skip`) {
-			await rpg.markTutorialSkipped(i.guild.id, i.user.id);
-			return i.update({
-				components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
-			});
-		}
-
-		if (i.customId === `${customIdBase}:start`) return runTutorial(i, true);
+	await saveInteractionSession({
+		kind: 'rpg-tutorial-offer',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: {},
+		ttlMs: 120_000
 	});
 }
 
@@ -374,41 +367,15 @@ async function runTutorial(interaction, fromComponent = false) {
 		message = await sendInteractiveRpgReply(interaction, reply);
 	}
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 240_000 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, `Run ${commandMention('rpg tutorial')} to open your own guide.`), true)
-			);
-		}
-		if (!i.customId.startsWith(customIdBase)) return;
-
-		const action = i.customId.split(':').at(-1);
-		if (action === 'skip') {
-			await rpg.markTutorialSkipped(i.guild.id, i.user.id);
-			collector.stop('skipped');
-			return i.update({
-				components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
-			});
-		}
-		if (action === 'prev') page = Math.max(page - 1, 0);
-		if (action === 'next') page = Math.min(page + 1, tutorialSteps.length - 1);
-		if (action === 'finish') {
-			await rpg.markTutorialCompleted(i.guild.id, i.user.id);
-			collector.stop('completed');
-			return i.update({
-				components: [
-					notice(
-						`${icon.success} **Tutorial Complete**`,
-						`You are ready to begin. Use ${commandMention('rpg create')}, then ${commandMention('rpg adventure')} when your character is made.`,
-						color.success
-					)
-				]
-			});
-		}
-
-		return i.update({ components: [buildTutorialPanel(page, customIdBase)] });
+	await saveInteractionSession({
+		kind: 'rpg-tutorial',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: { page },
+		ttlMs: 240_000
 	});
 }
 
@@ -540,21 +507,6 @@ async function showProfile(interaction) {
 		...componentReply(buildProfilePanel(profile, user, playerGrowth)),
 		files: [createProfileImageAttachment()]
 	});
-	const message = await interaction.fetchReply();
-	const collector = message.createMessageComponentCollector({ time: 120_000 });
-
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Profile**`, `Run ${commandMention('rpg profile')} to open your own profile actions.`), true)
-			);
-		}
-
-		if (!i.customId.startsWith('rpg-profile:')) return;
-		const [, characterId, action] = i.customId.split(':');
-		if (characterId !== profile.characterId) return;
-		await handleProfileAction(i, action, characterId);
-	});
 }
 
 async function showCharacterId(interaction) {
@@ -590,39 +542,15 @@ async function openQuestBoard(interaction, profile, ephemeral = false) {
 	});
 	const message = response.resource?.message ?? (await interaction.fetchReply?.().catch(() => null));
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 120_000 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Quest**`, 'Open your own RPG quest board to use these controls.'), true)
-			);
-		}
-		if (!i.customId.startsWith(customIdBase)) return;
-
-		try {
-			await i.deferUpdate();
-			const action = i.customId.split(':').at(-1);
-			let nextProfile = await rpg.requireProfile(i.guild.id, i.user.id);
-
-			if (action === 'accept') {
-				const questId = i.customId.split(':').at(-2);
-				const state = await rpg.acceptQuest(i.guild.id, i.user.id, questId);
-				nextProfile = state.profile;
-			} else if (action === 'claim') {
-				const result = await rpg.claimQuestReward(i.guild.id, i.user.id);
-				return i.editReply(await buildQuestRewardReply(result, customIdBase, ephemeral));
-			}
-
-			return i.editReply(await buildQuestReply(nextProfile, customIdBase, ephemeral));
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
-	});
-
-	collector.on('end', async () => {
-		const latestProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id).catch(() => profile);
-		await interaction.editReply(await buildQuestReply(latestProfile, customIdBase, ephemeral, true)).catch(() => null);
+	await saveInteractionSession({
+		kind: 'rpg-quest',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: { ephemeral },
+		ttlMs: 120_000
 	});
 }
 
@@ -666,51 +594,15 @@ async function openInventory(interaction, profile) {
 	const response = await interaction.reply({ ...initialReply, flags: MessageFlags.IsComponentsV2, withResponse: true });
 	const message = response.resource?.message ?? (await interaction.fetchReply?.().catch(() => null));
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 180_000 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Inventory**`, 'Open your own RPG inventory to use these controls.'), true)
-			);
-		}
-		if (!i.customId.startsWith(customIdBase)) return;
-
-		try {
-			await i.deferUpdate();
-			let nextProfile = await rpg.requireProfile(i.guild.id, i.user.id);
-			const action = i.customId.split(':').at(-1);
-
-			if (action === 'prev') {
-				state.categoryIndex = (state.categoryIndex - 1 + inventoryCategories.length) % inventoryCategories.length;
-				state.pendingItemId = null;
-			} else if (action === 'next') {
-				state.categoryIndex = (state.categoryIndex + 1) % inventoryCategories.length;
-				state.pendingItemId = null;
-			} else if (action === 'select') {
-				state.pendingItemId = i.values[0];
-			} else if (action === 'cancel') {
-				state.pendingItemId = null;
-			} else if (action === 'confirm' && state.pendingItemId) {
-				const item = items[state.pendingItemId];
-				const result =
-					item?.slot === 'consumable'
-						? await rpg.useItem(i.guild.id, i.user.id, state.pendingItemId)
-						: await rpg.equip(i.guild.id, i.user.id, state.pendingItemId);
-				nextProfile = result.profile;
-				state.pendingItemId = null;
-			}
-
-			return i.editReply(await buildInventoryReply(nextProfile, state));
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
-	});
-
-	collector.on('end', async () => {
-		state.disabled = true;
-		const latestProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id).catch(() => profile);
-		await interaction.editReply(await buildInventoryReply(latestProfile, state)).catch(() => null);
+	await saveInteractionSession({
+		kind: 'rpg-inventory',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state,
+		ttlMs: 180_000
 	});
 }
 
@@ -747,19 +639,15 @@ async function openEquipPicker(interaction, profile) {
 	});
 	const message = response.resource?.message;
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 60_000, max: 1 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Picker**`, 'Open your own RPG profile to equip items.'), true));
-		}
-
-		try {
-			const result = await rpg.equip(i.guild.id, i.user.id, i.values[0]);
-			return i.update({ components: [buildEquippedPanel(result)] });
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
+	await saveInteractionSession({
+		kind: 'rpg-profile-equip',
+		sessionId: `${profile.characterId}:equip-select`,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: { characterId: profile.characterId },
+		ttlMs: 60_000
 	});
 }
 
@@ -773,24 +661,15 @@ async function openTravelPicker(interaction, profile) {
 	});
 	const message = response.resource?.message;
 	if (!message) return;
-
-	const collector = message.createMessageComponentCollector({ time: 60_000, max: 1 });
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Picker**`, 'Open your own RPG profile to travel.'), true));
-		}
-
-		try {
-			await i.deferUpdate();
-			const selectedRegion = regions[i.values[0]];
-			const gate = rpg.canTravel(profile, selectedRegion);
-			if (!gate.ok) return i.editReply({ components: [buildLockedRegionPanel(profile, selectedRegion, gate)] });
-
-			const result = await rpg.travel(i.guild.id, i.user.id, selectedRegion.id);
-			return i.editReply(buildTravelCompleteReply(result, true));
-		} catch (error) {
-			return sendRpgIssue(i, error);
-		}
+	await saveInteractionSession({
+		kind: 'rpg-profile-travel',
+		sessionId: `${profile.characterId}:travel-select`,
+		ownerId: interaction.user.id,
+		guildId: interaction.guild.id,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message.id,
+		state: { characterId: profile.characterId },
+		ttlMs: 60_000
 	});
 }
 
@@ -802,23 +681,251 @@ async function bestiary(interaction) {
 		withResponse: true
 	});
 	const message = response.resource?.message ?? (await interaction.fetchReply());
-	const collector = message.createMessageComponentCollector({ time: 180_000 });
+	await saveInteractionSession({
+		kind: 'rpg-bestiary',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guildId || interaction.guild?.id || null,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message?.id || null,
+		state: { selectedId: null },
+		ttlMs: 180_000
+	});
+}
 
-	collector.on('collect', async (i) => {
-		if (i.user.id !== interaction.user.id) {
-			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Bestiary**`, `Run ${commandMention('rpg bestiary')} to open your own enemy guide.`), true)
-			);
+async function handleRpgComponentInteraction(interaction) {
+	const customId = interaction.customId || '';
+	if (!customId.startsWith('rpg-')) return false;
+
+	try {
+		if (customId.startsWith('rpg-tutorial-offer:')) return handleTutorialOfferInteraction(interaction);
+		if (customId.startsWith('rpg-tutorial:')) return handleTutorialPageInteraction(interaction);
+		if (customId.startsWith('rpg-profile:')) return handleProfileComponentInteraction(interaction);
+		if (customId.startsWith('rpg-quest:')) return handleQuestInteraction(interaction);
+		if (customId.startsWith('rpg-inventory:')) return handleInventoryInteraction(interaction);
+		if (customId.startsWith('rpg-bestiary:')) return handleBestiaryInteraction(interaction);
+	} catch (error) {
+		await sendRpgIssue(interaction, error);
+		return true;
+	}
+
+	return false;
+}
+
+async function handleRpgBattleInteraction(interaction) {
+	return battleFlow.handleBattleInteraction(interaction);
+}
+
+async function handleRpgLeaderboardInteraction(interaction) {
+	return playerGrowthHandlers.handleLeaderboardInteraction(interaction);
+}
+
+async function handleTutorialOfferInteraction(interaction) {
+	const [, sessionId, action] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Tutorial', `Run ${commandMention('rpg tutorial')} to open your own guide.`))) {
+		return true;
+	}
+
+	if (action === 'skip') {
+		await rpg.markTutorialSkipped(interaction.guild.id, interaction.user.id);
+		await interaction.update({
+			components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
+		});
+		return true;
+	}
+
+	if (action === 'start') return runTutorial(interaction, true).then(() => true);
+	return false;
+}
+
+async function handleTutorialPageInteraction(interaction) {
+	const [, sessionId, action] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Tutorial', `Run ${commandMention('rpg tutorial')} to open your own guide.`))) {
+		return true;
+	}
+
+	let page = Number(session?.state?.page || 0);
+	if (action === 'skip') {
+		await rpg.markTutorialSkipped(interaction.guild.id, interaction.user.id);
+		await interaction.update({
+			components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
+		});
+		return true;
+	}
+	if (action === 'prev') page = Math.max(page - 1, 0);
+	if (action === 'next') page = Math.min(page + 1, tutorialSteps.length - 1);
+	if (action === 'finish') {
+		await rpg.markTutorialCompleted(interaction.guild.id, interaction.user.id);
+		await interaction.update({
+			components: [
+				notice(
+					`${icon.success} **Tutorial Complete**`,
+					`You are ready to begin. Use ${commandMention('rpg create')}, then ${commandMention('rpg adventure')} when your character is made.`,
+					color.success
+				)
+			]
+		});
+		return true;
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'rpg-tutorial',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { page },
+		ttlMs: 240_000
+	});
+	await interaction.update({ components: [buildTutorialPanel(page, `rpg-tutorial:${session?.sessionId || sessionId}`)] });
+	return true;
+}
+
+async function handleProfileComponentInteraction(interaction) {
+	const [, characterId, action] = interaction.customId.split(':');
+	const profile = await rpg.getProfileByCharacterId(characterId);
+	if (profile.userId !== interaction.user.id) {
+		await interaction.reply(componentReply(notice(`${icon.forbidden} **Not Your Character**`, 'Only the character owner can use these actions.'), true));
+		return true;
+	}
+
+	if (action === 'equip-select') {
+		const result = await rpg.equip(interaction.guild.id, interaction.user.id, interaction.values[0]);
+		await interaction.update({ components: [buildEquippedPanel(result)] });
+		return true;
+	}
+
+	if (action === 'travel-select') {
+		await interaction.deferUpdate();
+		const selectedRegion = regions[interaction.values[0]];
+		const gate = rpg.canTravel(profile, selectedRegion);
+		if (!gate.ok) {
+			await interaction.editReply({ components: [buildLockedRegionPanel(profile, selectedRegion, gate)] });
+			return true;
 		}
-		if (!i.customId.startsWith(customIdBase)) return;
+		const result = await rpg.travel(interaction.guild.id, interaction.user.id, selectedRegion.id);
+		await interaction.editReply(buildTravelCompleteReply(result, true));
+		return true;
+	}
 
-		const selectedId = i.values[0];
-		return i.update({ components: [buildBestiaryPanel(customIdBase, selectedId)] });
-	});
+	await handleProfileAction(interaction, action, characterId);
+	return true;
+}
 
-	collector.on('end', async () => {
-		await interaction.editReply({ components: [buildBestiaryPanel(customIdBase, null, true)] }).catch(() => null);
+async function handleQuestInteraction(interaction) {
+	const parts = interaction.customId.split(':');
+	const sessionId = parts[1];
+	const action = parts.at(-1);
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Quest', 'Open your own RPG quest board to use these controls.'))) return true;
+
+	await interaction.deferUpdate();
+	let nextProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id);
+	const ephemeral = Boolean(session?.state?.ephemeral);
+	const customIdBase = `rpg-quest:${session?.sessionId || sessionId}`;
+
+	if (action === 'accept') {
+		const questId = parts.at(-2);
+		const state = await rpg.acceptQuest(interaction.guild.id, interaction.user.id, questId);
+		nextProfile = state.profile;
+	} else if (action === 'claim') {
+		const result = await rpg.claimQuestReward(interaction.guild.id, interaction.user.id);
+		await interaction.editReply(await buildQuestRewardReply(result, customIdBase, ephemeral));
+		return true;
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'rpg-quest',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { ephemeral },
+		ttlMs: 120_000
 	});
+	await interaction.editReply(await buildQuestReply(nextProfile, customIdBase, ephemeral));
+	return true;
+}
+
+async function handleInventoryInteraction(interaction) {
+	const [, sessionId, action] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Inventory', 'Open your own RPG inventory to use these controls.'))) return true;
+
+	await interaction.deferUpdate();
+	const state = {
+		categoryIndex: Number(session?.state?.categoryIndex || 0),
+		customIdBase: `rpg-inventory:${session?.sessionId || sessionId}`,
+		pendingItemId: session?.state?.pendingItemId || null,
+		disabled: false
+	};
+	let nextProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id);
+
+	if (action === 'prev') {
+		state.categoryIndex = (state.categoryIndex - 1 + inventoryCategories.length) % inventoryCategories.length;
+		state.pendingItemId = null;
+	} else if (action === 'next') {
+		state.categoryIndex = (state.categoryIndex + 1) % inventoryCategories.length;
+		state.pendingItemId = null;
+	} else if (action === 'select') {
+		state.pendingItemId = interaction.values[0];
+	} else if (action === 'cancel') {
+		state.pendingItemId = null;
+	} else if (action === 'confirm' && state.pendingItemId) {
+		const item = items[state.pendingItemId];
+		const result =
+			item?.slot === 'consumable'
+				? await rpg.useItem(interaction.guild.id, interaction.user.id, state.pendingItemId)
+				: await rpg.equip(interaction.guild.id, interaction.user.id, state.pendingItemId);
+		nextProfile = result.profile;
+		state.pendingItemId = null;
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'rpg-inventory',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state,
+		ttlMs: 180_000
+	});
+	await interaction.editReply(await buildInventoryReply(nextProfile, state));
+	return true;
+}
+
+async function handleBestiaryInteraction(interaction) {
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Bestiary', `Run ${commandMention('rpg bestiary')} to open your own enemy guide.`))) {
+		return true;
+	}
+
+	const selectedId = interaction.values[0];
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'rpg-bestiary',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { selectedId },
+		ttlMs: 180_000
+	});
+	await interaction.update({ components: [buildBestiaryPanel(`rpg-bestiary:${session?.sessionId || sessionId}`, selectedId)] });
+	return true;
+}
+
+async function ensureRpgSessionOwner(interaction, ownerId, title, message) {
+	if (interaction.user.id === ownerId) return true;
+	await interaction.reply(componentReply(notice(`${icon.forbidden} **${title}**`, message), true));
+	return false;
 }
 
 async function deleteCharacter(interaction) {
@@ -1359,6 +1466,9 @@ module.exports = {
 	buildBattleResultReply,
 	buildBossBattlePanel,
 	buildEncounterPanel,
+	handleRpgBattleInteraction,
+	handleRpgComponentInteraction,
+	handleRpgLeaderboardInteraction,
 	buildProfilePanel,
 	shouldDeferRpgCommand
 };

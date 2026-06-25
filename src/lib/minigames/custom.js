@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require('discord.js');
 const { color, emojis } = require('../../config');
+const { getInteractionSession, saveInteractionSession } = require('../runtime/interactionSessions');
 
 const words = [
 	'waterfall',
@@ -136,37 +137,53 @@ async function runGunfight(interaction) {
 		withResponse: true
 	});
 	const message = response.resource?.message ?? (await interaction.fetchReply());
-	const collector = message.createMessageComponentCollector({
-		filter: (component) => component.user.id === opponent.id,
-		time: 60_000,
-		max: 1
+	await saveInteractionSession({
+		kind: 'gunfight',
+		sessionId: interaction.id,
+		ownerId: opponent.id,
+		guildId: interaction.guildId || interaction.guild?.id || null,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message?.id || null,
+		state: { challengerId: interaction.user.id, opponentId: opponent.id },
+		ttlMs: 60_000
 	});
+	return true;
+}
 
-	collector.on('collect', async (component) => {
-		await component.deferUpdate();
-		if (component.customId.endsWith(':decline')) {
-			return interaction.editReply({ content: `${opponent} declined the challenge.`, components: [] });
-		}
+async function handleGunfightInteraction(component) {
+	if (!component.customId?.startsWith('gunfight:')) return false;
+	const [, sessionId, action] = component.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: component.message?.id });
+	if (!session) {
+		await component.reply({ content: `${emojis.custom.clock} This gunfight challenge expired.`, flags: MessageFlags.Ephemeral });
+		return true;
+	}
+	if (component.user.id !== session.ownerId) {
+		await component.reply({ content: `${emojis.custom.forbidden} Only the challenged player can answer this gunfight.`, flags: MessageFlags.Ephemeral });
+		return true;
+	}
 
-		await interaction.editReply({ content: 'Get ready. The draw word will appear shortly.', components: [] });
-		await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 5000) + 3000));
-		const drawWord = randomEntry(['shoot', 'draw', 'aim', 'reload', 'fire']);
-		await interaction.followUp(`Type **${drawWord}** now.`);
-		const winner = await interaction.channel.awaitMessages({
-			filter: (message) => [interaction.user.id, opponent.id].includes(message.author.id) && message.content.toLowerCase() === drawWord,
-			max: 1,
-			time: 60_000
-		});
-		const winnerUser = winner.first()?.author;
-		await interaction.followUp(
-			winnerUser ? `${emojis.custom.tada2} ${winnerUser} won the gunfight.` : `${emojis.custom.fail} Nobody fired in time.`
-		);
+	await component.deferUpdate();
+	const opponent = `<@${session.state?.opponentId || component.user.id}>`;
+	const challengerId = session.state?.challengerId;
+	if (action === 'decline') {
+		await component.editReply({ content: `${opponent} declined the challenge.`, components: [] });
+		return true;
+	}
+
+	await component.editReply({ content: 'Get ready. The draw word will appear shortly.', components: [] });
+	await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 5000) + 3000));
+	const drawWord = randomEntry(['shoot', 'draw', 'aim', 'reload', 'fire']);
+	await component.followUp(`Type **${drawWord}** now.`);
+	const winner = await component.channel.awaitMessages({
+		filter: (message) => [challengerId, session.state?.opponentId].includes(message.author.id) && message.content.toLowerCase() === drawWord,
+		max: 1,
+		time: 60_000
 	});
-
-	collector.on('end', async (collected) => {
-		if (collected.size) return;
-		await interaction.editReply({ content: `${opponent} did not respond in time.`, components: [] });
-	});
+	const winnerUser = winner.first()?.author;
+	await component.followUp(
+		winnerUser ? `${emojis.custom.tada2} ${winnerUser} won the gunfight.` : `${emojis.custom.fail} Nobody fired in time.`
+	);
 	return true;
 }
 
@@ -184,6 +201,7 @@ function randomEntry(entries) {
 }
 
 module.exports = {
+	handleGunfightInteraction,
 	runCustomGame,
 	shuffleWord
 };

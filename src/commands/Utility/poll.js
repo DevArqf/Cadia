@@ -10,6 +10,7 @@ const {
 	SeparatorSpacingSize,
 	TextDisplayBuilder
 } = require('discord.js');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 const defaultPollDurationSeconds = 300;
 const minimumPollDurationSeconds = 30;
@@ -50,7 +51,7 @@ class UserCommand extends CadiaCommand {
 		const durationMs = durationSeconds * 1_000;
 		const closesAt = Math.floor((Date.now() + durationMs) / 1_000);
 		const customIds = choices.map((_, index) => `poll:${interaction.id}:${index}`);
-		const votes = new Map();
+		const votes = {};
 
 		const response = await interaction.reply({
 			components: [buildPollContainer(interaction, topic, choices, customIds, votes, closesAt)],
@@ -58,36 +59,23 @@ class UserCommand extends CadiaCommand {
 			withResponse: true
 		});
 		const message = response.resource?.message ?? (await interaction.fetchReply());
-		const collector = message.createMessageComponentCollector({
-			time: durationMs
-		});
-
-		collector.on('collect', async (i) => {
-			const selectedIndex = customIds.indexOf(i.customId);
-			if (selectedIndex === -1) return;
-
-			votes.set(i.user.id, selectedIndex);
-
-			await i.update({
-				components: [buildPollContainer(interaction, topic, choices, customIds, votes, closesAt)],
-				flags: MessageFlags.IsComponentsV2
-			});
-		});
-
-		collector.on('end', async () => {
-			await interaction
-				.editReply({
-					components: [buildPollContainer(interaction, topic, choices, customIds, votes, closesAt, true)],
-					flags: MessageFlags.IsComponentsV2
-				})
-				.catch(() => null);
+		await saveInteractionSession({
+			kind: 'poll',
+			sessionId: interaction.id,
+			ownerId: interaction.user.id,
+			guildId: interaction.guildId || interaction.guild?.id || null,
+			channelId: interaction.channelId || interaction.channel?.id || null,
+			messageId: message?.id || null,
+			state: { topic, choices, customIds, votes, closesAt },
+			ttlMs: durationMs
 		});
 	}
 }
 
 function buildPollContainer(interaction, topic, choices, customIds, votes, closesAt, closed = false) {
-	const counts = choices.map((_, index) => [...votes.values()].filter((vote) => vote === index).length);
-	const totalVotes = votes.size;
+	const voteValues = normalizeVotes(votes);
+	const counts = choices.map((_, index) => voteValues.filter((vote) => vote === index).length);
+	const totalVotes = voteValues.length;
 	const closingText = closed
 		? `${emojis.custom.lock} Voting closed.\n${getWinnerText(choices, counts, totalVotes)}`
 		: `${emojis.custom.clock} Voting closes <t:${closesAt}:R>.\n${emojis.custom.calendar} Final results at <t:${closesAt}:t>.`;
@@ -130,6 +118,47 @@ function buildPollContainer(interaction, topic, choices, customIds, votes, close
 		);
 }
 
+async function handlePollInteraction(interaction) {
+	if (!interaction.isButton?.() || !interaction.customId?.startsWith('poll:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	if (!session) {
+		return interaction.reply({
+			content: `${emojis.custom.warning} This poll was created before restart-safe sessions were available or has expired.`,
+			flags: MessageFlags.Ephemeral
+		});
+	}
+
+	const state = session.state || {};
+	const choices = Array.isArray(state.choices) ? state.choices : [];
+	const customIds = Array.isArray(state.customIds) ? state.customIds : choices.map((_, index) => `poll:${session.sessionId}:${index}`);
+	const selectedIndex = customIds.indexOf(interaction.customId);
+	if (selectedIndex === -1) return false;
+
+	const votes = { ...(state.votes || {}) };
+	votes[interaction.user.id] = selectedIndex;
+	await updateInteractionSession(session.sessionId, {
+		kind: 'poll',
+		ownerId: session.ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session.channelId || null,
+		messageId: interaction.message?.id || session.messageId || null,
+		state: { ...state, votes }
+	});
+
+	await interaction.update({
+		components: [buildPollContainer(interaction, state.topic, choices, customIds, votes, state.closesAt)],
+		flags: MessageFlags.IsComponentsV2
+	});
+	return true;
+}
+
+function normalizeVotes(votes) {
+	if (votes instanceof Map) return [...votes.values()];
+	if (votes && typeof votes === 'object') return Object.values(votes);
+	return [];
+}
+
 function getWinnerText(choices, counts, totalVotes) {
 	if (!totalVotes) return `${emojis.custom.info} No votes were submitted.`;
 
@@ -145,5 +174,7 @@ function getWinnerText(choices, counts, totalVotes) {
 }
 
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildPollContainer,
+	handlePollInteraction
 };

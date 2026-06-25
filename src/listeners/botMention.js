@@ -42,46 +42,55 @@ class UserEvent extends Listener {
 		const buttons = new ActionRowBuilder().addComponents(
 			new ButtonBuilder().setEmoji(emojis.custom.link).setLabel(`Invite ${branding.name}`).setURL(inviteUrl).setStyle(ButtonStyle.Link),
 			new ButtonBuilder().setLabel('Support Server').setURL(branding.supportServerUrl).setStyle(ButtonStyle.Link),
-			new ButtonBuilder().setEmoji(emojis.custom.trash).setLabel('Delete').setStyle(ButtonStyle.Danger).setCustomId('deleteMentionReply')
+			new ButtonBuilder()
+				.setEmoji(emojis.custom.trash)
+				.setLabel('Delete')
+				.setStyle(ButtonStyle.Danger)
+				.setCustomId(`mention-delete:${message.author.id}`)
 		);
 
-		const reply = await message.reply({ embeds: [embed], components: [buttons] });
-		const collector = reply.createMessageComponentCollector({
-			time: 300_000,
-			filter: (interaction) => isMentionDeleteInteraction(interaction, reply.id, message.author.id)
-		});
+		await message.reply({ embeds: [embed], components: [buttons] });
+	}
+}
 
-		collector.on('collect', async (interaction) => {
-			try {
-				await interaction.deferUpdate();
-				await reply.delete();
-				collector.stop('deleted');
-			} catch (error) {
-				this.container.logger.error(error);
-				const errorEmbed = new EmbedBuilder()
-					.setColor(color.fail)
-					.setDescription(
-						`${emojis.custom.fail} I could not delete that message. Try again, or report the problem with ${commandMention('bug-report')}.`
-					)
-					.setTimestamp();
-
-				if (interaction.deferred || interaction.replied) {
-					await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
-				} else {
-					await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
-				}
-			}
+async function handleMentionDeleteInteraction(interaction, { logger } = {}) {
+	if (!isMentionDeleteInteraction(interaction)) return false;
+	const [, authorId] = interaction.customId.split(':');
+	if (interaction.user.id !== authorId) {
+		return interaction.reply({
+			content: `${emojis.custom.forbidden} Only the user who mentioned Cadia can delete this response.`,
+			flags: MessageFlags.Ephemeral
 		});
+	}
+
+	try {
+		await interaction.deferUpdate();
+		await interaction.message.delete();
+		return true;
+	} catch (error) {
+		logger?.error?.(error);
+		const errorEmbed = new EmbedBuilder()
+			.setColor(color.fail)
+			.setDescription(`${emojis.custom.fail} I could not delete that message. Try again, or report the problem with ${commandMention('bug-report')}.`)
+			.setTimestamp();
+
+		if (interaction.deferred || interaction.replied) {
+			await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
+		} else {
+			await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => null);
+		}
+		return false;
 	}
 }
 
 function isMentionDeleteInteraction(interaction, replyId, authorId) {
-	return (
-		interaction.isButton() &&
+	const [, customAuthorId] = String(interaction.customId || '').split(':');
+	const matchesLegacyShape =
 		interaction.customId === 'deleteMentionReply' &&
-		interaction.message.id === replyId &&
-		interaction.user.id === authorId
-	);
+		(!replyId || interaction.message?.id === replyId) &&
+		(!authorId || interaction.user?.id === authorId);
+	const matchesRestartSafeShape = interaction.customId?.startsWith('mention-delete:') && (!authorId || customAuthorId === authorId);
+	return interaction.isButton() && (matchesLegacyShape || matchesRestartSafeShape);
 }
 
 function hasDirectBotMention(message, botId) {
@@ -105,6 +114,7 @@ function hasDirectBotMention(message, botId) {
 module.exports = {
 	INVITE_PERMISSIONS: invitePermissions,
 	UserEvent,
+	handleMentionDeleteInteraction,
 	hasDirectBotMention,
 	isMentionDeleteInteraction
 };

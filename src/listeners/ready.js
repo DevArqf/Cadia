@@ -13,6 +13,7 @@ const { configureRpgGrowth } = require('../lib/rpg/growth');
 const { configureBotAnalytics } = require('../lib/util/botAnalytics');
 const { initializeBlacklistCache } = require('../lib/policies/blacklist');
 const { refreshCommandMentionIds } = require('../lib/util/commandMentions');
+const { refreshRuntimeConfig } = require('../lib/runtime/runtimeConfig');
 const { version } = require('../../package.json');
 
 class UserEvent extends Listener {
@@ -34,6 +35,7 @@ class UserEvent extends Listener {
 		const info = await this._connectDb();
 		if (!info.error)
 			await initializeBlacklistCache().catch((error) => this.container.logger.warn(`Blacklist cache warmup failed: ${error.message}`));
+		await refreshRuntimeConfig({ force: true }).catch((error) => this.container.logger.warn(`Runtime config warmup failed: ${error.message}`));
 		console.clear();
 		this._reportGrowthConfiguration(info);
 

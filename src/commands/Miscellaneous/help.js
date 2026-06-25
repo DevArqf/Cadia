@@ -4,6 +4,7 @@ const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { branding, color, emojis } = require('../../config');
 const { createInviteUrl } = require('../../config/invite');
 const { commandMention } = require('../../lib/util/commandMentions');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../lib/runtime/interactionSessions');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -79,45 +80,23 @@ class UserCommand extends CadiaCommand {
 		try {
 			const catalog = getCommandCatalog();
 			const selectedCategory = catalog.find((category) => category.id === 'rpg')?.id ?? catalog[0]?.id ?? 'overview';
-			const componentId = `help:${interaction.id}:category`;
+			const sessionId = interaction.id;
+			const componentId = `help:${sessionId}:category`;
 
-			const message = await interaction.reply({
+			const response = await interaction.reply({
 				components: buildHelpComponents(interaction, catalog, selectedCategory, componentId),
 				flags: MessageFlags.IsComponentsV2,
 				withResponse: true
 			});
-			const responseMessage = message.resource?.message ?? (await interaction.fetchReply());
-
-			const collector = responseMessage.createMessageComponentCollector({
-				time: 180_000
-			});
-
-			collector.on('collect', async (i) => {
-				if (i.user.id !== interaction.user.id) {
-					return i.reply({
-						components: buildNoticeComponents(
-							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run ${commandMention('help')} to open your own.`
-						),
-						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-					});
-				}
-
-				if (i.customId !== componentId) return;
-
-				const categoryId = i.values[0];
-				await i.update({
-					components: buildHelpComponents(interaction, catalog, categoryId, componentId),
-					flags: MessageFlags.IsComponentsV2
-				});
-			});
-
-			collector.on('end', async () => {
-				await interaction
-					.editReply({
-						components: buildHelpComponents(interaction, catalog, selectedCategory, componentId, true),
-						flags: MessageFlags.IsComponentsV2
-					})
-					.catch(() => null);
+			const message = response?.resource?.message ?? (typeof interaction.fetchReply === 'function' ? await interaction.fetchReply().catch(() => null) : null);
+			await saveInteractionSession({
+				kind: 'help',
+				sessionId,
+				ownerId: interaction.user.id,
+				guildId: interaction.guildId || interaction.guild?.id || null,
+				channelId: interaction.channelId || interaction.channel?.id || null,
+				messageId: message?.id || null,
+				state: { selectedCategory }
 			});
 		} catch (error) {
 			console.error(error);
@@ -198,6 +177,37 @@ function buildNoticeComponents(message) {
 			.setAccentColor(Number.parseInt(color.fail.replace('#', ''), 16))
 			.addTextDisplayComponents(new TextDisplayBuilder().setContent(message))
 	];
+}
+
+async function handleHelpInteraction(interaction) {
+	if (!interaction.isStringSelectMenu?.() || !interaction.customId?.startsWith('help:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (interaction.user.id !== ownerId) {
+		return interaction.reply({
+			components: buildNoticeComponents(
+				`${emojis.custom.forbidden} This help menu belongs to <@${ownerId}>. Run ${commandMention('help')} to open your own.`
+			),
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+
+	const catalog = getCommandCatalog();
+	const categoryId = interaction.values[0];
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'help',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { selectedCategory: categoryId }
+	});
+	await interaction.update({
+		components: buildHelpComponents(interaction, catalog, categoryId, interaction.customId),
+		flags: MessageFlags.IsComponentsV2
+	});
+	return true;
 }
 
 function getCommandCatalog() {
@@ -299,5 +309,6 @@ async function sendError(interaction) {
 module.exports = {
 	UserCommand,
 	buildHelpComponents,
+	handleHelpInteraction,
 	getCommandCatalog
 };

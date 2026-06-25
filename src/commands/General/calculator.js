@@ -11,6 +11,7 @@ const {
 	TextDisplayBuilder
 } = require('discord.js');
 const math = require('mathjs');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -50,48 +51,69 @@ class UserCommand extends CadiaCommand {
 			withResponse: true
 		});
 		const message = response.resource?.message ?? (await interaction.fetchReply());
-		const collector = message.createMessageComponentCollector({
-			filter: (i) => i.user.id === interaction.user.id,
-			time: 600_000
-		});
-
-		collector.on('collect', async (i) => {
-			const value = i.customId.slice(`${idPrefix}:`.length);
-			note = '';
-
-			if (value === '=') {
-				try {
-					expression = math.evaluate(expression || '0').toString();
-					note = 'Calculated successfully.';
-				} catch {
-					expression = '';
-					note = 'Invalid expression. Press AC and try again.';
-				}
-			} else if (value === 'clear') {
-				expression = '';
-				note = 'Results will be displayed here.';
-			} else if (value === 'backspace') {
-				expression = expression.slice(0, -1);
-				if (!expression) note = 'Results will be displayed here.';
-			} else {
-				expression = appendValue(expression, value);
-			}
-
-			await i.update({
-				components: [buildCalculatorContainer(expression, note, rows)],
-				flags: MessageFlags.IsComponentsV2
-			});
-		});
-
-		collector.on('end', async () => {
-			await interaction
-				.editReply({
-					components: [buildCalculatorContainer(expression, 'Calculator closed.', buildKeypad(idPrefix, true))],
-					flags: MessageFlags.IsComponentsV2
-				})
-				.catch(() => null);
+		await saveInteractionSession({
+			kind: 'calculator',
+			sessionId: interaction.id,
+			ownerId: interaction.user.id,
+			guildId: interaction.guildId || interaction.guild?.id || null,
+			channelId: interaction.channelId || interaction.channel?.id || null,
+			messageId: message?.id || null,
+			state: { expression, note },
+			ttlMs: 600_000
 		});
 	}
+}
+
+async function handleCalculatorInteraction(interaction) {
+	if (!interaction.isButton?.() || !interaction.customId?.startsWith('calculator:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (interaction.user.id !== ownerId) {
+		return interaction.reply({
+			content: `${emojis.custom.forbidden} This calculator belongs to <@${ownerId}>. Run /calculator to open your own.`,
+			flags: MessageFlags.Ephemeral
+		});
+	}
+
+	const idPrefix = `calculator:${session?.sessionId || sessionId}`;
+	const value = interaction.customId.slice(`${idPrefix}:`.length);
+	let expression = session?.state?.expression || '';
+	let note = '';
+
+	if (value === '=') {
+		try {
+			expression = math.evaluate(expression || '0').toString();
+			note = 'Calculated successfully.';
+		} catch {
+			expression = '';
+			note = 'Invalid expression. Press AC and try again.';
+		}
+	} else if (value === 'clear') {
+		expression = '';
+		note = 'Results will be displayed here.';
+	} else if (value === 'backspace') {
+		expression = expression.slice(0, -1);
+		if (!expression) note = 'Results will be displayed here.';
+	} else {
+		expression = appendValue(expression, value);
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'calculator',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { expression, note },
+		ttlMs: 600_000
+	});
+
+	await interaction.update({
+		components: [buildCalculatorContainer(expression, note, buildKeypad(idPrefix))],
+		flags: MessageFlags.IsComponentsV2
+	});
+	return true;
 }
 
 function buildCalculatorContainer(expression, note, rows) {
@@ -159,5 +181,7 @@ function isNumeric(value) {
 }
 
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildCalculatorContainer,
+	handleCalculatorInteraction
 };

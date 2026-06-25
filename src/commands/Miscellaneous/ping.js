@@ -13,6 +13,7 @@ const {
 	ThumbnailBuilder
 } = require('discord.js');
 const { commandMention } = require('../../lib/util/commandMentions');
+const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../lib/runtime/interactionSessions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -42,44 +43,23 @@ class UserCommand extends CadiaCommand {
 	 */
 	async chatInputRun(interaction) {
 		try {
-			const refreshId = `ping:${interaction.id}:refresh`;
+			const sessionId = interaction.id;
+			const refreshId = `ping:${sessionId}:refresh`;
 
-			const message = await interaction.reply({
+			const response = await interaction.reply({
 				components: buildPingComponents(interaction, interaction.createdTimestamp, refreshId),
 				flags: MessageFlags.IsComponentsV2,
 				withResponse: true
 			});
-			const responseMessage = message.resource?.message ?? (await interaction.fetchReply());
-
-			const collector = responseMessage.createMessageComponentCollector({
-				time: 120_000
-			});
-
-			collector.on('collect', async (i) => {
-				if (i.user.id !== interaction.user.id) {
-					return i.reply({
-						components: buildNoticeComponents(
-							`${emojis.custom.forbidden} This latency panel belongs to ${interaction.user}. Run \`/ping\` to create your own.`
-						),
-						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-					});
-				}
-
-				if (i.customId !== refreshId) return;
-
-				await i.update({
-					components: buildPingComponents(interaction, i.createdTimestamp, refreshId),
-					flags: MessageFlags.IsComponentsV2
-				});
-			});
-
-			collector.on('end', async () => {
-				await interaction
-					.editReply({
-						components: buildPingComponents(interaction, Date.now(), refreshId, true),
-						flags: MessageFlags.IsComponentsV2
-					})
-					.catch(() => null);
+			const message = response?.resource?.message ?? (typeof interaction.fetchReply === 'function' ? await interaction.fetchReply().catch(() => null) : null);
+			await saveInteractionSession({
+				kind: 'ping',
+				sessionId,
+				ownerId: interaction.user.id,
+				guildId: interaction.guildId || interaction.guild?.id || null,
+				channelId: interaction.channelId || interaction.channel?.id || null,
+				messageId: message?.id || null,
+				state: { createdTimestamp: interaction.createdTimestamp }
 			});
 		} catch (error) {
 			console.error(error);
@@ -171,6 +151,33 @@ function buildNoticeComponents(message) {
 	];
 }
 
+async function handlePingInteraction(interaction) {
+	if (!interaction.isButton?.() || !interaction.customId?.startsWith('ping:')) return false;
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (interaction.user.id !== ownerId) {
+		return interaction.reply({
+			components: buildNoticeComponents(`${emojis.custom.forbidden} This latency panel belongs to <@${ownerId}>. Run ${commandMention('ping')} to create your own.`),
+			flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+		});
+	}
+
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'ping',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { refreshedAt: new Date().toISOString() }
+	});
+	await interaction.update({
+		components: buildPingComponents(interaction, interaction.createdTimestamp, interaction.customId),
+		flags: MessageFlags.IsComponentsV2
+	});
+	return true;
+}
+
 async function sendError(interaction) {
 	const response = {
 		components: buildNoticeComponents(
@@ -184,5 +191,7 @@ async function sendError(interaction) {
 }
 
 module.exports = {
-	UserCommand
+	UserCommand,
+	buildPingComponents,
+	handlePingInteraction
 };
