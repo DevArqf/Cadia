@@ -2,6 +2,7 @@ const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { componentReply, notice, panel } = require('../../lib/util/components');
+const { commandMention } = require('../../lib/util/commandMentions');
 const rpg = require('../../lib/rpg/service');
 const { MessageFlags } = require('discord.js');
 
@@ -90,8 +91,8 @@ function buildAccessPanel(title, access, actorId) {
 				`${emojis.custom.owner || emojis.custom.person} **Changed By:** <@${actorId}>`
 			],
 			enabled
-				? `${emojis.custom.arrowright} This user can now use \`/rpg\` while the RPG System is private.`
-				: `${emojis.custom.arrowright} This user cannot use \`/rpg\` unless they are a Cadia developer.`
+				? `${emojis.custom.arrowright} This user can now use ${commandMention('rpg')} while the RPG System is private.`
+				: `${emojis.custom.arrowright} This user cannot use ${commandMention('rpg')} unless they are a Cadia developer.`
 		],
 		footer: `${emojis.custom.clock} Updated <t:${Math.floor(Date.now() / 1000)}:R>`
 	});

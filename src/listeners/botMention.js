@@ -4,6 +4,7 @@ const { branding } = require('../config/branding');
 const { color } = require('../config/colors');
 const { emojis } = require('../config/emojis');
 const { createInviteUrl, invitePermissions } = require('../config/invite');
+const { commandMention } = require('../lib/util/commandMentions');
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -27,8 +28,8 @@ class UserEvent extends Listener {
 			.setColor(color.default)
 			.setDescription(
 				`${emojis.custom.rpguser} Hey **${message.author.username}**! ${branding.name} is a story-driven Discord RPG.\n\n` +
-					`${emojis.custom.arrowright} Start with \`/rpg tutorial\`, create a Warden with \`/rpg create\`, then begin with \`/rpg adventure\`.\n` +
-					`${emojis.custom.settings} Moderation and utility features are available under **Community Tools** in </help:${branding.helpCommandId}>.`
+					`${emojis.custom.arrowright} Start with ${commandMention('rpg tutorial')}, create a Warden with ${commandMention('rpg create')}, then begin with ${commandMention('rpg adventure')}.\n` +
+					`${emojis.custom.settings} Moderation and utility features are available under **Community Tools** in ${commandMention('help')}.`
 			)
 			.addFields(
 				{ name: `${emojis.custom.slash} Commands`, value: `${emojis.custom.arrowright} **${commands}**`, inline: true },
@@ -60,7 +61,7 @@ class UserEvent extends Listener {
 				const errorEmbed = new EmbedBuilder()
 					.setColor(color.fail)
 					.setDescription(
-						`${emojis.custom.fail} I could not delete that message. Try again, or report the problem with </bugreport:${branding.bugReportCommandId}>.`
+						`${emojis.custom.fail} I could not delete that message. Try again, or report the problem with ${commandMention('bug-report')}.`
 					)
 					.setTimestamp();
 

@@ -3,6 +3,7 @@ const { color, emojis } = require('../../../config');
 const { WelcomeSchema } = require('../../../lib/schemas/welcomeSchema');
 const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
+const { commandMention } = require('../../../lib/util/commandMentions');
 const { getWelcomeTemplate, listWelcomeTemplates, renderWelcomePreview } = require('../../../lib/util/welcomeTemplates');
 
 class UserCommand extends CadiaCommand {
@@ -116,7 +117,7 @@ async function updateTemplate(interaction) {
 	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
 	if (!config)
 		return interaction.reply({
-			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			embeds: [failEmbed(`The Welcome System has not been setup yet. Use ${commandMention('welcome setup')} first.`)],
 			flags: MessageFlags.Ephemeral
 		});
 
@@ -139,7 +140,7 @@ async function updateChannel(interaction) {
 	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
 	if (!config)
 		return interaction.reply({
-			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			embeds: [failEmbed(`The Welcome System has not been setup yet. Use ${commandMention('welcome setup')} first.`)],
 			flags: MessageFlags.Ephemeral
 		});
 
@@ -156,7 +157,7 @@ async function previewWelcome(interaction) {
 	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
 	if (!config)
 		return interaction.reply({
-			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			embeds: [failEmbed(`The Welcome System has not been setup yet. Use ${commandMention('welcome setup')} first.`)],
 			flags: MessageFlags.Ephemeral
 		});
 
@@ -168,7 +169,7 @@ async function showStatus(interaction) {
 	const config = await WelcomeSchema.findOne({ guildId: interaction.guild.id });
 	if (!config)
 		return interaction.reply({
-			embeds: [failEmbed('The Welcome System has not been setup yet. Use `/welcome setup` first.')],
+			embeds: [failEmbed(`The Welcome System has not been setup yet. Use ${commandMention('welcome setup')} first.`)],
 			flags: MessageFlags.Ephemeral
 		});
 

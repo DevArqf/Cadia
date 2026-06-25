@@ -3,6 +3,7 @@ const path = require('node:path');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { branding, color, emojis } = require('../../config');
 const { createInviteUrl } = require('../../config/invite');
+const { commandMention } = require('../../lib/util/commandMentions');
 const {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -95,7 +96,7 @@ class UserCommand extends CadiaCommand {
 				if (i.user.id !== interaction.user.id) {
 					return i.reply({
 						components: buildNoticeComponents(
-							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run \`</help:${branding.helpCommandId}>\` to open your own.`
+							`${emojis.custom.forbidden} This help menu belongs to ${interaction.user}. Run ${commandMention('help')} to open your own.`
 						),
 						flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 					});
@@ -140,7 +141,7 @@ function buildHelpComponents(interaction, catalog, selectedCategoryId, component
 					new TextDisplayBuilder().setContent(
 						`${emojis.custom.openfolder} **Cadia Command Center**\n` +
 							`-# Cadia v${branding.version} · Slash commands and \`cd\` prefix commands\n` +
-							`${emojis.custom.rpguser} Begin with \`/rpg tutorial\` or \`cd rpg tutorial\`.\n` +
+							`${emojis.custom.rpguser} Begin with ${commandMention('rpg tutorial')} or \`cd rpg tutorial\`.\n` +
 							`Browse **${totalCommands} commands** across the RPG and **Community Tools** categories below.`
 					)
 				)
@@ -248,7 +249,7 @@ function getCommandFiles(directory) {
 function formatCommandList(commands) {
 	if (!commands.length) return `${emojis.custom.warning} No commands were found in this category.`;
 
-	return commands.map((command) => `${emojis.custom.arrowright} \`/${command}\` · \`cd ${command}\``).join('\n');
+	return commands.map((command) => `${emojis.custom.arrowright} ${commandMention(command)} · \`cd ${command}\``).join('\n');
 }
 
 function getCategoryIcon(name = '') {
@@ -286,7 +287,7 @@ function getCategoryEmojiName(name = '') {
 async function sendError(interaction) {
 	const response = {
 		components: buildNoticeComponents(
-			`${emojis.custom.fail} Oops, I could not load the help menu. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
+			`${emojis.custom.fail} Oops, I could not load the help menu. Please try again later or use ${commandMention('bug-report')}.`
 		),
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 	};

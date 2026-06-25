@@ -13,6 +13,7 @@ const {
 } = require('discord.js');
 const { badgeEmoji, formatBadge } = require('../badges');
 const { emojis } = require('../../../config');
+const { commandMention } = require('../../util/commandMentions');
 
 function createPlayerGrowthHandlers({
 	actionButton,
@@ -53,7 +54,10 @@ function createPlayerGrowthHandlers({
 		collector.on('collect', async (componentInteraction) => {
 			if (componentInteraction.user.id !== interaction.user.id) {
 				return componentInteraction.reply(
-					componentReply(notice(`${icon.forbidden} **Not Your Leaderboard**`, 'Run `/rpg leaderboard` to open your own panel.'), true)
+					componentReply(
+						notice(`${icon.forbidden} **Not Your Leaderboard**`, `Run ${commandMention('rpg leaderboard')} to open your own panel.`),
+						true
+					)
 				);
 			}
 			if (!componentInteraction.customId.startsWith(customIdBase)) return;
@@ -177,7 +181,7 @@ function createPlayerGrowthHandlers({
 				title: `**Warden Achievements**`,
 				subtitle: `${growth.achievements.filter((achievement) => unlockedIds.has(achievement.id)).length}/${growth.achievements.length} unlocked · rewards can only be claimed once`,
 				sections: entries,
-				footer: `Feature an earned badge on your profile with /rpg badge.`
+				footer: `Feature an earned badge on your profile with ${commandMention('rpg badge')}.`
 			})
 		);
 		return interaction.deferred ? interaction.editReply(response) : interaction.reply(response);
@@ -216,10 +220,6 @@ function createPlayerGrowthHandlers({
 					title: `${icon.threat} **Server Boss: ${boss.name}**`,
 					subtitle: boss.status === 'defeated' ? 'Defeated by the community' : 'Cooperative seasonal encounter',
 					image: image.url,
-					imageDescription:
-						boss.status === 'defeated'
-							? `${boss.name} defeated with the community reward revealed`
-							: `${boss.name} facing the server's Wardens in the storm`,
 					sections: [
 						[
 							`${icon.health.full} **HP:** ${boss.hp.toLocaleString()} / ${boss.maxHp.toLocaleString()} (${progress}%)`,
@@ -229,7 +229,7 @@ function createPlayerGrowthHandlers({
 						].filter(Boolean),
 						boss.status === 'defeated'
 							? `${icon.loot} Every contributor received **${growth.rewards.raid.item.name}** and the ${formatBadge(growth.rewards.raid.badge)}.`
-							: `${icon.arrowRight} Use \`/rpg server-boss action:Attack\` every 30 minutes. Damage scales with your Warden.`
+							: `${icon.arrowRight} Use ${commandMention('rpg server-boss')} action **Attack** every 30 minutes. Damage scales with your Warden.`
 					]
 				})
 			),
@@ -257,7 +257,7 @@ function createPlayerGrowthHandlers({
 		const statusText = claimed
 			? `${icon.success} **${activeSeason.item.name}** and the ${formatBadge(activeSeason.badge)} are now yours.`
 			: status.complete
-				? `${icon.arrowRight} Quest complete. Claim it with \`/rpg season action:Claim\`.`
+				? `${icon.arrowRight} Quest complete. Claim it with ${commandMention('rpg season')} action **Claim**.`
 				: `${icon.arrowRight} Complete both objectives before the season ends.`;
 		const container = new ContainerBuilder()
 			.setAccentColor(Number.parseInt((claimed ? color.success : color.RPG).replace('#', ''), 16))
@@ -301,7 +301,7 @@ function createPlayerGrowthHandlers({
 					sections: [
 						`${icon.info} **Your Code:** \`${player.referralCode}\``,
 						`${icon.success} **Successful Referrals:** ${player.referrals}`,
-						`${icon.arrowRight} Your friend creates a Warden, then runs \`/rpg refer action:Redeem code:${player.referralCode}\`.`,
+						`${icon.arrowRight} Your friend creates a Warden, then runs ${commandMention('rpg refer')} action **Redeem** with code **${player.referralCode}**.`,
 						`${icon.loot} Both players receive **${growth.rewards.referral.item.name}** and the ${formatBadge(growth.rewards.referral.badge)}.`
 					]
 				}),

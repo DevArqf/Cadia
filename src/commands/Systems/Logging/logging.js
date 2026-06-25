@@ -15,6 +15,7 @@ const {
 	StringSelectMenuOptionBuilder,
 	TextDisplayBuilder
 } = require('discord.js');
+const { commandMention } = require('../../../lib/util/commandMentions');
 const {
 	auditActions,
 	auditCategories,
@@ -52,7 +53,7 @@ class UserCommand extends CadiaCommand {
 		collector.on('collect', async (i) => {
 			if (i.user.id !== interaction.user.id) {
 				return i.reply({
-					components: [buildNotice(`${emojis.custom.forbidden} **Not Your Panel**`, 'Run `/logging` to open your own audit panel.')],
+					components: [buildNotice(`${emojis.custom.forbidden} **Not Your Panel**`, `Run ${commandMention('logging')} to open your own audit panel.`)],
 					flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 				});
 			}

@@ -6,6 +6,7 @@ const { emojis } = require('../config/emojis');
 const { createInviteUrl } = require('../config/invite');
 const { selectOnboardingVariant } = require('../lib/analytics/growth');
 const { recordGuildJoin, recordOnboardingOutcome } = require('../lib/util/botAnalytics');
+const { commandMention } = require('../lib/util/commandMentions');
 const { postTopggStats } = require('../lib/util/topgg');
 
 class UserEvent extends Listener {
@@ -64,15 +65,15 @@ function buildOnboardingEmbed(guild, variant) {
 	const rpgFirst =
 		`${emojis.custom.rpguser} **Your server has entered the world of ${branding.name}.**\n\n` +
 		`${emojis.custom.rpgInfo} **Begin the RPG**\n` +
-		`${emojis.custom.arrowright} Run \`/rpg tutorial\` for the one-minute introduction.\n` +
-		`${emojis.custom.arrowright} Create your Warden with \`/rpg create\`.\n` +
-		`${emojis.custom.arrowright} Enter your first encounter with \`/rpg adventure\`.\n\n` +
+		`${emojis.custom.arrowright} Run ${commandMention('rpg tutorial')} for the one-minute introduction.\n` +
+		`${emojis.custom.arrowright} Create your Warden with ${commandMention('rpg create')}.\n` +
+		`${emojis.custom.arrowright} Enter your first encounter with ${commandMention('rpg adventure')}.\n\n` +
 		`${emojis.custom.settings} **Community Tools**\n` +
-		`${emojis.custom.arrowright} Moderation, logging, welcome messages, tickets, utilities, and games remain available through \`/help\`.\n\n` +
+		`${emojis.custom.arrowright} Moderation, logging, welcome messages, tickets, utilities, and games remain available through ${commandMention('help')}.\n\n` +
 		`${emojis.custom.warning} Keep ${branding.name}'s role above roles it needs to moderate.`;
 	const control =
 		`${emojis.custom.heart1} **Thank you for adding ${branding.name} to ${guild.name}!**\n` +
-		`${emojis.custom.arrowright} Run \`/help\` to browse commands or join the support server if you need assistance.\n\n` +
+		`${emojis.custom.arrowright} Run ${commandMention('help')} to browse commands or join the support server if you need assistance.\n\n` +
 		`${emojis.custom.warning} **Keep ${branding.name}'s role above roles it needs to moderate.**`;
 
 	return new EmbedBuilder()

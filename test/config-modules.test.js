@@ -35,3 +35,13 @@ test('Discord application, command, and channel identifiers are owned by focused
 		assert.match(value, /^\d{17,20}$/);
 	}
 });
+
+test('command mentions use branding command IDs with safe fallback', () => {
+	const { branding } = require('../src/config/branding');
+	const { commandMention } = require('../src/lib/util/commandMentions');
+
+	assert.equal(commandMention('rpg tutorial'), `</rpg tutorial:${branding.rpgCommandId}>`);
+	assert.equal(commandMention('/help'), `</help:${branding.helpCommandId}>`);
+	assert.equal(commandMention('bug-report'), `</bug-report:${branding.bugReportCommandId}>`);
+	assert.equal(commandMention('missing-command'), '/missing-command');
+});

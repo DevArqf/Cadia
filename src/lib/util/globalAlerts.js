@@ -8,6 +8,7 @@ const {
 	ThumbnailBuilder
 } = require('discord.js');
 const { branding, color, emojis } = require('../../config');
+const { commandMention } = require('./commandMentions');
 const { GlobalAlertSchema } = require('../schemas/globalAlertSchema');
 const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
 const { isDeveloper } = require('./authorization');
@@ -45,7 +46,7 @@ const alertTemplates = {
 	update: {
 		label: 'Update Release',
 		title: 'Cadia Update Released',
-		message: '**A new Cadia update is now live.**\nUse `/alert` to view the latest developer announcement.',
+		message: `**A new Cadia update is now live.**\nUse ${commandMention('alert')} to view the latest developer announcement.`,
 		footer: 'Thank you for using Cadia.',
 		style: 'update'
 	},
@@ -213,7 +214,7 @@ function buildAlertNudge(alert) {
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`A developer posted a global alert <t:${Math.floor(alert.createdAt / 1000)}:R>.\n${emojis.custom.arrowright} Run \`</alert:${branding.alertCommandId}>\` to read it.`
+				`A developer posted a global alert <t:${Math.floor(alert.createdAt / 1000)}:R>.\n${emojis.custom.arrowright} Run ${commandMention('alert')} to read it.`
 			)
 		);
 }

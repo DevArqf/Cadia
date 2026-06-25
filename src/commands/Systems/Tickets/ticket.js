@@ -2,6 +2,7 @@ const { ChannelType, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require
 const { color, emojis } = require('../../../config');
 const CadiaCommand = require('../../../lib/structures/commands/CadiaCommand');
 const { PermissionLevels } = require('../../../lib/types/Enums');
+const { commandMention } = require('../../../lib/util/commandMentions');
 const {
 	addTicketUser,
 	buildTicketPanel,
@@ -226,7 +227,7 @@ async function removeStaffRole(interaction) {
 async function sendPanel(interaction) {
 	const config = await getTicketConfig(interaction.guild.id);
 	if (!config.enabled)
-		return interaction.reply({ embeds: [failEmbed('The ticket system is disabled. Use `/ticket setup` first.')], flags: MessageFlags.Ephemeral });
+		return interaction.reply({ embeds: [failEmbed(`The ticket system is disabled. Use ${commandMention('ticket setup')} first.`)], flags: MessageFlags.Ephemeral });
 
 	const channel = interaction.options.getChannel('channel') || interaction.guild.channels.cache.get(config.panelChannelId) || interaction.channel;
 	const message = await channel.send(buildTicketPanel(config));

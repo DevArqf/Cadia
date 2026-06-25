@@ -10,6 +10,7 @@ const {
 	TextDisplayBuilder
 } = require('discord.js');
 const { formatBadge } = require('../../badges');
+const { commandMention } = require('../../../util/commandMentions');
 
 function createBattleView({
 	actionButton,
@@ -268,7 +269,7 @@ function createBattleView({
 		return (
 			`**Achievement Unlocked: ${achievement.name}**` +
 			(rewards.length ? `\n**Rewards**\n${rewards.join('\n')}` : '') +
-			`\n-# Feature its badge on your profile with \`/rpg badge\`.`
+			`\n-# Feature its badge on your profile with ${commandMention('rpg badge')}.`
 		);
 	}
 

@@ -1,6 +1,7 @@
 const { randomBytes } = require('node:crypto');
 const { classes, encounters, items, npcQuests, questSteps, regions } = require('../data');
 const repositories = require('../repositories');
+const { commandMention } = require('../../util/commandMentions');
 
 const xpPerLevel = 100;
 
@@ -22,7 +23,7 @@ async function getProfile(guildId, userId) {
 
 async function requireProfile(guildId, userId) {
 	const profile = await getProfile(guildId, userId);
-	if (!profile) throw new RpgError('Create a character first with `/rpg create`.');
+	if (!profile) throw new RpgError(`Create a character first with ${commandMention('rpg create')}.`);
 	return profile;
 }
 

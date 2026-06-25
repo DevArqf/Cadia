@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 const { color, emojis } = require('../../config');
 const { alertStyles, alertTemplates, buildAlertPanel, componentReply, publishAlert, updateAlertDmStats } = require('./globalAlerts');
+const { commandMention } = require('./commandMentions');
 const { notice, panel } = require('./components');
 const LevelSchema = require('../schemas/levelSchema');
 const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
@@ -87,7 +88,7 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false, op
 					`${emojis.custom.info} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
 					`${emojis.custom.openfolder} **CSV Report:** ${csvAttachment ? 'Attached' : 'Not requested'}`
 				],
-				footer: `${emojis.custom.arrowright} Users will be prompted to run /alert after using Cadia commands.`
+				footer: `${emojis.custom.arrowright} Users will be prompted to run ${commandMention('alert')} after using Cadia commands.`
 			})
 		),
 		...(csvAttachment ? { files: [csvAttachment] } : {})
@@ -119,7 +120,7 @@ async function previewTemplate(interaction, draft, dmUsers, exportCsv = false) {
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
 			return i.reply(
-				componentReply(notice(`${emojis.custom.forbidden} **Not Your Preview**`, 'Run `/alert-template` to open your own preview.'))
+				componentReply(notice(`${emojis.custom.forbidden} **Not Your Preview**`, `Run ${commandMention('alert-template')} to open your own preview.`))
 			);
 		}
 		if (!i.customId.startsWith(componentId)) return;

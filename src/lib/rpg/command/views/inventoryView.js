@@ -10,6 +10,7 @@ const {
 	StringSelectMenuBuilder,
 	TextDisplayBuilder
 } = require('discord.js');
+const { commandMention } = require('../../../util/commandMentions');
 
 const inventoryCategories = [
 	{ id: 'weapon', label: 'Weapons', action: 'equip' },
@@ -119,7 +120,7 @@ function createInventoryView({
 			.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 			.addTextDisplayComponents(
 				new TextDisplayBuilder().setContent(
-					state.disabled ? `-# Inventory controls expired. Run \`/rpg inventory\` again.` : `-# Inventory controls expire after 3 minutes.`
+					state.disabled ? `-# Inventory controls expired. Run ${commandMention('rpg inventory')} again.` : `-# Inventory controls expire after 3 minutes.`
 				)
 			);
 

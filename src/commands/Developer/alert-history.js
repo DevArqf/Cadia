@@ -4,6 +4,7 @@ const { MessageFlags } = require('discord.js');
 const { PermissionLevels } = require('../../lib/types/Enums');
 const { componentReply, getAlertHistory } = require('../../lib/util/globalAlerts');
 const { panel } = require('../../lib/util/components');
+const { commandMention } = require('../../lib/util/commandMentions');
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -36,7 +37,7 @@ class UserCommand extends CadiaCommand {
 					title: `${emojis.custom.openfolder} **Alert History**`,
 					subtitle: 'Recent Cadia global alerts',
 					sections: [formatAlertHistory(alerts)],
-					footer: `${emojis.custom.arrowright} Use /alert-preview alert-id:<id> to preview a past alert.`
+					footer: `${emojis.custom.arrowright} Use ${commandMention('alert-preview')} alert-id:<id> to preview a past alert.`
 				})
 			)
 		);

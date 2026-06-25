@@ -4,7 +4,7 @@ const test = require('node:test');
 process.env.BOT_OWNERS ??= 'test-owner';
 process.env.DEVELOPERS ??= 'test-developer';
 
-const { fleeResultImage } = require('../src/lib/rpg/assets');
+const { battleResultImage, fleeResultImage } = require('../src/lib/rpg/assets');
 const { buildBattleResultReply } = require('../src/commands/Systems/RPG System/rpg');
 
 const expectedImages = {
@@ -20,6 +20,14 @@ test('each RPG region provides its own flee image', () => {
 		assert.equal(image.attachment.name, fileName);
 		assert.ok(image.attachment.attachment.length > 1_000_000);
 	}
+});
+
+test('Harlequin defeat uses the real defeated Harlequin image', () => {
+	const image = battleResultImage('harlequin-defeat');
+
+	assert.equal(image.url, 'attachment://harlequin-defeat.png');
+	assert.equal(image.attachment.name, 'harlequin-defeat.png');
+	assert.ok(image.attachment.attachment.length > 1_000_000);
 });
 
 test('escaped battle results attach the flee image for the Warden region', () => {

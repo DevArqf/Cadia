@@ -16,6 +16,7 @@ const {
 } = require('discord.js');
 const { isMysqlConnected } = require('../../lib/database/mysql');
 const { createInviteUrl } = require('../../config/invite');
+const { commandMention } = require('../../lib/util/commandMentions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -58,7 +59,7 @@ class UserCommand extends CadiaCommand {
 					.addTextDisplayComponents(
 						new TextDisplayBuilder().setContent(
 							`## ${emojis.custom.rpguser} Cadia RPG\n` +
-								`${branding.tagline}. Begin with \`/rpg tutorial\`; moderation and utilities support the communities playing it.`
+								`${branding.tagline}. Begin with ${commandMention('rpg tutorial')}; moderation and utilities support the communities playing it.`
 						)
 					)
 					.setThumbnailAccessory(new ThumbnailBuilder().setURL(interaction.client.user.displayAvatarURL({ extension: 'png', size: 128 })))

@@ -16,6 +16,7 @@ const {
 	ThumbnailBuilder
 } = require('discord.js');
 const { actionButton, componentReply, notice, panel } = require('../../../lib/util/components');
+const { commandMention } = require('../../../lib/util/commandMentions');
 const {
 	adventureStoryImage,
 	battleResultImage,
@@ -323,7 +324,7 @@ async function createCharacter(interaction) {
 						`${icon.coin} **Starting Gold:** ${profile.gold}`,
 						`${icon.folder} **Starter Item:** Star Salve`
 					],
-					`${icon.info} Use **/rpg adventure** to begin your first encounter.`
+					`${icon.info} Use ${commandMention('rpg adventure')} to begin your first encounter.`
 				],
 				footer: `${icon.clock} Created <t:${Math.floor(profile.createdAt / 1000)}:R>`
 			})
@@ -341,13 +342,15 @@ async function offerTutorial(interaction) {
 	const collector = message.createMessageComponentCollector({ time: 120_000, max: 1 });
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, 'Run `/rpg tutorial` to open your own guide.'), true));
+			return i.reply(
+				componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, `Run ${commandMention('rpg tutorial')} to open your own guide.`), true)
+			);
 		}
 
 		if (i.customId === `${customIdBase}:skip`) {
 			await rpg.markTutorialSkipped(i.guild.id, i.user.id);
 			return i.update({
-				components: [notice(`${icon.success} **Tutorial Skipped**`, 'You can reopen it anytime with `/rpg tutorial`.', color.success)]
+				components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
 			});
 		}
 
@@ -375,7 +378,9 @@ async function runTutorial(interaction, fromComponent = false) {
 	const collector = message.createMessageComponentCollector({ time: 240_000 });
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
-			return i.reply(componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, 'Run `/rpg tutorial` to open your own guide.'), true));
+			return i.reply(
+				componentReply(notice(`${icon.forbidden} **Not Your Tutorial**`, `Run ${commandMention('rpg tutorial')} to open your own guide.`), true)
+			);
 		}
 		if (!i.customId.startsWith(customIdBase)) return;
 
@@ -384,7 +389,7 @@ async function runTutorial(interaction, fromComponent = false) {
 			await rpg.markTutorialSkipped(i.guild.id, i.user.id);
 			collector.stop('skipped');
 			return i.update({
-				components: [notice(`${icon.success} **Tutorial Skipped**`, 'You can reopen it anytime with `/rpg tutorial`.', color.success)]
+				components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
 			});
 		}
 		if (action === 'prev') page = Math.max(page - 1, 0);
@@ -396,7 +401,7 @@ async function runTutorial(interaction, fromComponent = false) {
 				components: [
 					notice(
 						`${icon.success} **Tutorial Complete**`,
-						'You are ready to begin. Use `/rpg create`, then `/rpg adventure` when your character is made.',
+						`You are ready to begin. Use ${commandMention('rpg create')}, then ${commandMention('rpg adventure')} when your character is made.`,
 						color.success
 					)
 				]
@@ -541,7 +546,7 @@ async function showProfile(interaction) {
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
 			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Profile**`, 'Run `/rpg profile` to open your own profile actions.'), true)
+				componentReply(notice(`${icon.forbidden} **Not Your Profile**`, `Run ${commandMention('rpg profile')} to open your own profile actions.`), true)
 			);
 		}
 
@@ -802,7 +807,7 @@ async function bestiary(interaction) {
 	collector.on('collect', async (i) => {
 		if (i.user.id !== interaction.user.id) {
 			return i.reply(
-				componentReply(notice(`${icon.forbidden} **Not Your Bestiary**`, 'Run `/rpg bestiary` to open your own enemy guide.'), true)
+				componentReply(notice(`${icon.forbidden} **Not Your Bestiary**`, `Run ${commandMention('rpg bestiary')} to open your own enemy guide.`), true)
 			);
 		}
 		if (!i.customId.startsWith(customIdBase)) return;
@@ -869,7 +874,7 @@ async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephem
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				disabled ? `-# Quest controls expired. Run \`/rpg quest\` again.` : `-# Quest controls expire after 2 minutes.`
+				disabled ? `-# Quest controls expired. Run ${commandMention('rpg quest')} again.` : `-# Quest controls expire after 2 minutes.`
 			)
 		);
 
@@ -929,7 +934,7 @@ async function buildQuestRewardReply(result, customIdBase = 'rpg-quest:static', 
 				[
 					`${icon.person} **NPC:** ${result.quest.npc.name}`,
 					`${icon.loot} **Rewards:** ${formatQuestRewards(result.rewards)}`,
-					`${icon.arrowRight} Run \`/rpg quest\` again when you want to accept the next NPC request.`
+					`${icon.arrowRight} Run ${commandMention('rpg quest')} again when you want to accept the next NPC request.`
 				].join('\n')
 			)
 		)
@@ -966,7 +971,7 @@ function formatQuestStatus(profile, state) {
 		return [
 			`${icon.info} **No Open NPC Quest**`,
 			`${icon.compass} Current Region: **${regions[profile.region]?.name || profile.region}**`,
-			`${icon.arrowRight} Use \`/rpg adventure\` to keep farming or \`/rpg travel\` when you unlock the next region.`
+			`${icon.arrowRight} Use ${commandMention('rpg adventure')} to keep farming or ${commandMention('rpg travel')} when you unlock the next region.`
 		].join('\n');
 	}
 
@@ -984,7 +989,7 @@ function formatQuestStatus(profile, state) {
 			`${icon.compass} **Region:** ${regions[quest.regionId]?.name || quest.regionId}`,
 			`${icon.objective} **Objective**\n${targetLines.join('\n')}`,
 			`${icon.loot} **Reward:** ${rewardText}`,
-			`${icon.arrowRight} Accept the quest, defeat the requested mobs with \`/rpg adventure\`, then return here.`
+			`${icon.arrowRight} Accept the quest, defeat the requested mobs with ${commandMention('rpg adventure')}, then return here.`
 		].join('\n\n');
 	}
 
@@ -995,7 +1000,7 @@ function formatQuestStatus(profile, state) {
 		`${icon.loot} **Reward:** ${rewardText}`,
 		activeQuest.status === 'ready'
 			? `${icon.arrowRight} Use **Return To NPC** to claim your reward.`
-			: `${icon.arrowRight} Use \`/rpg adventure\` in **${regions[quest.regionId]?.name || quest.regionId}** to find the targets.`
+			: `${icon.arrowRight} Use ${commandMention('rpg adventure')} in **${regions[quest.regionId]?.name || quest.regionId}** to find the targets.`
 	].join('\n\n');
 }
 
@@ -1041,7 +1046,7 @@ function buildBestiaryPanel(customIdBase, selectedId = null, disabled = false) {
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				disabled ? `-# This bestiary panel expired. Run \`/rpg bestiary\` again.` : `-# Bestiary panel expires after 3 minutes.`
+				disabled ? `-# This bestiary panel expired. Run ${commandMention('rpg bestiary')} again.` : `-# Bestiary panel expires after 3 minutes.`
 			)
 		);
 
@@ -1080,8 +1085,8 @@ function formatEnemyInfo(record) {
 	const roleText = record.type === 'boss' ? 'Travel gate boss' : 'Region mob';
 	const actionText =
 		record.type === 'boss'
-			? `Use \`/rpg travel\` when you meet the Rank requirement to challenge this boss.`
-			: `Use \`/rpg adventure\` in **${record.region.name}** to find this mob and farm its drops.`;
+			? `Use ${commandMention('rpg travel')} when you meet the Rank requirement to challenge this boss.`
+			: `Use ${commandMention('rpg adventure')} in **${record.region.name}** to find this mob and farm its drops.`;
 
 	return [
 		`${record.type === 'boss' ? icon.threat : icon.warning} **${encounter.name}**`,
@@ -1280,7 +1285,7 @@ async function sendRpgIssue(interaction, error) {
 		missingCharacter
 			? notice(
 					`${icon.warning} **Start With The Tutorial**`,
-					'You need to learn the RPG basics before using this command. Run `/rpg tutorial` first, then create your character when you are ready.',
+					`You need to learn the RPG basics before using this command. Run ${commandMention('rpg tutorial')} first, then create your character when you are ready.`,
 					color.warning
 				)
 			: notice(
@@ -1297,7 +1302,7 @@ async function sendRpgIssue(interaction, error) {
 }
 
 function isMissingCharacterError(error) {
-	return error?.message === 'Create a character first with `/rpg create`.';
+	return error?.message === `Create a character first with ${commandMention('rpg create')}.`;
 }
 
 function getActiveRpgAction(interaction) {

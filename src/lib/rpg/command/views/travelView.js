@@ -7,6 +7,7 @@ const {
 	SeparatorBuilder,
 	SeparatorSpacingSize
 } = require('discord.js');
+const { commandMention } = require('../../../util/commandMentions');
 
 function createTravelView({ actionButton, color, componentReply, createTravelImageAttachment, icon, panel, regions, sceneImages, service }) {
 	function buildTravelCompleteReply(result, ephemeral = false) {
@@ -38,19 +39,21 @@ function createTravelView({ actionButton, color, componentReply, createTravelIma
 	function buildLockedRegionPanel(profile, region, gate) {
 		const nextSteps = [];
 		if (!region) {
-			nextSteps.push('Choose a valid region from the `/rpg travel` region option.');
+			nextSteps.push(`Choose a valid region from the ${commandMention('rpg travel')} region option.`);
 		} else if ((profile.level || 1) < region.unlockRank) {
 			nextSteps.push(`Reach **Rank ${region.unlockRank}**. You are currently **Rank ${profile.level || 1}**.`);
-			nextSteps.push('Use `/rpg adventure` to farm mobs for XP, gold, and gear.');
-			nextSteps.push('Use `/rpg profile` to check your Rank progress.');
+			nextSteps.push(`Use ${commandMention('rpg adventure')} to farm mobs for XP, gold, and gear.`);
+			nextSteps.push(`Use ${commandMention('rpg profile')} to check your Rank progress.`);
 		} else if (gate.bossRequired) {
 			const boss = service.getBossById(gate.bossId);
 			nextSteps.push(`Defeat **${boss.name}** to unlock **${region.name}**.`);
-			nextSteps.push(`Use \`/rpg boss-info boss:${boss.id}\` to study weaknesses and resistances.`);
-			nextSteps.push('Farm region mobs with `/rpg adventure`, equip better gear with `/rpg equip`, then try `/rpg travel` again.');
+			nextSteps.push(`Use ${commandMention('rpg boss-info')} with boss **${boss.id}** to study weaknesses and resistances.`);
+			nextSteps.push(
+				`Farm region mobs with ${commandMention('rpg adventure')}, equip better gear with ${commandMention('rpg equip')}, then try ${commandMention('rpg travel')} again.`
+			);
 		} else {
 			nextSteps.push(gate.reason || 'This destination is not available yet.');
-			nextSteps.push('Use `/rpg quest` for your current objective.');
+			nextSteps.push(`Use ${commandMention('rpg quest')} for your current objective.`);
 		}
 
 		return panel({

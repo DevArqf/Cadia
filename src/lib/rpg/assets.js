@@ -74,6 +74,10 @@ const adventureStoryImages = {
 	}
 };
 const battleResultImages = {
+	'harlequin-defeat': {
+		fileName: 'harlequin-defeat.png',
+		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Harleyquin Defeat.png')
+	},
 	'echo-miner-defeat': {
 		fileName: 'echo-miner-defeat.png',
 		path: path.resolve(__dirname, '..', '..', '..', 'assets', 'RPG Assets', 'Echo Miner Defeat.png')
