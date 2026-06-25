@@ -21,11 +21,16 @@ class UserEvent extends Listener {
 					value: message.channel ? `${message.channel}` : `Unknown channel (${message.channelId || 'unknown id'})`,
 					icon: emojis.custom.openfolder
 				},
-				{ label: 'Content', value: message.content || 'No text content captured.', icon: emojis.custom.pencil }
+				{ label: 'Content', value: formatDeletedMessageContent(message.content), icon: emojis.custom.pencil }
 			],
 			{ color: color.fail, emoji: emojis.custom.trash, user: author }
 		);
 	}
 }
 
-module.exports = { UserEvent };
+function formatDeletedMessageContent(content) {
+	const text = content || 'No text content captured.';
+	return `\`${String(text).replaceAll('`', '\\`')}\``;
+}
+
+module.exports = { UserEvent, formatDeletedMessageContent };
