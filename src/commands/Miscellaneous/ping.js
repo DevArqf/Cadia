@@ -12,6 +12,7 @@ const {
 	TextDisplayBuilder,
 	ThumbnailBuilder
 } = require('discord.js');
+const { commandMention } = require('../../lib/util/commandMentions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -173,7 +174,7 @@ function buildNoticeComponents(message) {
 async function sendError(interaction) {
 	const response = {
 		components: buildNoticeComponents(
-			`${emojis.custom.fail} Oops, I could not measure latency. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
+			`${emojis.custom.fail} Oops, I could not measure latency. Please try again later or use ${commandMention('bug-report')}.`
 		),
 		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
 	};

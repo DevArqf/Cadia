@@ -310,10 +310,7 @@ class PrefixInteraction {
 
 	async reply(payload) {
 		const normalized = normalizePayload(payload);
-		const privateResponse = hasEphemeralFlag(payload);
-		this.responseMessage = privateResponse
-			? await this.user.send(normalized).catch(() => this.message.reply(normalized))
-			: await this.message.reply(normalized);
+		this.responseMessage = await this.message.reply(normalized);
 		this.replied = true;
 		return payload?.withResponse ? { resource: { message: this.responseMessage } } : this.responseMessage;
 	}
@@ -321,9 +318,7 @@ class PrefixInteraction {
 	async editReply(payload) {
 		const normalized = normalizePayload(payload);
 		if (!this.responseMessage) {
-			this.responseMessage = this.privateDeferred
-				? await this.user.send(normalized).catch(() => this.message.reply(normalized))
-				: await this.message.reply(normalized);
+			this.responseMessage = await this.message.reply(normalized);
 			this.replied = true;
 			return this.responseMessage;
 		}
@@ -333,7 +328,7 @@ class PrefixInteraction {
 
 	async followUp(payload) {
 		const normalized = normalizePayload(payload);
-		return hasEphemeralFlag(payload) ? this.user.send(normalized) : this.channel.send(normalized);
+		return this.message.reply(normalized);
 	}
 
 	async fetchReply() {

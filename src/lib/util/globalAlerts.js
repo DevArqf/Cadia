@@ -46,7 +46,7 @@ const alertTemplates = {
 	update: {
 		label: 'Update Release',
 		title: 'Cadia Update Released',
-		message: `**A new Cadia update is now live.**\nUse ${commandMention('alert')} to view the latest developer announcement.`,
+		message: () => `**A new Cadia update is now live.**\nUse ${commandMention('alert')} to view the latest developer announcement.`,
 		footer: 'Thank you for using Cadia.',
 		style: 'update'
 	},

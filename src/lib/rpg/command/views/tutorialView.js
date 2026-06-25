@@ -38,7 +38,7 @@ const tutorialSteps = [
 	{
 		title: 'Boss Gates And Travel',
 		body: [
-			`Use ${commandMention('rpg boss-info')} before attempting a boss. It shows HP, attack, defense, weaknesses, resistances, and drops.`,
+			`Use ${commandMention('rpg bestiary')} before attempting a boss. It shows HP, attack, defense, weaknesses, resistances, and drops.`,
 			`When you reach the required Rank, use ${commandMention('rpg travel')} to attempt the boss gate for the next region.`,
 			'If you lose, farm better gear from mobs, equip around the boss weakness, then try travel again.'
 		]

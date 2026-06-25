@@ -2,13 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { ApplicationCommandOptionType, Collection } = require('discord.js');
+const { ApplicationCommandOptionType, Collection, MessageFlags } = require('discord.js');
 
 process.env.BOT_OWNERS ??= 'owner';
 process.env.DEVELOPERS ??= 'developer';
 
 const { ClientConfig } = require('../src/config');
-const { getCommandSchema, parsePrefixOptions, tokenize } = require('../src/lib/commands/prefixAdapter');
+const { getCommandSchema, parsePrefixOptions, runPrefixCommand, tokenize } = require('../src/lib/commands/prefixAdapter');
 const { findClosestCommand } = require('../src/listeners/commands/unknownMessageCommand');
 const { UserEvent: PrefixOnlyEvent } = require('../src/listeners/commands/unknownMessageCommandName');
 const CadiaCommand = require('../src/lib/structures/commands/CadiaCommand');
@@ -156,12 +156,52 @@ test('typing only cd asks whether the user needs help', async () => {
 	assert.match(reply, /cd rpg tutorial/);
 });
 
+test('prefix command ephemeral replies stay in-channel as message replies', async () => {
+	const replies = [];
+	let dmAttempts = 0;
+	const command = {
+		name: 'private-test',
+		registerApplicationCommands(registry) {
+			registry.registerChatInputCommand((builder) => builder.setName('private-test').setDescription('Private prefix test'));
+		},
+		async chatInputRun(interaction) {
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+			await interaction.editReply({ content: 'private response', flags: MessageFlags.Ephemeral });
+			await interaction.followUp({ content: 'private follow-up', flags: MessageFlags.Ephemeral });
+		}
+	};
+	const message = fakeMessage();
+	message.content = 'cd private-test';
+	message.reply = async (payload) => {
+		replies.push(payload);
+		return {
+			payload,
+			edit: async (nextPayload) => {
+				replies.push(nextPayload);
+				return { payload: nextPayload, edit: async () => null };
+			}
+		};
+	};
+	message.author.send = async () => {
+		dmAttempts += 1;
+		throw new Error('DM should not be used for prefix replies.');
+	};
+
+	await runPrefixCommand(command, message, { commandPrefix: 'cd ', commandName: 'private-test' });
+
+	assert.equal(dmAttempts, 0);
+	assert.equal(replies.length, 2);
+	assert.deepEqual(replies.map((payload) => payload.content), ['private response', 'private follow-up']);
+});
+
 function fakeMessage({ user, channel, role } = {}) {
 	const users = new Collection(user ? [[user.id, user]] : []);
 	const channels = new Collection(channel ? [[channel.id, channel]] : []);
 	const roles = new Collection(role ? [[role.id, role]] : []);
 	return {
 		attachments: new Collection(),
+		author: { id: 'author', send: async () => null },
+		channel: { sendTyping: async () => null },
 		client: { users: { cache: users } },
 		guild: {
 			channels: { cache: channels },

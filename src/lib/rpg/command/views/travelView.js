@@ -47,7 +47,7 @@ function createTravelView({ actionButton, color, componentReply, createTravelIma
 		} else if (gate.bossRequired) {
 			const boss = service.getBossById(gate.bossId);
 			nextSteps.push(`Defeat **${boss.name}** to unlock **${region.name}**.`);
-			nextSteps.push(`Use ${commandMention('rpg boss-info')} with boss **${boss.id}** to study weaknesses and resistances.`);
+			nextSteps.push(`Use ${commandMention('rpg bestiary')} to study boss weaknesses and resistances.`);
 			nextSteps.push(
 				`Farm region mobs with ${commandMention('rpg adventure')}, equip better gear with ${commandMention('rpg equip')}, then try ${commandMention('rpg travel')} again.`
 			);

@@ -38,10 +38,41 @@ test('Discord application, command, and channel identifiers are owned by focused
 
 test('command mentions use branding command IDs with safe fallback', () => {
 	const { branding } = require('../src/config/branding');
-	const { commandMention } = require('../src/lib/util/commandMentions');
+	const { clearRuntimeCommandIds, commandMention } = require('../src/lib/util/commandMentions');
+
+	clearRuntimeCommandIds();
 
 	assert.equal(commandMention('rpg tutorial'), `</rpg tutorial:${branding.rpgCommandId}>`);
+	assert.equal(commandMention('rpg admin analytics'), `</rpg admin analytics:${branding.rpgCommandId}>`);
+	assert.equal(commandMention('rpg boss-info'), `</rpg bestiary:${branding.rpgCommandId}>`);
 	assert.equal(commandMention('/help'), `</help:${branding.helpCommandId}>`);
 	assert.equal(commandMention('bug-report'), `</bug-report:${branding.bugReportCommandId}>`);
+	assert.equal(commandMention('bugreport'), `</bug-report:${branding.bugReportCommandId}>`);
+	assert.equal(commandMention('8ball'), `</8ball:${branding.eightballCommandId}>`);
+	assert.equal(commandMention('top-gg'), `</top-gg:${branding.topggvotecheckCommandId}>`);
 	assert.equal(commandMention('missing-command'), '/missing-command');
+});
+
+test('command mentions prefer live Discord command IDs loaded at startup', async () => {
+	const { clearRuntimeCommandIds, commandMention, refreshCommandMentionIds, setRuntimeCommandIds } = require('../src/lib/util/commandMentions');
+	const client = {
+		application: {
+			commands: {
+				fetch: async () =>
+					new Map([
+						['rpg', { name: 'rpg', id: '200000000000000001' }],
+						['bug-report', { name: 'bug-report', id: '200000000000000002' }]
+					])
+			}
+		}
+	};
+
+	await refreshCommandMentionIds(client, null);
+
+	assert.equal(commandMention('rpg tutorial'), '</rpg tutorial:200000000000000001>');
+	assert.equal(commandMention('bugreport'), '</bug-report:200000000000000002>');
+
+	setRuntimeCommandIds([{ name: 'help', id: '200000000000000003' }]);
+	assert.equal(commandMention('help'), '</help:200000000000000003>');
+	clearRuntimeCommandIds();
 });

@@ -12,6 +12,7 @@ const {
 	TextDisplayBuilder,
 	ThumbnailBuilder
 } = require('discord.js');
+const { commandMention } = require('../../lib/util/commandMentions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -123,7 +124,7 @@ function buildErrorContainer() {
 		.setAccentColor(Number.parseInt(color.fail.replace('#', ''), 16))
 		.addTextDisplayComponents(
 			new TextDisplayBuilder().setContent(
-				`${emojis.custom.fail} Oops, I could not load that user profile. Please try again later or use </bugreport:${branding.bugReportCommandId}>.`
+				`${emojis.custom.fail} Oops, I could not load that user profile. Please try again later or use ${commandMention('bug-report')}.`
 			)
 		);
 }

@@ -584,6 +584,7 @@ function applyTemplate(templateKey, draft) {
 	const template = alertTemplates[templateKey] ?? alertTemplates.update;
 	return {
 		...template,
+		message: typeof template.message === 'function' ? template.message() : template.message,
 		...Object.fromEntries(Object.entries(draft).filter(([, value]) => value !== null && value !== undefined && value !== '')),
 		style: draft.style || template.style || 'update'
 	};

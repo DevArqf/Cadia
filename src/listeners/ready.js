@@ -12,6 +12,7 @@ const { validateGrowthConfig } = require('../config/growth');
 const { configureRpgGrowth } = require('../lib/rpg/growth');
 const { configureBotAnalytics } = require('../lib/util/botAnalytics');
 const { initializeBlacklistCache } = require('../lib/policies/blacklist');
+const { refreshCommandMentionIds } = require('../lib/util/commandMentions');
 const { version } = require('../../package.json');
 
 class UserEvent extends Listener {
@@ -40,6 +41,7 @@ class UserEvent extends Listener {
 		this._printStoreDebugInformation();
 		this._displayAdvancedConsole();
 		this._setBotActivities(client);
+		await refreshCommandMentionIds(client, this.container.logger);
 		await syncDiscordBotListCommands(client);
 		await syncTopggCommands(client).catch((error) => client.logger.warn(error.message));
 		startTopggStatsPoster(client);

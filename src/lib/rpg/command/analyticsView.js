@@ -18,7 +18,7 @@ function createAnalyticsView({ classes, color, icon, items, panel, regions, serv
 			title: `${icon.settings} **RPG Analytics - ${titleCase(selectedView)}**`,
 			subtitle: 'Developer system intelligence',
 			sections: sections[selectedView](analytics),
-			footer: `${icon.clock} Generated <t:${Math.floor(analytics.generatedAt / 1000)}:R> - Use ${commandMention('rpg admin')} analytics view:<report>`
+			footer: `${icon.clock} Generated <t:${Math.floor(analytics.generatedAt / 1000)}:R> - Use ${commandMention('rpg admin analytics')} view:<report>`
 		});
 	}
 

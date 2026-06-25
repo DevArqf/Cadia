@@ -4,6 +4,7 @@ const { PermissionLevels } = require('../../../lib/types/Enums');
 const { branding, color, emojis } = require('../../../config');
 const Guild = require('../../../lib/schemas/blacklistSchema');
 const { PaginatedMessageEmbedFields } = require('@sapphire/discord.js-utilities');
+const { commandMention } = require('../../../lib/util/commandMentions');
 
 class UserCommand extends CadiaCommand {
 	/**
@@ -112,7 +113,7 @@ class UserCommand extends CadiaCommand {
 			const errorEmbed = new EmbedBuilder()
 				.setColor(color.fail)
 				.setDescription(
-					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](${branding.supportServerUrl}) for assistance or use </bugreport:${branding.bugReportCommandId}>*`
+					`${emojis.custom.fail} Oopsie, I have encountered an error. The error has been **forwarded** to the developers, so please be **patient** and try running the command again later.\n\n > ${emojis.custom.link} *Have you already tried and still encountering the same error? Then please consider joining our support server [here](${branding.supportServerUrl}) for assistance or use ${commandMention('bug-report')}*`
 				)
 				.setTimestamp();
 
