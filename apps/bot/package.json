@@ -1,0 +1,13 @@
+{
+	"name": "@cadia/bot",
+	"version": "5.7.8",
+	"private": true,
+	"type": "commonjs",
+	"main": "../../src/index.js",
+	"scripts": {
+		"start": "node ../../src/index.js",
+		"watch": "nodemon -L --watch ../../src ../../src/index.js",
+		"test": "npm --prefix ../.. test",
+		"check:cycles": "npm --prefix ../.. run check:cycles"
+	}
+}

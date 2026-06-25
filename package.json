@@ -1,10 +1,15 @@
 {
-	"name": "cadia-bot",
+	"name": "cadia",
 	"version": "5.7.8",
+	"private": true,
 	"main": "src/index.js",
 	"author": "@DevArqf",
 	"license": "UNLICENSE",
 	"type": "commonjs",
+	"workspaces": [
+		"apps/bot",
+		"apps/dashboard"
+	],
 	"dependencies": {
 		"@iamtraction/google-translate": "^1.1.2",
 		"@napi-rs/canvas": "^1.0.0",
@@ -45,6 +50,9 @@
 		"watch": "nodemon -L --watch src",
 		"prestart": "npm test",
 		"start": "node src/index.js",
+		"start:bot": "npm --workspace @cadia/bot start",
+		"start:dashboard": "npm --workspace @cadia/dashboard start",
+		"dev:dashboard": "npm --workspace @cadia/dashboard dev",
 		"test": "node scripts/run-tests.js",
 		"check:cycles": "madge --circular src",
 		"format": "prettier --write \"src/**/*.js\""

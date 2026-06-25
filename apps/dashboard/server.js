@@ -5,12 +5,18 @@ const port = Number(process.env.PORT || process.env.DASHBOARD_PORT || 3000);
 const server = http.createServer((request, response) => {
 	if (request.url === '/health') {
 		response.writeHead(200, { 'content-type': 'application/json' });
-		response.end(JSON.stringify({ ok: true, service: 'cadia-dashboard' }));
+		response.end(
+			JSON.stringify({
+				ok: true,
+				service: 'cadia-dashboard',
+				version: process.env.npm_package_version || '0.1.0'
+			})
+		);
 		return;
 	}
 
 	response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-	response.end('Cadia dashboard process is ready. Build the dashboard UI here.\n');
+	response.end('Cadia dashboard workspace is ready. Build the dashboard UI in apps/dashboard.\n');
 });
 
 server.listen(port, () => {

@@ -15,7 +15,7 @@ module.exports = {
 		},
 		{
 			name: 'cadia-dashboard',
-			script: 'dashboard/server.js',
+			script: 'apps/dashboard/server.js',
 			instances: process.env.DASHBOARD_PM2_INSTANCES || 1,
 			exec_mode: 'cluster',
 			wait_ready: false,
