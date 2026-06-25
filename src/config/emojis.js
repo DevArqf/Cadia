@@ -48,7 +48,7 @@ const emojis = {
 		heart1: '<:heart:1514150153626583171>',
 		heart2: '<:heart:1514150153626583171>',
 		settings: '<:settings:1511905967007076534>',
-		rpgsettings: '<:rpgsettings:1519100441890128004>',
+		rpgsettings: '<:rpgsettings:1519116560155807886>',
 		question: '<:question:1511950594791837788>',
 		mail: '<:mail:1511950590131966012>',
 		person: '<:user:1512599540912492614>',

@@ -80,7 +80,7 @@ const icon = {
 	owner: emojis.custom.rpguser || 'Owner',
 	person: emojis.custom.rpguser || 'User',
 	region: emojis.custom.rpgglobe || emojis.custom.globe || 'Region',
-	settings: emojis.custom.rpgCogGold || emojis.custom.rpgCogSilver || 'Stats',
+	settings: emojis.custom.rpgsettings || emojis.custom.rpgCogGold || emojis.custom.rpgCogSilver || 'Stats',
 	success: emojis.custom.success || 'Success',
 	threat: emojis.custom.skull || 'Threat',
 	warning: emojis.custom.warning || 'Warning',
