@@ -6,6 +6,7 @@
 	"author": "@DevArqf",
 	"license": "UNLICENSE",
 	"type": "commonjs",
+	"packageManager": "npm@11.15.0",
 	"workspaces": [
 		"apps/bot",
 		"apps/dashboard",
@@ -59,12 +60,13 @@
 		"start:dashboard": "npm --workspace @cadia/dashboard start",
 		"dev:dashboard": "npm --workspace @cadia/dashboard dev",
 		"test": "node scripts/run-tests.js",
+		"test:fast": "node scripts/run-fast-tests.js",
 		"check:cycles": "madge --circular src",
 		"check:cycles:monorepo": "madge --circular --extensions js,cjs,mjs src apps libs",
 		"check:cycles:libs": "madge --circular --extensions js,cjs,mjs libs",
 		"check:cycles:libs:ts": "madge --circular --extensions ts,tsx libs/",
 		"graph": "nx graph",
-		"lint:cycles": "eslint src apps libs",
+		"lint:cycles": "eslint \"src/**/*.js\" \"apps/**/*.js\" \"libs/**/*.js\" --no-warn-ignored",
 		"format": "prettier --write \"src/**/*.js\""
 	},
 	"prettier": "@sapphire/prettier-config",

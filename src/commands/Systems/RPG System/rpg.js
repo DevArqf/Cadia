@@ -37,6 +37,7 @@ const { createSeasonCard } = require('../../../lib/rpg/seasonCanvas');
 const { createDefeatStory } = require('../../../lib/rpg/defeatStory');
 const growth = require('../../../lib/rpg/playerGrowth');
 const { createAnalyticsView } = require('../../../lib/rpg/command/analyticsView');
+const { createAdminHandlers } = require('../../../lib/rpg/command/adminHandlers');
 const { createBattleFlow } = require('../../../lib/rpg/command/battleFlow');
 const { createPlayerGrowthHandlers } = require('../../../lib/rpg/command/playerGrowthView');
 const { registerRpgCommand } = require('../../../lib/rpg/command/register');
@@ -47,6 +48,7 @@ const { createInventoryView } = require('../../../lib/rpg/command/views/inventor
 const { createProfileView } = require('../../../lib/rpg/command/views/profileView');
 const { createTravelView } = require('../../../lib/rpg/command/views/travelView');
 const { createTutorialView } = require('../../../lib/rpg/command/views/tutorialView');
+const { createTutorialHandlers } = require('../../../lib/rpg/command/tutorialHandlers');
 const { getInteractionSession, saveInteractionSession, updateInteractionSession } = require('../../../lib/runtime/interactionSessions');
 const rpg = require('../../../lib/rpg/service');
 
@@ -121,6 +123,19 @@ const { buildTutorialOfferPanel, buildTutorialPanel, tutorialSteps } = createTut
 	icon,
 	panel
 });
+const tutorialHandlers = createTutorialHandlers({
+	buildTutorialOfferPanel,
+	buildTutorialPanel,
+	color,
+	commandMention,
+	componentReply,
+	icon,
+	notice,
+	rpg,
+	sendInteractiveRpgReply,
+	tutorialSteps
+});
+const { offerTutorial, runTutorial } = tutorialHandlers;
 const { buildEquipPickerPanel, buildEquippedPanel, buildInventoryPanel, buildInventoryReply, inventoryCategories, inventoryEntriesForCategory } =
 	createInventoryView({
 		actionButton,
@@ -230,6 +245,20 @@ const playerGrowthHandlers = createPlayerGrowthHandlers({
 	serverBossImage,
 	service: rpg
 });
+const { adminPanel } = createAdminHandlers({
+	buildAdminProfilePanel,
+	color,
+	commandMention,
+	componentReply,
+	formatItemName,
+	forceBossFight,
+	icon,
+	isDeveloper,
+	notice,
+	rpg,
+	showRpgAnalytics,
+	titleCase
+});
 
 class UserCommand extends CadiaCommand {
 	constructor(context, options) {
@@ -332,154 +361,6 @@ async function createCharacter(interaction) {
 		),
 		files: [createCharacterCreationImageAttachment()]
 	});
-}
-
-async function offerTutorial(interaction) {
-	await rpg.markTutorialOffered(interaction.guild.id, interaction.user.id);
-	const customIdBase = `rpg-tutorial-offer:${interaction.id}`;
-	const message = await sendInteractiveRpgReply(interaction, componentReply(buildTutorialOfferPanel(customIdBase), true));
-	if (!message) return;
-	await saveInteractionSession({
-		kind: 'rpg-tutorial-offer',
-		sessionId: interaction.id,
-		ownerId: interaction.user.id,
-		guildId: interaction.guild.id,
-		channelId: interaction.channelId || interaction.channel?.id || null,
-		messageId: message.id,
-		state: {},
-		ttlMs: 120_000
-	});
-}
-
-async function runTutorial(interaction, fromComponent = false) {
-	await rpg.markTutorialStarted(interaction.guild.id, interaction.user.id);
-	const customIdBase = `rpg-tutorial:${interaction.id}`;
-	let page = 0;
-	const reply = {
-		components: [buildTutorialPanel(page, customIdBase)],
-		flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-	};
-	let message;
-	if (fromComponent) {
-		await interaction.update(reply);
-		message = interaction.message;
-	} else {
-		message = await sendInteractiveRpgReply(interaction, reply);
-	}
-	if (!message) return;
-	await saveInteractionSession({
-		kind: 'rpg-tutorial',
-		sessionId: interaction.id,
-		ownerId: interaction.user.id,
-		guildId: interaction.guild.id,
-		channelId: interaction.channelId || interaction.channel?.id || null,
-		messageId: message.id,
-		state: { page },
-		ttlMs: 240_000
-	});
-}
-
-async function adminPanel(interaction, subcommand) {
-	if (!isDeveloper(interaction.user.id)) {
-		return interaction.reply(
-			componentReply(notice(`${icon.forbidden} **Developer Only**`, 'Only Cadia developers can use RPG admin tools.'), true)
-		);
-	}
-
-	if (subcommand === 'find') {
-		const user = interaction.options.getUser('user', true);
-		const profile = await rpg.requireProfile(interaction.guild.id, user.id);
-		return interaction.reply(componentReply(buildAdminProfilePanel(profile, user, 'Character ID Lookup'), true));
-	}
-
-	if (subcommand === 'inspect') {
-		const profile = await rpg.getProfileByCharacterId(interaction.options.getString('id', true));
-		return interaction.reply(componentReply(buildAdminProfilePanel(profile, `<@${profile.userId}>`, 'Character Inspection'), true));
-	}
-
-	if (subcommand === 'add-currency') {
-		const currency = interaction.options.getString('currency', true);
-		const amount = interaction.options.getInteger('amount', true);
-		const profile = await rpg.adminAddCurrency(interaction.options.getString('id', true), currency, amount);
-		return interaction.reply(
-			componentReply(
-				buildAdminProfilePanel(
-					profile,
-					`<@${profile.userId}>`,
-					'Currency Adjusted',
-					`${icon.success} Applied **${amount.toLocaleString()}** to **${titleCase(currency)}**.`
-				),
-				true
-			)
-		);
-	}
-
-	if (subcommand === 'add-item') {
-		const result = await rpg.adminAddItem(
-			interaction.options.getString('id', true),
-			interaction.options.getString('item', true),
-			interaction.options.getInteger('quantity') ?? 1
-		);
-		return interaction.reply(
-			componentReply(
-				buildAdminProfilePanel(
-					result.profile,
-					`<@${result.profile.userId}>`,
-					'Item Added',
-					`${icon.success} Added **${result.quantity}x ${formatItemName(result.item)}** to inventory.`
-				),
-				true
-			)
-		);
-	}
-
-	if (subcommand === 'wipe') {
-		if (!interaction.options.getBoolean('confirm', true)) {
-			return interaction.reply(
-				componentReply(notice(`${icon.warning} **Wipe Cancelled**`, 'Set `confirm` to true to wipe this character.'), true)
-			);
-		}
-
-		const { profile, result } = await rpg.adminWipeCharacter(interaction.options.getString('id', true));
-		return interaction.reply(
-			componentReply(
-				notice(
-					result.deletedCount ? `${icon.deleted} **Character Wiped**` : `${icon.warning} **No Character Wiped**`,
-					result.deletedCount
-						? `Deleted **${profile.name}** owned by <@${profile.userId}>.\nCharacter ID: \`${profile.characterId}\``
-						: 'No matching character was deleted.',
-					result.deletedCount ? color.warning : color.fail
-				),
-				true
-			)
-		);
-	}
-
-	if (subcommand === 'max') {
-		const result = await rpg.adminMaxCharacter(interaction.options.getString('id', true));
-		return interaction.reply(
-			componentReply(
-				buildAdminProfilePanel(
-					result.profile,
-					`<@${result.profile.userId}>`,
-					'Character Maxed',
-					[
-						`${icon.success} Set Rank to **${result.rank}** and restored HP to full.`,
-						`${icon.coin} Maxed gold and relic shards.`,
-						`${icon.loot} Granted **${result.itemQuantity}x** of **${result.itemCount}** RPG items.`,
-						`${icon.compass} Cleared all boss gates and moved character to the final region.`
-					].join('\n')
-				),
-				true
-			)
-		);
-	}
-
-	if (subcommand === 'harlequin') return forceBossFight(interaction, 'harlequin');
-	if (subcommand === 'boss') return forceBossFight(interaction, interaction.options.getString('boss', true));
-	if (subcommand === 'analytics') return showRpgAnalytics(interaction);
-
-	throw new rpg.RpgError('Unknown RPG admin action.');
 }
 
 async function showRpgAnalytics(interaction) {
@@ -698,8 +579,8 @@ async function handleRpgComponentInteraction(interaction) {
 	if (!customId.startsWith('rpg-')) return false;
 
 	try {
-		if (customId.startsWith('rpg-tutorial-offer:')) return handleTutorialOfferInteraction(interaction);
-		if (customId.startsWith('rpg-tutorial:')) return handleTutorialPageInteraction(interaction);
+		if (customId.startsWith('rpg-tutorial-offer:')) return tutorialHandlers.handleTutorialOfferInteraction(interaction, ensureRpgSessionOwner);
+		if (customId.startsWith('rpg-tutorial:')) return tutorialHandlers.handleTutorialPageInteraction(interaction, ensureRpgSessionOwner);
 		if (customId.startsWith('rpg-profile:')) return handleProfileComponentInteraction(interaction);
 		if (customId.startsWith('rpg-quest:')) return handleQuestInteraction(interaction);
 		if (customId.startsWith('rpg-inventory:')) return handleInventoryInteraction(interaction);
@@ -718,71 +599,6 @@ async function handleRpgBattleInteraction(interaction) {
 
 async function handleRpgLeaderboardInteraction(interaction) {
 	return playerGrowthHandlers.handleLeaderboardInteraction(interaction);
-}
-
-async function handleTutorialOfferInteraction(interaction) {
-	const [, sessionId, action] = interaction.customId.split(':');
-	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
-	const ownerId = session?.ownerId || sessionId;
-	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Tutorial', `Run ${commandMention('rpg tutorial')} to open your own guide.`))) {
-		return true;
-	}
-
-	if (action === 'skip') {
-		await rpg.markTutorialSkipped(interaction.guild.id, interaction.user.id);
-		await interaction.update({
-			components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
-		});
-		return true;
-	}
-
-	if (action === 'start') return runTutorial(interaction, true).then(() => true);
-	return false;
-}
-
-async function handleTutorialPageInteraction(interaction) {
-	const [, sessionId, action] = interaction.customId.split(':');
-	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
-	const ownerId = session?.ownerId || sessionId;
-	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Tutorial', `Run ${commandMention('rpg tutorial')} to open your own guide.`))) {
-		return true;
-	}
-
-	let page = Number(session?.state?.page || 0);
-	if (action === 'skip') {
-		await rpg.markTutorialSkipped(interaction.guild.id, interaction.user.id);
-		await interaction.update({
-			components: [notice(`${icon.success} **Tutorial Skipped**`, `You can reopen it anytime with ${commandMention('rpg tutorial')}.`, color.success)]
-		});
-		return true;
-	}
-	if (action === 'prev') page = Math.max(page - 1, 0);
-	if (action === 'next') page = Math.min(page + 1, tutorialSteps.length - 1);
-	if (action === 'finish') {
-		await rpg.markTutorialCompleted(interaction.guild.id, interaction.user.id);
-		await interaction.update({
-			components: [
-				notice(
-					`${icon.success} **Tutorial Complete**`,
-					`You are ready to begin. Use ${commandMention('rpg create')}, then ${commandMention('rpg adventure')} when your character is made.`,
-					color.success
-				)
-			]
-		});
-		return true;
-	}
-
-	await updateInteractionSession(session?.sessionId || sessionId, {
-		kind: 'rpg-tutorial',
-		ownerId,
-		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
-		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
-		messageId: interaction.message?.id || session?.messageId || null,
-		state: { page },
-		ttlMs: 240_000
-	});
-	await interaction.update({ components: [buildTutorialPanel(page, `rpg-tutorial:${session?.sessionId || sessionId}`)] });
-	return true;
 }
 
 async function handleProfileComponentInteraction(interaction) {
