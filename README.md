@@ -10,10 +10,9 @@ Start with `/rpg tutorial`, create your character with `/rpg create`, and enter 
 
 Cadia is organized as a small npm workspace monorepo:
 
-- `apps/bot` wraps the existing Discord bot entry point at `src/index.js`.
+- `apps/bot` contains the Discord bot runtime, tests, assets, runtime defaults, and Sapphire templates.
 - `apps/dashboard` contains the placeholder dashboard service for the future web dashboard.
 - `libs/ipc` contains the shared jszmq IPC boundary used by the bot and dashboard.
-- `src`, `assets`, `config`, `scripts`, and `test` remain shared bot project folders.
 
 Useful commands:
 

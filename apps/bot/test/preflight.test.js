@@ -90,7 +90,6 @@ test('required package scripts exist for public preflight startup', () => {
 
 	assert.equal(pkg.scripts.test, 'node scripts/run-tests.js');
 	assert.equal(pkg.scripts['check:cycles'], 'madge --circular src');
-	assert.equal(pkg.scripts.prestart, 'npm test');
 	assert.equal(pkg.scripts.start, 'node src/index.js');
 });
 

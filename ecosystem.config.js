@@ -2,7 +2,7 @@ module.exports = {
 	apps: [
 		{
 			name: 'cadia',
-			script: 'src/index.js',
+			script: 'apps/bot/src/index.js',
 			instances: process.env.PM2_INSTANCES || 1,
 			exec_mode: 'cluster',
 			wait_ready: false,

@@ -2,10 +2,10 @@ const importPlugin = require('eslint-plugin-import');
 
 module.exports = [
 	{
-		ignores: ['node_modules/**', 'assets/**', 'coverage/**', 'Cadia-Bot.zip']
+		ignores: ['node_modules/**', 'apps/**/.next/**', 'apps/bot/assets/**', 'coverage/**', 'Cadia-Bot.zip']
 	},
 	{
-		files: ['src/**/*.js', 'apps/**/*.js', 'libs/**/*.js'],
+		files: ['apps/**/*.js', 'libs/**/*.js'],
 		plugins: {
 			import: importPlugin
 		},

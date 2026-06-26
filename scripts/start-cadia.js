@@ -28,7 +28,7 @@ async function main() {
 	}
 	normalizeDashboardAssets();
 
-	startProcess('bot', process.execPath, ['src/index.js']);
+	startProcess('bot', process.execPath, ['apps/bot/src/index.js']);
 	startProcess('dashboard', process.execPath, [dashboardServer], { cwd: dashboardStandaloneRoot });
 
 	const token = readCloudflaredToken();

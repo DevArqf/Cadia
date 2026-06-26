@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createIpcClient, createIpcServer } = require('../libs/ipc');
+const { createIpcClient, createIpcServer } = require('@cadia/ipc');
 
 test('jszmq IPC client receives async replies from server handler', async () => {
 	const endpoint = `ws://127.0.0.1:${39000 + (process.pid % 1000)}/cadia-ipc-test`;

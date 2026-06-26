@@ -1,9 +1,11 @@
 # Cadia Bot Workspace
 
-This workspace wraps the existing Cadia bot source at the repository root:
+This workspace owns the Discord bot runtime:
 
-- Entry point: `../../src/index.js`
-- Commands/listeners/libs: `../../src`
-- Tests: `../../test`
+- Entry point: `src/index.js`
+- Commands/listeners/libs: `src`
+- Runtime defaults: `config/runtime.defaults.json`
+- Bot assets: `assets`
+- Tests: `test`
 
-The bot source has not been moved yet to avoid breaking Sapphire path assumptions and deployment scripts.
+Shared cross-app code stays in repository-level `libs/*`.

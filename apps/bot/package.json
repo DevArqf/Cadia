@@ -3,12 +3,15 @@
 	"version": "5.7.8",
 	"private": true,
 	"type": "commonjs",
-	"main": "../../src/index.js",
+	"main": "src/index.js",
 	"scripts": {
-		"start": "node ../../src/index.js",
-		"watch": "nodemon -L --watch ../../src ../../src/index.js",
-		"test": "npm --prefix ../.. test",
-		"check:cycles": "npm --prefix ../.. run check:cycles"
+		"sapphire": "sapphire",
+		"generate": "sapphire generate",
+		"start": "node src/index.js",
+		"watch": "nodemon -L --watch src src/index.js",
+		"test": "node scripts/run-tests.js",
+		"test:fast": "node scripts/run-fast-tests.js",
+		"check:cycles": "madge --circular src"
 	},
 	"dependencies": {
 		"@cadia/ipc": "0.1.0"

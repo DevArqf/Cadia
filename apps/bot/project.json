@@ -2,7 +2,7 @@
 	"name": "bot",
 	"projectType": "application",
 	"root": "apps/bot",
-	"sourceRoot": "src",
+	"sourceRoot": "apps/bot/src",
 	"targets": {
 		"start": {
 			"executor": "nx:run-commands",
