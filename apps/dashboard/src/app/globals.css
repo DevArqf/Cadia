@@ -1,0 +1,733 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-pixel: var(--font-pixel);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Cadia theme palette */
+  --color-cadia: #65b8da;
+  --color-cadia-dark: #4a9bbf;
+  --color-cadia-darker: #2f6f8a;
+  --color-success: #3bb143;
+  --color-fail: #e94041;
+  --color-warning: #e9d502;
+  --color-rpg: #5e3a6d;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #0b0f14;
+  --foreground: #e6edf3;
+  --card: rgba(17, 22, 29, 0.7);
+  --card-foreground: #e6edf3;
+  --popover: #11161d;
+  --popover-foreground: #e6edf3;
+  --primary: #65b8da;
+  --primary-foreground: #0b0f14;
+  --secondary: #1a212b;
+  --secondary-foreground: #e6edf3;
+  --muted: #161c24;
+  --muted-foreground: #8a99ab;
+  --accent: #1a212b;
+  --accent-foreground: #e6edf3;
+  --destructive: #e94041;
+  --border: rgba(101, 184, 218, 0.12);
+  --input: rgba(101, 184, 218, 0.12);
+  --ring: #65b8da;
+  --chart-1: #65b8da;
+  --chart-2: #3bb143;
+  --chart-3: #e94041;
+  --chart-4: #e9d502;
+  --chart-5: #5e3a6d;
+  --sidebar: rgba(14, 19, 26, 0.6);
+  --sidebar-foreground: #e6edf3;
+  --sidebar-primary: #65b8da;
+  --sidebar-primary-foreground: #0b0f14;
+  --sidebar-accent: #1a212b;
+  --sidebar-accent-foreground: #e6edf3;
+  --sidebar-border: rgba(101, 184, 218, 0.1);
+  --sidebar-ring: #65b8da;
+}
+
+.dark {
+  --background: #0b0f14;
+  --foreground: #e6edf3;
+  --card: rgba(17, 22, 29, 0.7);
+  --card-foreground: #e6edf3;
+  --popover: #11161d;
+  --popover-foreground: #e6edf3;
+  --primary: #65b8da;
+  --primary-foreground: #0b0f14;
+  --secondary: #1a212b;
+  --secondary-foreground: #e6edf3;
+  --muted: #161c24;
+  --muted-foreground: #8a99ab;
+  --accent: #1a212b;
+  --accent-foreground: #e6edf3;
+  --destructive: #e94041;
+  --border: rgba(101, 184, 218, 0.12);
+  --input: rgba(101, 184, 218, 0.12);
+  --ring: #65b8da;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html, body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "ss02";
+  }
+}
+
+/* ===== Pixelated styling helpers ===== */
+.font-pixel {
+  font-family: var(--font-pixel), var(--font-geist-mono), monospace;
+  letter-spacing: 0.04em;
+}
+
+/* ===== Smooth gradient background with ambient visual effects ===== */
+.cadia-bg {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(101, 184, 218, 0.18), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 100%, rgba(94, 58, 109, 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(59, 177, 67, 0.06), transparent 70%),
+    linear-gradient(180deg, #0b0f14 0%, #0e131a 50%, #0b0f14 100%);
+  background-attachment: fixed;
+}
+
+/* Animated gradient blobs that drift slowly */
+.cadia-bg::before,
+.cadia-bg::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cadia-bg::before {
+  width: 480px;
+  height: 480px;
+  top: -120px;
+  left: -120px;
+  background: radial-gradient(circle, #65b8da 0%, transparent 70%);
+  animation: blob-drift-1 18s ease-in-out infinite;
+}
+
+.cadia-bg::after {
+  width: 520px;
+  height: 520px;
+  bottom: -160px;
+  right: -160px;
+  background: radial-gradient(circle, #5e3a6d 0%, transparent 70%);
+  animation: blob-drift-2 22s ease-in-out infinite;
+}
+
+@keyframes blob-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(80px, 40px) scale(1.1); }
+  66% { transform: translate(-40px, 80px) scale(0.95); }
+}
+
+@keyframes blob-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-80px, -40px) scale(1.08); }
+  66% { transform: translate(40px, -80px) scale(0.92); }
+}
+
+/* Floating particles layer (purely decorative, GPU-friendly) */
+.cadia-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cadia-particles::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(101, 184, 218, 0.35) 0, transparent 1.5px),
+    radial-gradient(circle at 70% 60%, rgba(101, 184, 218, 0.25) 0, transparent 1.5px),
+    radial-gradient(circle at 40% 80%, rgba(94, 58, 109, 0.3) 0, transparent 1.5px),
+    radial-gradient(circle at 90% 20%, rgba(101, 184, 218, 0.2) 0, transparent 1.5px),
+    radial-gradient(circle at 10% 70%, rgba(94, 58, 109, 0.25) 0, transparent 1.5px),
+    radial-gradient(circle at 55% 15%, rgba(101, 184, 218, 0.2) 0, transparent 1.5px),
+    radial-gradient(circle at 80% 85%, rgba(94, 58, 109, 0.2) 0, transparent 1.5px);
+  background-size: 600px 600px;
+  animation: particles-drift 60s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes particles-drift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-600px); }
+}
+
+/* Subtle scanline tint — very faint */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.025) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  z-index: 1;
+}
+
+/* ===== Smooth glass card ===== */
+.cadia-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.25s ease,
+              box-shadow 0.25s ease,
+              background 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cadia-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(101, 184, 218, 0.3), transparent 50%, rgba(94, 58, 109, 0.2));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.cadia-card-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(101, 184, 218, 0.35);
+  box-shadow:
+    0 12px 28px -8px rgba(0, 0, 0, 0.5),
+    0 0 32px -8px rgba(101, 184, 218, 0.2);
+}
+
+.cadia-card-hover:hover::before {
+  opacity: 1;
+}
+
+/* Pixel accent borders kept only for emphasis elements */
+.pixel-border-rpg {
+  box-shadow:
+    0 0 0 1px rgba(94, 58, 109, 0.4),
+    0 8px 24px -8px rgba(94, 58, 109, 0.3);
+}
+
+.pixel-border-fail {
+  box-shadow:
+    0 0 0 1px rgba(233, 64, 65, 0.4),
+    0 8px 24px -8px rgba(233, 64, 65, 0.25);
+}
+
+/* ===== Smooth button ===== */
+.cadia-btn {
+  position: relative;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.18s ease,
+              background 0.2s ease,
+              border-color 0.2s ease;
+  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.cadia-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  transition: left 0.5s ease;
+}
+
+.cadia-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.5);
+}
+
+.cadia-btn:hover::before {
+  left: 100%;
+}
+
+.cadia-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Sidebar nav item smooth hover ===== */
+.cadia-nav-item {
+  position: relative;
+  border-radius: 8px;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.18s ease;
+}
+
+.cadia-nav-item:not(.active):hover {
+  background: rgba(101, 184, 218, 0.08);
+  color: var(--color-cadia);
+  transform: translateX(2px);
+}
+
+.cadia-nav-item.active {
+  background: linear-gradient(135deg, var(--color-cadia), var(--color-cadia-dark));
+  color: #0b0f14;
+  box-shadow: 0 4px 12px -2px rgba(101, 184, 218, 0.4);
+}
+
+/* ===== Custom scrollbar ===== */
+.cadia-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.cadia-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cadia-scroll::-webkit-scrollbar-thumb {
+  background: rgba(101, 184, 218, 0.3);
+  border-radius: 4px;
+}
+.cadia-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(101, 184, 218, 0.5);
+}
+
+/* ===== Glows ===== */
+.text-glow-cadia {
+  text-shadow: 0 0 12px rgba(101, 184, 218, 0.5), 0 0 24px rgba(101, 184, 218, 0.25);
+}
+.text-glow-success {
+  text-shadow: 0 0 8px rgba(59, 177, 67, 0.5);
+}
+.text-glow-fail {
+  text-shadow: 0 0 8px rgba(233, 64, 65, 0.5);
+}
+.text-glow-warning {
+  text-shadow: 0 0 8px rgba(233, 213, 2, 0.5);
+}
+
+/* ===== Animations ===== */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.cadia-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.15); }
+}
+.cadia-pulse {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.blink {
+  animation: blink 1s steps(1) infinite;
+}
+
+/* ===== Logo ===== */
+.cadia-logo-img {
+  image-rendering: auto;
+  display: block;
+  border-radius: 8px;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+.cadia-logo-img:hover {
+  transform: scale(1.05) rotate(-2deg);
+  filter: drop-shadow(0 0 12px rgba(101, 184, 218, 0.5));
+}
+
+/* Disable text selection on UI chrome */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Low-end device: reduce shadows & animations */
+@media (max-width: 640px), (prefers-reduced-motion: reduce) {
+  .cadia-bg::before,
+  .cadia-bg::after,
+  .cadia-particles::before {
+    animation: none;
+  }
+  .cadia-card-hover:hover {
+    transform: none;
+  }
+  .cadia-btn:hover {
+    transform: none;
+  }
+  .cadia-float, .cadia-pulse {
+    animation: none;
+  }
+}
+
+/* ===== Best Deal badge with golden shine ===== */
+.cadia-best-deal-badge {
+  position: relative;
+  overflow: hidden;
+  padding: 3px 12px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0b0f14;
+  background: linear-gradient(135deg, #f0d060, #e9d502, #f0d060);
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 2px 8px -2px rgba(233, 213, 2, 0.5);
+  white-space: nowrap;
+}
+
+.cadia-best-deal-badge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+  animation: best-deal-shine 2.5s ease-in-out infinite;
+}
+
+@keyframes best-deal-shine {
+  0%, 100% { left: -100%; }
+  50% { left: 200%; }
+}
+
+/* ===== Premium Active tag — golden, shines like Best Deal, with escaping particles ===== */
+.cadia-premium-active-tag {
+  position: relative;
+  overflow: hidden;
+  padding: 3px 12px !important;
+  border-radius: 6px !important;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0b0f14 !important;
+  background: linear-gradient(135deg, #f0d060, #e9d502, #f0d060) !important;
+  border: 1px solid rgba(255, 215, 0, 0.6) !important;
+  box-shadow: 0 2px 8px -2px rgba(233, 213, 2, 0.5) !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+.cadia-premium-active-tag::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: best-deal-shine 2.5s ease-in-out infinite;
+}
+
+/* Wrapper that holds the tag + escaping particles */
+.cadia-premium-active-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  overflow: visible !important;
+  padding: 6px 0;
+}
+
+/* Particle container — holds the 6 particles so nth-child works correctly */
+.cadia-gold-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Golden particles — escape the tag and drift upward, then disappear */
+.cadia-gold-particles .cadia-gold-particle {
+  position: absolute;
+  width: 2.5px;
+  height: 2.5px;
+  background: rgba(255, 245, 200, 0.95);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 4px 1px rgba(255, 215, 0, 0.85),
+              0 0 8px 1.5px rgba(255, 215, 0, 0.35);
+  bottom: 4px;
+  animation: cadia-gold-escape linear infinite;
+  z-index: 5;
+}
+@keyframes cadia-gold-escape {
+  0%   { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  10%  { opacity: 1; transform: translate(0, -2px) scale(0.8); }
+  60%  { opacity: 1; }
+  100% { transform: translate(var(--dx, 0px), -38px) scale(1); opacity: 0; }
+}
+.cadia-gold-particles .cadia-gold-particle:nth-child(1) { left: 10%; animation-duration: 2.4s; animation-delay: 0s;    --dx: -3px; }
+.cadia-gold-particles .cadia-gold-particle:nth-child(2) { left: 25%; animation-duration: 3.1s; animation-delay: 0.6s;  --dx:  2px; }
+.cadia-gold-particles .cadia-gold-particle:nth-child(3) { left: 40%; animation-duration: 2.7s; animation-delay: 1.2s;  --dx: -2px; }
+.cadia-gold-particles .cadia-gold-particle:nth-child(4) { left: 58%; animation-duration: 3.4s; animation-delay: 0.3s;  --dx:  3px; }
+.cadia-gold-particles .cadia-gold-particle:nth-child(5) { left: 75%; animation-duration: 2.9s; animation-delay: 1.8s;  --dx: -2px; }
+.cadia-gold-particles .cadia-gold-particle:nth-child(6) { left: 90%; animation-duration: 3.2s; animation-delay: 0.9s;  --dx:  2px; }
+
+/* ===== "Add Cadia Now" button — appealing gradient + shine ===== */
+.cadia-add-bot-btn {
+  background: linear-gradient(135deg, #5e3a6d 0%, #65b8da 100%) !important;
+  border: 1px solid rgba(101, 184, 218, 0.4) !important;
+  box-shadow: 0 4px 16px -4px rgba(94, 58, 109, 0.5),
+              0 0 0 1px rgba(101, 184, 218, 0.1) !important;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.3s ease,
+              filter 0.3s ease !important;
+  position: relative;
+  overflow: hidden !important;
+}
+.cadia-add-bot-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.0) 20%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.0) 80%,
+    transparent 100%);
+  pointer-events: none;
+  transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+.cadia-add-bot-btn:hover {
+  transform: translateY(-2px) !important;
+  filter: brightness(1.1) saturate(1.15);
+  box-shadow: 0 8px 24px -6px rgba(94, 58, 109, 0.6),
+              0 0 20px -2px rgba(101, 184, 218, 0.4) !important;
+}
+.cadia-add-bot-btn:hover::before { left: 150%; }
+.cadia-add-bot-btn:active {
+  transform: translateY(0) !important;
+  filter: brightness(1.05);
+}
+
+/* ===== Sidebar Premium CTA button — golden shine + glow on hover ===== */
+.cadia-premium-cta {
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.35s ease,
+              box-shadow 0.35s ease !important;
+}
+.cadia-premium-cta::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.25), rgba(255, 245, 200, 0.4), rgba(255, 215, 0, 0.25), transparent);
+  pointer-events: none;
+  transition: left 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+.cadia-premium-cta:hover {
+  transform: translateY(-2px);
+  border-color: rgba(233, 213, 2, 0.7) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 215, 0, 0.3),
+    0 8px 24px -6px rgba(233, 213, 2, 0.4),
+    0 0 20px -2px rgba(255, 215, 0, 0.3) !important;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(94, 58, 109, 0.12)) !important;
+}
+.cadia-premium-cta:hover::before { left: 200%; }
+
+/* ===== Server list premium tag — glowing golden badge ===== */
+.cadia-server-premium-tag {
+  position: relative;
+  overflow: hidden;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0b0f14;
+  background: linear-gradient(135deg, #f0d060, #e9d502, #f0d060);
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 8px -1px rgba(233, 213, 2, 0.5),
+              0 0 16px -2px rgba(233, 213, 2, 0.3);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  animation: cadia-server-premium-glow 2s ease-in-out infinite;
+}
+.cadia-server-premium-tag::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: best-deal-shine 2.5s ease-in-out infinite;
+}
+@keyframes cadia-server-premium-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px -1px rgba(233, 213, 2, 0.5),
+                0 0 16px -2px rgba(233, 213, 2, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px 0px rgba(233, 213, 2, 0.7),
+                0 0 24px -2px rgba(233, 213, 2, 0.5);
+  }
+}
+
+/* ===== Get Premium link — periodic golden shine on the letters only ===== */
+.cadia-premium-link {
+  background: linear-gradient(
+    90deg,
+    var(--foreground) 0%,
+    var(--foreground) 40%,
+    #ffd700 50%,
+    #fff5c8 55%,
+    #ffd700 60%,
+    var(--foreground) 70%,
+    var(--foreground) 100%
+  );
+  background-size: 300% 100%;
+  background-position: 0% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: cadia-premium-text-shine 4s ease-in-out infinite;
+}
+@keyframes cadia-premium-text-shine {
+  0%, 60% { background-position: 0% 0%; }
+  85%, 100% { background-position: -200% 0%; }
+}
+
+/* ===== Legal page link breathing glow (triggered by Learn more) ===== */
+.cadia-legal-highlight {
+  animation: cadia-legal-breathing 2s ease-in-out 3;
+}
+@keyframes cadia-legal-breathing {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(233, 213, 2, 0);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(233, 213, 2, 0.5);
+    border-color: rgba(233, 213, 2, 0.6);
+    background: rgba(233, 213, 2, 0.08);
+  }
+}
+
+/* ===== CSS-only checkmark icon ===== */
+.cadia-check {
+  display: inline-block;
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  margin-right: 4px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+/* ===== Landing page background shine ===== */
+.cadia-bg-shine {
+  position: fixed;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(101, 184, 218, 0.04) 45%,
+    rgba(101, 184, 218, 0.08) 50%,
+    rgba(101, 184, 218, 0.04) 55%,
+    transparent 70%
+  );
+  animation: bg-shine-sweep 8s ease-in-out infinite;
+}
+
+@keyframes bg-shine-sweep {
+  0%, 100% { transform: translateX(-30%); }
+  50% { transform: translateX(30%); }
+}
