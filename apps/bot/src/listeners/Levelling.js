@@ -3,11 +3,11 @@ const { EmbedBuilder } = require('discord.js');
 const { color, emojis } = require('../config');
 const Level = require('../lib/schemas/levelSchema');
 const LevelConfig = require('../lib/schemas/levelConfigSchema');
+const { MESSAGE_XP_COOLDOWN_MS, XP_PER_LEVEL, CooldownTracker, calculateMessageXp } = require('../lib/util/leveling');
 
-const XP_PER_MESSAGE = 1;
-const XP_PER_LEVEL = 100;
 const CONFIG_CACHE_MS = 60_000;
 const configCache = new Map();
+const xpCooldowns = new CooldownTracker(MESSAGE_XP_COOLDOWN_MS);
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -27,21 +27,29 @@ class UserEvent extends Listener {
 			const config = await getLevelConfig(guildId);
 
 			if (!config?.enabled) return;
+			const cooldownKey = `${guildId}:${userId}`;
+			if (!xpCooldowns.tryAcquire(cooldownKey)) return;
 
-			let level = await Level.findOne({ guildId, userId });
-			if (!level) level = await Level.create({ guildId, userId });
+			try {
+				let level = await Level.findOne({ guildId, userId });
+				if (!level) level = await Level.create({ guildId, userId });
 
-			level.userXp += XP_PER_MESSAGE;
-			level.totalXp += XP_PER_MESSAGE;
+				const earnedXp = calculateMessageXp(message);
+				level.userXp += earnedXp;
+				level.totalXp += earnedXp;
 
-			if (level.userXp >= XP_PER_LEVEL) {
-				level.userXp -= XP_PER_LEVEL;
-				level.userLevel += 1;
+				if (level.userXp >= XP_PER_LEVEL) {
+					level.userXp -= XP_PER_LEVEL;
+					level.userLevel += 1;
 
-				await sendLevelUpMessage(message, config, level);
+					await sendLevelUpMessage(message, config, level);
+				}
+
+				await level.save();
+			} catch (error) {
+				xpCooldowns.release(cooldownKey);
+				throw error;
 			}
-
-			await level.save();
 		} catch (error) {
 			if (['ECONNRESET', 'PROTOCOL_CONNECTION_LOST', 'ETIMEDOUT', 'EPIPE'].includes(error?.code)) return;
 			throw error;
