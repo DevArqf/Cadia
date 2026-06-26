@@ -55,6 +55,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const saveConfig = useCadia((s) => s.saveConfig);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<DashboardTab | null>(null);
+  const [pendingHome, setPendingHome] = useState(false);
 
   // Guarded tab switch — checks for unsaved changes
   const handleTabSwitch = (tab: DashboardTab) => {
@@ -68,8 +69,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   // Confirm tab switch (discard changes)
   const handleConfirmSwitch = () => {
+    useCadia.setState({ hasUnsavedChanges: false });
+    if (pendingHome) {
+      setPendingHome(false);
+      navigateHome();
+      return;
+    }
     if (pendingTab) {
-      useCadia.setState({ hasUnsavedChanges: false });
       setTab(pendingTab);
       setPendingTab(null);
     }
@@ -78,12 +84,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
   // Cancel tab switch (stay on current tab)
   const handleCancelSwitch = () => {
     setPendingTab(null);
+    setPendingHome(false);
   };
 
   // Save and stay
   const handleSave = () => {
     saveConfig();
     setPendingTab(null);
+    setPendingHome(false);
   };
 
   // Scroll to top when tab changes — fires before paint
@@ -119,17 +127,21 @@ export function DashboardShell({ children }: DashboardShellProps) {
     return null;
   }
 
-  const handleHomeClick = () => {
-    if (hasUnsavedChanges) {
-      // TODO: could show dialog here too, but for now just discard
-      useCadia.setState({ hasUnsavedChanges: false });
-    }
+  const navigateHome = () => {
     if (isAdminUnlocked) {
       clearSelectedServer();
     } else {
       setView("landing");
       clearSelectedServer();
     }
+  };
+
+  const handleHomeClick = () => {
+    if (hasUnsavedChanges) {
+      setPendingHome(true);
+      return;
+    }
+    navigateHome();
   };
 
   return (
@@ -267,7 +279,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <SidebarContent
             server={server}
             activeTab={activeTab}
-            setTab={setTab}
+            setTab={handleTabSwitch}
             clearSelectedServer={clearSelectedServer}
           />
         </aside>
@@ -287,7 +299,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </div>
 
       {/* Unsaved changes dialog */}
-      <Dialog open={pendingTab !== null} onOpenChange={(o) => !o && handleCancelSwitch()}>
+      <Dialog open={pendingTab !== null || pendingHome} onOpenChange={(o) => !o && handleCancelSwitch()}>
         <DialogContent className="max-w-md p-0 overflow-hidden bg-card border-warning/40 shadow-2xl" showCloseButton={false}>
           <div className="h-0.5 bg-gradient-to-r from-warning via-fail to-warning" />
           <DialogHeader className="px-5 pt-4 pb-2">
@@ -299,8 +311,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <div className="px-5 pb-5 space-y-4">
             <p className="text-sm text-muted-foreground leading-relaxed">
               You have unsaved configuration changes. If you switch tabs now,
-              your changes will be lost. Save your changes first, or continue
-              without saving.
+              or leave this server view now, your changes will be lost. Save
+              your changes first, or continue without saving.
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button

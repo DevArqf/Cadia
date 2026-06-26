@@ -62,7 +62,7 @@
 		"test": "node scripts/run-tests.js",
 		"test:fast": "node scripts/run-fast-tests.js",
 		"check:cycles": "madge --circular src",
-		"check:cycles:monorepo": "madge --circular --extensions js,cjs,mjs src apps libs",
+		"check:cycles:monorepo": "madge --circular --extensions js,cjs,mjs,ts,tsx src apps libs",
 		"check:cycles:libs": "madge --circular --extensions js,cjs,mjs libs",
 		"check:cycles:libs:ts": "madge --circular --extensions ts,tsx libs/",
 		"graph": "nx graph",

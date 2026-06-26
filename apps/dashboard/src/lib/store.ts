@@ -416,7 +416,6 @@ export const useCadia = create<CadiaState>((set, get) => ({
     if (!isOwner) return false;
     // Lazy import to avoid bundling the password into client chunks unintentionally —
     // still client-side here for the demo only.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { ADMIN_PANEL_PASSWORD } = require("./mock-data");
     if (password !== ADMIN_PANEL_PASSWORD) return false;
     // Per spec: do NOT enter admin panel immediately.
