@@ -1,0 +1,21 @@
+{
+	"name": "bot",
+	"projectType": "application",
+	"root": "apps/bot",
+	"sourceRoot": "src",
+	"targets": {
+		"start": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "npm --workspace @cadia/bot start"
+			}
+		},
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "npm --workspace @cadia/bot test"
+			}
+		}
+	},
+	"implicitDependencies": ["ipc"]
+}

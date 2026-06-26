@@ -1,0 +1,21 @@
+{
+	"name": "dashboard",
+	"projectType": "application",
+	"root": "apps/dashboard",
+	"sourceRoot": "apps/dashboard",
+	"targets": {
+		"start": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "npm --workspace @cadia/dashboard start"
+			}
+		},
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "npm --workspace @cadia/dashboard test"
+			}
+		}
+	},
+	"implicitDependencies": ["ipc"]
+}

@@ -8,5 +8,8 @@
 		"start": "node server.js",
 		"dev": "node --watch server.js",
 		"test": "node -c server.js"
+	},
+	"dependencies": {
+		"@cadia/ipc": "0.1.0"
 	}
 }

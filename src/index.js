@@ -3,10 +3,12 @@ const { envParseString } = require('@skyra/env-utilities');
 const { CadiaClient } = require('./lib/CadiaClient');
 const { EmbedBuilder } = require('discord.js');
 const { isMysqlConnected } = require('./lib/database/mysql');
+const { startBotIpcServer } = require('./lib/ipc/botIpcServer');
 const { color, emojis } = require('./config');
 
 const client = new CadiaClient();
 let shuttingDown = false;
+let ipcServer = null;
 
 // Reminder System //
 const reminderSchema = require('./lib/schemas/reminderSchema');
@@ -53,6 +55,11 @@ const main = async () => {
 	try {
 		client.logger.info('Logging in');
 		await client.login(envParseString('TOKEN'));
+		try {
+			ipcServer = startBotIpcServer(client);
+		} catch (error) {
+			client.logger.warn(`Cadia IPC server disabled: ${error.message}`);
+		}
 		client.logger.info('logged in');
 	} catch (error) {
 		client.logger.fatal(error);
@@ -73,6 +80,7 @@ async function gracefulShutdown(signal) {
 	client.logger.warn(`Received ${signal}. Starting graceful shutdown.`);
 	try {
 		client.disableActivityRotation = true;
+		ipcServer?.close();
 		client.destroy();
 	} finally {
 		setTimeout(() => process.exit(0), 500).unref();

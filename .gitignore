@@ -1,5 +1,7 @@
 # Ignore a blackhole and the folder for development
 node_modules/
+tmp/
+.nx/
 .vs/
 .idea/
 *.iml

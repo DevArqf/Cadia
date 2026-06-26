@@ -9,5 +9,8 @@
 		"watch": "nodemon -L --watch ../../src ../../src/index.js",
 		"test": "npm --prefix ../.. test",
 		"check:cycles": "npm --prefix ../.. run check:cycles"
+	},
+	"dependencies": {
+		"@cadia/ipc": "0.1.0"
 	}
 }

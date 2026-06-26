@@ -8,7 +8,8 @@
 	"type": "commonjs",
 	"workspaces": [
 		"apps/bot",
-		"apps/dashboard"
+		"apps/dashboard",
+		"libs/*"
 	],
 	"dependencies": {
 		"@iamtraction/google-translate": "^1.1.2",
@@ -30,6 +31,7 @@
 		"discord-gamecord": "^4.4.4",
 		"discord.js": "^14.14.1",
 		"figlet": "^1.7.0",
+		"jszmq": "^0.1.2",
 		"mathjs": "^15.2.0",
 		"mysql2": "^3.22.4",
 		"os": "^0.1.2",
@@ -39,9 +41,12 @@
 	"devDependencies": {
 		"@sapphire/cli": "^1.9.3",
 		"@sapphire/prettier-config": "^2.0.0",
+		"eslint": "^9.39.4",
+		"eslint-plugin-import": "^2.32.0",
 		"madge": "^8.0.0",
 		"nodemon": "^3.0.3",
 		"npm-run-all2": "^6.1.1",
+		"nx": "^23.0.1",
 		"prettier": "^3.8.3"
 	},
 	"scripts": {
@@ -55,6 +60,11 @@
 		"dev:dashboard": "npm --workspace @cadia/dashboard dev",
 		"test": "node scripts/run-tests.js",
 		"check:cycles": "madge --circular src",
+		"check:cycles:monorepo": "madge --circular --extensions js,cjs,mjs src apps libs",
+		"check:cycles:libs": "madge --circular --extensions js,cjs,mjs libs",
+		"check:cycles:libs:ts": "madge --circular --extensions ts,tsx libs/",
+		"graph": "nx graph",
+		"lint:cycles": "eslint src apps libs",
 		"format": "prettier --write \"src/**/*.js\""
 	},
 	"prettier": "@sapphire/prettier-config",

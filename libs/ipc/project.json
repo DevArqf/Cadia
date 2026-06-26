@@ -1,0 +1,14 @@
+{
+	"name": "ipc",
+	"projectType": "library",
+	"root": "libs/ipc",
+	"sourceRoot": "libs/ipc/src",
+	"targets": {
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "npm --workspace @cadia/ipc test"
+			}
+		}
+	}
+}
