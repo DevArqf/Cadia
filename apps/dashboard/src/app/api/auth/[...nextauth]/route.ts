@@ -3,6 +3,7 @@ import {
   clearSessionCookie,
   createOAuthState,
   createSessionCookie,
+  getDashboardBaseUrl,
   getDiscordRedirectUri,
   readOAuthState,
 } from "@/lib/server/auth-session";
@@ -41,11 +42,12 @@ function redirectToDiscord(request: NextRequest) {
 async function handleDiscordCallback(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = readOAuthState(request.nextUrl.searchParams.get("state"));
-  if (!code || !state) return NextResponse.redirect(new URL("/", request.url));
+  const dashboardBaseUrl = getDashboardBaseUrl(request.url);
+  if (!code || !state) return NextResponse.redirect(new URL("/", dashboardBaseUrl));
 
   const token = await exchangeDiscordCode(code, request.url);
   const user = await fetchDiscordUser(token.access_token);
-  const response = NextResponse.redirect(new URL(state.callbackUrl, request.url));
+  const response = NextResponse.redirect(new URL(state.callbackUrl, dashboardBaseUrl));
   const sessionCookie = createSessionCookie({
     accessToken: token.access_token,
     user: {
@@ -62,7 +64,7 @@ async function handleDiscordCallback(request: NextRequest) {
 }
 
 function signOut(request: NextRequest) {
-  const response = NextResponse.redirect(new URL("/", request.url));
+  const response = NextResponse.redirect(new URL("/", getDashboardBaseUrl(request.url)));
   const cookie = clearSessionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options);
   return response;

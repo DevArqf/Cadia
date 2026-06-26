@@ -6,7 +6,7 @@ process.env.BOT_OWNERS ??= 'test-owner';
 process.env.DEVELOPERS ??= 'test-developer';
 
 const { UserCommand: InviteCommand } = require('../src/commands/Utility/invite');
-const { invitePermissionPresets } = require('../src/config/invite');
+const { getAllFeaturesOAuthUrl, invitePermissionPresets } = require('../src/config/invite');
 
 test('invite command exposes only least-privilege permission presets', () => {
 	let command;
@@ -55,7 +55,7 @@ test('invite command generates the selected preset without Administrator', async
 
 test('invite command uses configured OAuth URL for all features preset', async () => {
 	const selected = invitePermissionPresets.find((preset) => preset.id === 'all-features');
-	process.env.CADIA_ALL_FEATURES_OAUTH_URL = 'https://discord.com/oauth2/authorize?client_id=configured&scope=bot%20applications.commands';
+	process.env.CADIA_ALL_FEATURES_OAUTH_URL = 'https://discord.com/oauth2/authorize?client_id=123456789012345678&scope=bot%20applications.commands';
 	let generated = false;
 	let reply;
 	const interaction = {
@@ -74,6 +74,27 @@ test('invite command uses configured OAuth URL for all features preset', async (
 	await InviteCommand.prototype.chatInputRun.call({}, interaction);
 
 	assert.equal(generated, false);
-	assert.match(JSON.stringify(reply), /client_id=configured/);
+	assert.match(JSON.stringify(reply), /client_id=123456789012345678/);
+	delete process.env.CADIA_ALL_FEATURES_OAUTH_URL;
+});
+
+test('configured all-features OAuth URL is repaired with Cadia application id', () => {
+	process.env.CADIA_ALL_FEATURES_OAUTH_URL = 'https://discord.com/oauth2/authorize?permissions=280125485303';
+
+	const url = new URL(getAllFeaturesOAuthUrl());
+
+	assert.equal(url.searchParams.get('client_id'), '1200475110235197631');
+	assert.equal(url.searchParams.get('scope'), 'bot applications.commands');
+	delete process.env.CADIA_ALL_FEATURES_OAUTH_URL;
+});
+
+test('configured all-features OAuth URL replaces placeholder client id', () => {
+	process.env.CADIA_ALL_FEATURES_OAUTH_URL =
+		'https://discord.com/oauth2/authorize?client_id=your_bot_application_id&permissions=280125485303&scope=bot%20applications.commands';
+
+	const url = new URL(getAllFeaturesOAuthUrl());
+
+	assert.equal(url.searchParams.get('client_id'), '1200475110235197631');
+	assert.equal(url.searchParams.get('permissions'), '280125485303');
 	delete process.env.CADIA_ALL_FEATURES_OAUTH_URL;
 });

@@ -1,4 +1,5 @@
 const { OAuth2Scopes, PermissionFlagsBits } = require('discord.js');
+const { branding } = require('./branding');
 
 const inviteScopes = [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands];
 const invitePermissions = [
@@ -50,7 +51,19 @@ function createInviteUrl(client) {
 }
 
 function getAllFeaturesOAuthUrl() {
-	return process.env.CADIA_ALL_FEATURES_OAUTH_URL || process.env.CADIA_INVITE_URL || '';
+	const configuredUrl = process.env.CADIA_ALL_FEATURES_OAUTH_URL || process.env.CADIA_INVITE_URL || '';
+	if (!configuredUrl) return '';
+
+	const url = new URL(configuredUrl);
+	url.searchParams.set('client_id', normalizeClientId(url.searchParams.get('client_id')));
+	if (!url.searchParams.get('scope')) url.searchParams.set('scope', 'bot applications.commands');
+	return url.toString();
+}
+
+function normalizeClientId(value) {
+	const candidate = value?.trim();
+	if (!candidate || candidate === 'your_bot_application_id' || !/^\d{17,22}$/.test(candidate)) return branding.applicationId;
+	return candidate;
 }
 
 function isAllFeaturesPreset(value) {
