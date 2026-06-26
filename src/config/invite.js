@@ -20,14 +20,17 @@ const invitePermissions = [
 ];
 const invitePermissionPresets = [
 	{
+		id: 'rpg-community',
 		name: 'RPG and Community',
 		permissions: invitePermissions.slice(0, 8)
 	},
 	{
+		id: 'rpg-moderation',
 		name: 'RPG and Moderation',
 		permissions: invitePermissions.slice(0, 13)
 	},
 	{
+		id: 'all-features',
 		name: 'All Cadia Features',
 		permissions: invitePermissions
 	}
@@ -37,14 +40,27 @@ const invitePermissionPresets = [
 }));
 
 function createInviteUrl(client) {
+	const configuredInviteUrl = getAllFeaturesOAuthUrl();
+	if (configuredInviteUrl) return configuredInviteUrl;
+
 	return client.generateInvite({
 		scopes: inviteScopes,
 		permissions: invitePermissions
 	});
 }
 
+function getAllFeaturesOAuthUrl() {
+	return process.env.CADIA_ALL_FEATURES_OAUTH_URL || process.env.CADIA_INVITE_URL || '';
+}
+
+function isAllFeaturesPreset(value) {
+	return invitePermissionPresets.some((preset) => preset.id === 'all-features' && preset.value === value);
+}
+
 module.exports = {
 	createInviteUrl,
+	getAllFeaturesOAuthUrl,
+	isAllFeaturesPreset,
 	invitePermissionPresets,
 	invitePermissions,
 	inviteScopes

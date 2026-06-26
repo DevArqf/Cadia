@@ -181,7 +181,7 @@ export function ServerSelectView() {
                   </Button>
                 ) : (
                   <a
-                    href="https://discord.com/oauth2/authorize?client_id=CADIA_BOT_ID&scope=bot+applications.commands&permissions=8"
+                    href={`/api/invite?guild_id=${encodeURIComponent(s.id)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"

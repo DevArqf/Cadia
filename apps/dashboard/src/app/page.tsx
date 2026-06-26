@@ -23,18 +23,22 @@ export default function Home() {
   const activeTab = useCadia((s) => s.activeTab);
   const user = useCadia((s) => s.user);
   const selectedServer = useCadia((s) => s.selectedServer);
+  const loadDashboardSession = useCadia((s) => s.loadDashboardSession);
+  const loadBotStatus = useCadia((s) => s.loadBotStatus);
 
   // === 1) Disable browser scroll restoration — we manage it ourselves ===
   useEffect(() => {
     if ("scrollRestoration" in history) {
       history.scrollRestoration = "manual";
     }
+    loadDashboardSession();
+    loadBotStatus();
     return () => {
       if ("scrollRestoration" in history) {
         history.scrollRestoration = "auto";
       }
     };
-  }, []);
+  }, [loadDashboardSession, loadBotStatus]);
 
   // === 2) Defensive: redirect invalid dashboard/server-select states ===
   useEffect(() => {

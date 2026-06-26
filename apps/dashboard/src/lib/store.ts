@@ -28,6 +28,7 @@ interface CadiaState {
   user: DiscordUser | null;
 
   // selected server + its modules (deep clone for editing)
+  servers: DiscordServer[];
   selectedServer: DiscordServer | null;
   modules: BotModule[];
   logs: LogEntry[];
@@ -49,6 +50,8 @@ interface CadiaState {
   // actions
   setView: (v: View) => void;
   startLogin: () => void;
+  loadDashboardSession: () => Promise<void>;
+  loadBotStatus: () => Promise<void>;
   finishLogin: (redirectView?: View) => void;
   logout: () => void;
 
@@ -96,6 +99,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   view: "landing",
   isAuthenticating: false,
   user: null,
+  servers: [],
   selectedServer: null,
   modules: [],
   logs: INITIAL_LOGS,
@@ -112,7 +116,40 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
   setView: (v) => set({ view: v }),
 
-  startLogin: () => set({ isAuthenticating: true }),
+  startLogin: () => {
+    set({ isAuthenticating: true });
+    if (typeof window !== "undefined") {
+      window.location.href = "/api/auth/signin/discord?callbackUrl=/";
+    }
+  },
+
+  loadDashboardSession: async () => {
+    try {
+      const meResponse = await fetch("/api/me", { cache: "no-store" });
+      if (!meResponse.ok) return;
+      const me = await meResponse.json();
+      const serversResponse = await fetch("/api/servers", { cache: "no-store" });
+      const serversPayload = serversResponse.ok ? await serversResponse.json() : { servers: [] };
+      set({
+        user: me.user,
+        servers: serversPayload.servers || [],
+        isAuthenticating: false,
+        view: "server-select",
+      });
+    } catch {
+      set({ isAuthenticating: false });
+    }
+  },
+
+  loadBotStatus: async () => {
+    try {
+      const response = await fetch("/api/bot-status", { cache: "no-store" });
+      const payload = await response.json();
+      set({ globalBotStatus: payload.status === "online" ? "online" : "offline" });
+    } catch {
+      set({ globalBotStatus: "offline" });
+    }
+  },
 
   finishLogin: (redirectView) => {
     // Simulate Discord OAuth callback. In production this hits /api/auth/discord.
@@ -139,6 +176,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     set({
       user: null,
       view: "landing",
+      servers: [],
       selectedServer: null,
       modules: [],
       activeTab: "dashboard",
@@ -146,7 +184,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     }),
 
   selectServer: (id) => {
-    const all = MOCK_SERVERS;
+    const all = get().servers.length ? get().servers : MOCK_SERVERS;
     const server = all.find((s) => s.id === id) || null;
     if (!server) return;
     // Only allow if user can manage
@@ -167,8 +205,10 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
     // If bot isn't in server, we redirect to invite link (handled in UI)
     if (!server.botInServer) {
-      // Mark we tried to select — UI will show invite CTA
       set({ selectedServer: server });
+      if (typeof window !== "undefined") {
+        window.location.href = `/api/invite?guild_id=${encodeURIComponent(server.id)}`;
+      }
       return;
     }
 
@@ -188,7 +228,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   selectServerAsAdmin: (id) => {
     // Guard against double-calls
     if (get().view === "dashboard" && get().selectedServer?.id === id) return;
-    const all = MOCK_SERVERS;
+    const all = get().servers.length ? get().servers : MOCK_SERVERS;
     const server = all.find((s) => s.id === id) || null;
     if (!server) return;
     // Admin/owner bypasses permission + blacklist filters
@@ -436,7 +476,8 @@ export const useCadia = create<CadiaState>((set, get) => ({
     const prev = get().globalBotStatus;
     set({ globalBotStatus: status });
     // Log to ALL servers the bot is in (users see the status change)
-    const botServers = MOCK_SERVERS.filter((s) => s.botInServer);
+    const all = get().servers.length ? get().servers : MOCK_SERVERS;
+    const botServers = all.filter((s) => s.botInServer);
     botServers.forEach((s) => {
       get().addLog({
         type: "botstatus",
@@ -501,7 +542,8 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
   visibleServers: () => {
     const blacklisted = get().blacklistedServerIds;
-    return MOCK_SERVERS.filter(
+    const all = get().servers.length ? get().servers : MOCK_SERVERS;
+    return all.filter(
       (s) => s.userCanManage && !blacklisted.includes(s.id),
     );
   },

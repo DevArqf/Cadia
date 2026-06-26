@@ -1,7 +1,7 @@
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color, emojis } = require('../../config');
 const { OAuth2Scopes } = require('discord.js');
-const { invitePermissionPresets } = require('../../config/invite');
+const { getAllFeaturesOAuthUrl, invitePermissionPresets, isAllFeaturesPreset } = require('../../config/invite');
 const { componentReply, linkButton, panel } = require('../../lib/util/components');
 
 const permissionChoices = invitePermissionPresets.map(({ name, value }) => ({ name, value }));
@@ -32,10 +32,13 @@ class UserCommand extends CadiaCommand {
 	async chatInputRun(interaction) {
 		const permissions = interaction.options.getString('permissions', true);
 		const selected = permissionChoices.find((choice) => choice.value === permissions);
-		const invite = interaction.client.generateInvite({
-			scopes: [OAuth2Scopes.ApplicationsCommands, OAuth2Scopes.Bot],
-			permissions: [permissions]
-		});
+		const configuredAllFeaturesInvite = isAllFeaturesPreset(permissions) ? getAllFeaturesOAuthUrl() : '';
+		const invite =
+			configuredAllFeaturesInvite ||
+			interaction.client.generateInvite({
+				scopes: [OAuth2Scopes.ApplicationsCommands, OAuth2Scopes.Bot],
+				permissions: [permissions]
+			});
 
 		return interaction.reply(
 			componentReply(

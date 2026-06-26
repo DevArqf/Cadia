@@ -21,7 +21,6 @@ const SUPPORT_INVITE = "https://discord.gg/26R7kXa6dx";
 
 export function CadiaFooter() {
   const startLogin = useCadia((s) => s.startLogin);
-  const finishLogin = useCadia((s) => s.finishLogin);
   const user = useCadia((s) => s.user);
   const setView = useCadia((s) => s.setView);
 
@@ -40,11 +39,8 @@ export function CadiaFooter() {
       setView("premium");
       return;
     }
-    // Not logged in — prompt Discord login, then redirect to premium page
+    // Not logged in — use real Discord OAuth first.
     startLogin();
-    setTimeout(() => {
-      finishLogin("premium");
-    }, 900);
   };
 
   return (

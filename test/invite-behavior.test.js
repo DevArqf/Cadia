@@ -30,6 +30,7 @@ test('invite command exposes only least-privilege permission presets', () => {
 });
 
 test('invite command generates the selected preset without Administrator', async () => {
+	delete process.env.CADIA_ALL_FEATURES_OAUTH_URL;
 	const selected = invitePermissionPresets.at(-1);
 	let generated;
 	let reply;
@@ -50,4 +51,29 @@ test('invite command generates the selected preset without Administrator', async
 
 	assert.equal(BigInt(generated.permissions[0]) & PermissionFlagsBits.Administrator, 0n);
 	assert.equal(reply.flags !== undefined, true);
+});
+
+test('invite command uses configured OAuth URL for all features preset', async () => {
+	const selected = invitePermissionPresets.find((preset) => preset.id === 'all-features');
+	process.env.CADIA_ALL_FEATURES_OAUTH_URL = 'https://discord.com/oauth2/authorize?client_id=configured&scope=bot%20applications.commands';
+	let generated = false;
+	let reply;
+	const interaction = {
+		options: { getString: () => selected.value },
+		client: {
+			generateInvite: () => {
+				generated = true;
+				return 'https://discord.com/oauth2/authorize?client_id=generated';
+			}
+		},
+		reply: async (payload) => {
+			reply = payload;
+		}
+	};
+
+	await InviteCommand.prototype.chatInputRun.call({}, interaction);
+
+	assert.equal(generated, false);
+	assert.match(JSON.stringify(reply), /client_id=configured/);
+	delete process.env.CADIA_ALL_FEATURES_OAUTH_URL;
 });

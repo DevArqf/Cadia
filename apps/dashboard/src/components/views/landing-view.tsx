@@ -58,7 +58,6 @@ const slideVariants = {
 
 export function LandingView() {
   const startLogin = useCadia((s) => s.startLogin);
-  const finishLogin = useCadia((s) => s.finishLogin);
   const isAuthenticating = useCadia((s) => s.isAuthenticating);
   const setView = useCadia((s) => s.setView);
   const [hover, setHover] = useState(false);
@@ -80,18 +79,27 @@ export function LandingView() {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !statsAnimated.current) {
             statsAnimated.current = true;
-            const targets = { servers: 12481, users: 850000, responseTime: 60 };
-            const duration = 2000;
-            const start = Date.now();
-            const interval = setInterval(() => {
-              const elapsed = Date.now() - start;
-              const progress = Math.min(elapsed / duration, 1);
-              const eased = 1 - Math.pow(1 - progress, 3);
-              setServers(Math.floor(targets.servers * eased));
-              setUsers(Math.floor(targets.users * eased));
-              setResponseTime(Math.floor(targets.responseTime * eased));
-              if (progress >= 1) clearInterval(interval);
-            }, 30);
+            fetch("/api/bot-status", { cache: "no-store" })
+              .then((res) => res.json())
+              .catch(() => ({ guildCount: 0, userCount: 0, responseTimeMs: 0 }))
+              .then((status) => {
+                const targets = {
+                  servers: Number(status.guildCount || 0),
+                  users: Number(status.userCount || 0),
+                  responseTime: Number(status.responseTimeMs || 0),
+                };
+                const duration = 2000;
+                const start = Date.now();
+                const interval = setInterval(() => {
+                  const elapsed = Date.now() - start;
+                  const progress = Math.min(elapsed / duration, 1);
+                  const eased = 1 - Math.pow(1 - progress, 3);
+                  setServers(Math.floor(targets.servers * eased));
+                  setUsers(Math.floor(targets.users * eased));
+                  setResponseTime(Math.floor(targets.responseTime * eased));
+                  if (progress >= 1) clearInterval(interval);
+                }, 30);
+              });
           }
         });
       },
@@ -103,8 +111,7 @@ export function LandingView() {
   }, []);
 
   const handleAddBot = () => {
-    startLogin();
-    setTimeout(() => finishLogin(), 900);
+    window.location.href = "/api/invite";
   };
 
   const handleLearnMore = () => {
@@ -154,6 +161,14 @@ export function LandingView() {
               Join Server
             </Button>
           </a>
+          <Button
+            onClick={startLogin}
+            disabled={isAuthenticating}
+            variant="outline"
+            className="cadia-btn text-sm font-semibold"
+          >
+            Dashboard
+          </Button>
           <Button
             onClick={handleAddBot}
             disabled={isAuthenticating}
@@ -357,7 +372,7 @@ export function LandingView() {
                 <Clock className="h-4 w-4 text-warning" />
               </div>
               <div className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">
-                {(responseTime / 1000).toFixed(2)}s
+              {responseTime}ms
               </div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
                 Response Time
