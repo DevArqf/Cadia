@@ -7,9 +7,9 @@ const {
 	TextInputBuilder,
 	TextInputStyle
 } = require('discord.js');
-const { color, emojis } = require('../../config');
+const { channels, color, emojis } = require('../../config');
 const { alertStyles, alertTemplates, buildAlertPanel, componentReply, publishAlert, updateAlertDmStats } = require('./globalAlerts');
-const { collectBroadcastUserIds, createDmReportAttachment, formatTargetSources, sendUserDms } = require('./alertBroadcast');
+const { collectBroadcastUserIds, createDmReportAttachment, formatTargetSources, sendAlertToChannel, sendUserDms } = require('./alertBroadcast');
 const {
 	DEFAULT_ALERT_FOOTER,
 	applyTemplate,
@@ -63,6 +63,11 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false, op
 	if (!fromPreview) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 	const alert = await publishAlert({ ...draft, developer: interaction.user, dmEnabled: dmUsers });
+	const channelMessage = await sendAlertToChannel(interaction.client, alert);
+	alert.channelId = channelMessage.channelId || channels.globalAlerts;
+	alert.channelMessageId = channelMessage.id;
+	alert.updatedAt = Date.now();
+	await alert.save();
 	const targetData = dmUsers ? await collectBroadcastUserIds(interaction.client) : { userGuilds: new Map(), userIds: new Set(), sources: {} };
 	if (dmUsers) await options.onTargetsCollected?.(targetData);
 	const stats = dmUsers
@@ -86,6 +91,7 @@ async function publishDraft(interaction, draft, dmUsers, fromPreview = false, op
 					`${emojis.custom.community} **Unique Users Targeted:** ${stats.total}`,
 					`${emojis.custom.openfolder} **Target Sources:** ${formatTargetSources(stats.sources)}`,
 					`${emojis.custom.info} **DM Broadcast:** ${dmUsers ? 'Enabled' : 'Skipped'}`,
+					`${emojis.custom.news} **Channel Copy:** <#${alert.channelId}>`,
 					`${emojis.custom.openfolder} **CSV Report:** ${csvAttachment ? 'Attached' : 'Not requested'}`
 				],
 				footer: `${emojis.custom.arrowright} Users will be prompted to run ${commandMention('alert')} after using Cadia commands.`

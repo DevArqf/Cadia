@@ -17,6 +17,7 @@ const {
 	handleRpgLeaderboardInteraction
 } = require('../commands/Systems/RPG System/rpg');
 const { handlePollInteraction } = require('../commands/Utility/poll');
+const { handleSuggestionInteraction } = require('../lib/suggestions/suggestionSystem');
 const { handleMentionDeleteInteraction } = require('./botMention');
 
 registerInteractionHandler('calculator', handleCalculatorInteraction);
@@ -38,6 +39,7 @@ registerInteractionHandler('rpg-profile', handleRpgComponentInteraction);
 registerInteractionHandler('rpg-quest', handleRpgComponentInteraction);
 registerInteractionHandler('rpg-tutorial', handleRpgComponentInteraction);
 registerInteractionHandler('rpg-tutorial-offer', handleRpgComponentInteraction);
+registerInteractionHandler('suggestions', handleSuggestionInteraction);
 registerInteractionHandler('mention-delete', handleMentionDeleteInteraction);
 
 class UserEvent extends Listener {

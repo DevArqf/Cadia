@@ -15,6 +15,8 @@ const GlobalAlertSchema = createModel('globalAlertSchema', {
 	dmSent: 0,
 	dmFailed: 0,
 	dmTargeted: 0,
+	channelId: null,
+	channelMessageId: null,
 	createdAt: () => Date.now(),
 	updatedAt: () => Date.now()
 });

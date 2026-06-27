@@ -17,7 +17,7 @@ const { branding } = require('../src/config');
 test('Cadia enables cd prefix commands for every Cadia command', () => {
 	assert.equal(ClientConfig.defaultPrefix, 'cd ');
 	assert.equal(typeof CadiaCommand.prototype.messageRun, 'function');
-	assert.equal(branding.version, '5.7.8');
+	assert.equal(branding.version, '6.8.5');
 });
 
 test('every command module exposes a slash schema reusable by the prefix adapter', () => {

@@ -1,4 +1,5 @@
 const { AttachmentBuilder, MessageFlags } = require('discord.js');
+const { channels } = require('../../config');
 const { buildAlertPanel } = require('./globalAlerts');
 const LevelSchema = require('../schemas/levelSchema');
 const { GlobalAlertReceiptSchema } = require('../schemas/globalAlertReceiptSchema');
@@ -39,6 +40,19 @@ async function sendUserDms(client, alert, targetData = null, options = {}) {
 	}
 
 	return stats;
+}
+
+async function sendAlertToChannel(client, alert, channelId = channels.globalAlerts) {
+	const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+	if (!channel?.isTextBased?.() || typeof channel.send !== 'function') {
+		throw new Error(`Global alert channel ${channelId} is unavailable or is not text-based.`);
+	}
+
+	return channel.send({
+		components: [buildAlertPanel(alert)],
+		flags: MessageFlags.IsComponentsV2,
+		allowedMentions: { parse: [] }
+	});
 }
 
 function reportBroadcastProgress(onProgress, stats, startedAt) {
@@ -184,5 +198,6 @@ module.exports = {
 	collectBroadcastUserIds,
 	createDmReportAttachment,
 	formatTargetSources,
+	sendAlertToChannel,
 	sendUserDms
 };

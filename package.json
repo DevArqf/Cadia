@@ -1,6 +1,6 @@
 {
 	"name": "cadia",
-	"version": "5.7.8",
+	"version": "6.8.5",
 	"private": true,
 	"main": "apps/bot/src/index.js",
 	"author": "@DevArqf",

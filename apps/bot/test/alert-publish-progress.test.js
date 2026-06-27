@@ -11,6 +11,35 @@ const {
 	sendUserDms,
 	startPublishProgressUpdates
 } = require('../src/lib/util/alertCommandUtils');
+const { sendAlertToChannel } = require('../src/lib/util/alertBroadcast');
+
+test('global alerts are mirrored to the configured channel without mentions', async () => {
+	let sentPayload;
+	const channel = {
+		isTextBased: () => true,
+		send: async (payload) => {
+			sentPayload = payload;
+			return { id: 'message', channelId: '1515161807327854612' };
+		}
+	};
+	const client = {
+		channels: {
+			cache: new Map([['1515161807327854612', channel]]),
+			fetch: async () => null
+		}
+	};
+
+	const message = await sendAlertToChannel(client, {
+		title: 'Service update',
+		message: '@everyone Maintenance is complete.',
+		style: 'update',
+		createdAt: Date.now()
+	});
+
+	assert.equal(message.id, 'message');
+	assert.equal(sentPayload.components.length, 1);
+	assert.deepEqual(sentPayload.allowedMentions, { parse: [] });
+});
 
 test('global alert ETA uses observed broadcast throughput', () => {
 	const originalNow = Date.now;

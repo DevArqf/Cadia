@@ -15,7 +15,8 @@ const restartSafeFallbackPrefixes = new Set([
 	'rpg-profile',
 	'rpg-quest',
 	'rpg-tutorial',
-	'rpg-tutorial-offer'
+	'rpg-tutorial-offer',
+	'suggestions'
 ]);
 
 function registerInteractionHandler(prefix, handler) {

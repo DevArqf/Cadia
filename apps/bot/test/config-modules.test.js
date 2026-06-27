@@ -30,7 +30,8 @@ test('Discord application, command, and channel identifiers are owned by focused
 		branding.helpCommandId,
 		branding.bugReportCommandId,
 		branding.alertCommandId,
-		channels.bugReportForum
+		channels.bugReportForum,
+		channels.globalAlerts
 	]) {
 		assert.match(value, /^\d{17,20}$/);
 	}
