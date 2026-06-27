@@ -1,0 +1,36 @@
+{
+  "category": "commands"
+}
+---
+const { Command, ApplicationCommandRegistry } = require('@sapphire/framework');
+const { ChatInputCommandInteraction } = require('discord.js');
+
+class {{name}}Command extends Command {
+	constructor(context, options) {
+		super(context, {
+			...options,
+			description: '__DESCRIPTION__'
+		});
+	}
+
+	/**
+	 *
+	 * @param {ApplicationCommandRegistry} registry
+	 */
+	registerApplicationCommands(registry) {
+		registry.registerChatInputCommand((builder) =>
+			builder //
+				.setName(this.name)
+				.setDescription(this.description)
+		);
+	}
+
+	/**
+	 * @param {ChatInputCommandInteraction} interaction
+	 */
+	async chatInputRun(interaction) {}
+}
+
+module.exports = {
+	{{name}}Command
+};
