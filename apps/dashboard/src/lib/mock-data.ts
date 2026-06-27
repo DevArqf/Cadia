@@ -353,6 +353,21 @@ export const DEFAULT_MODULES: BotModule[] = [
     ],
   },
   {
+		id: "mod-suggestions",
+		name: "Suggestions",
+		description: "Collect community ideas with configurable panels, embeds, and persistent voting.",
+		category: "Utility",
+		enabled: false,
+		response: "Submit and vote on community suggestions.",
+		cooldown: 300,
+		restrictedRoleIds: [],
+		allowedRoleIds: [],
+		icon: "",
+		commands: [
+			{ id: "c-suggestions", name: "suggestions", description: "Configure the suggestion system", category: "Utility", type: "Slash", enabled: true, cooldown: 5, restrictedRoleIds: [], allowedRoleIds: [], allowedChannelIds: [], ignoredChannelIds: [], ignoredRoleIds: [] },
+		],
+	},
+	{
     id: "mod-fun",
     name: "Fun",
     description: "Memes, 8ball, dice, trivia — keep the chat lively.",

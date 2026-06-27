@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Boxes, Settings, Search, Filter } from "lucide-react";
 import { ModuleDetailPage } from "./module-detail-page";
+import { SuggestionEditor } from "./suggestion-editor";
 import type { ModuleCategory } from "@/lib/types";
 
 // Unified palette — all categories use the same gold accent
@@ -29,6 +30,7 @@ export function ModulesTab() {
   if (activeModuleId) {
     const mod = modules.find((m) => m.id === activeModuleId);
     if (mod) {
+      if (mod.id === "mod-suggestions") return <SuggestionEditor onBack={() => setActiveModule(null)} />;
       return <ModuleDetailPage module={mod} onBack={() => setActiveModule(null)} />;
     }
   }
@@ -110,7 +112,7 @@ export function ModulesTab() {
                   </div>
                   <Switch
                     checked={m.enabled}
-                    onCheckedChange={() => toggleModule(m.id)}
+                    onCheckedChange={() => (m.id === "mod-suggestions" ? setActiveModule(m.id) : toggleModule(m.id))}
                     aria-label={`Enable ${m.name}`}
                   />
                 </div>

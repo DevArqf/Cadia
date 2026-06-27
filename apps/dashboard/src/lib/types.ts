@@ -122,6 +122,37 @@ export interface BotModule {
   icon: string; // emoji
 }
 
+export interface SuggestionPanelAppearance {
+  title: string;
+  description: string;
+  footer: string;
+  color: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  buttonLabel: string;
+  buttonEmoji: string;
+}
+
+export interface SuggestionPostAppearance {
+  title: string;
+  description: string;
+  footer: string;
+  color: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  showTimestamp: boolean;
+}
+
+export interface SuggestionConfig {
+  guildId: string;
+  channelId: string | null;
+  panelMessageId: string | null;
+  enabled: boolean;
+  style: "embed" | "message";
+  panel: SuggestionPanelAppearance;
+  post: SuggestionPostAppearance;
+}
+
 export type LogType =
   | "command"
   | "moderation"

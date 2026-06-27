@@ -57,12 +57,12 @@ class UserCommand extends CadiaCommand {
 async function setupSuggestions(interaction) {
 	const channel = interaction.options.getChannel('channel', true);
 	const style = interaction.options.getString('style', true);
-	const permissionError = getChannelPermissionError(channel, interaction.guild.members.me, style);
+	const permissionError = getChannelPermissionError(channel, interaction.guild.members.me);
 	if (permissionError) return interaction.reply({ content: permissionError, flags: MessageFlags.Ephemeral });
 
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 	const oldConfig = await SuggestionConfig.findOne({ guildId: interaction.guildId });
-	const panel = await channel.send(buildSuggestionPanel(style));
+	const panel = await channel.send(buildSuggestionPanel({ ...(oldConfig || {}), style }));
 
 	try {
 		await SuggestionConfig.findOneAndUpdate(
@@ -96,12 +96,12 @@ async function resendSuggestionPanel(interaction) {
 	if (!channel?.isTextBased()) {
 		return interaction.reply({ content: 'The configured suggestion channel no longer exists.', flags: MessageFlags.Ephemeral });
 	}
-	const permissionError = getChannelPermissionError(channel, interaction.guild.members.me, config.style);
+	const permissionError = getChannelPermissionError(channel, interaction.guild.members.me);
 	if (permissionError) return interaction.reply({ content: permissionError, flags: MessageFlags.Ephemeral });
 
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 	const oldPanelMessageId = config.panelMessageId;
-	const panel = await channel.send(buildSuggestionPanel(config.style));
+	const panel = await channel.send(buildSuggestionPanel(config));
 	config.panelMessageId = panel.id;
 	config.updatedAt = Date.now();
 	try {
@@ -149,12 +149,11 @@ async function disableSuggestions(interaction) {
 	return interaction.reply({ content: `${emojis.custom.success} The suggestion system has been disabled.`, flags: MessageFlags.Ephemeral });
 }
 
-function getChannelPermissionError(channel, botMember, style) {
+function getChannelPermissionError(channel, botMember) {
 	const permissions = channel.permissionsFor(botMember);
-	const required = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages];
-	if (style === 'embed') required.push(PermissionFlagsBits.EmbedLinks);
+	const required = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
 	if (permissions?.has(required)) return null;
-	return `I need **View Channel**, **Send Messages**${style === 'embed' ? ', and **Embed Links**' : ''} in ${channel}.`;
+	return `I need **View Channel**, **Send Messages**, and **Embed Links** in ${channel}.`;
 }
 
 async function deleteStoredPanel(guild, config) {

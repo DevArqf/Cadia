@@ -9,43 +9,50 @@ const {
 	TextInputBuilder,
 	TextInputStyle
 } = require('discord.js');
-const { color, emojis } = require('../../config');
+const { emojis } = require('../../config');
 const { withTransaction } = require('../database/mysql');
 const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const Suggestion = require('../schemas/suggestionSchema');
+const { normalizeSuggestionAppearance, renderTemplate } = require('./appearance');
 
 const SUGGESTION_PREFIX = 'suggestions';
 const SUGGESTION_COOLDOWN_MS = 5 * 60_000;
 const voteQueues = new Map();
 
-function buildSuggestionPanel(style = 'embed') {
+function buildSuggestionPanel(config = {}) {
+	if (typeof config === 'string') config = { style: config };
+	const appearance = normalizeSuggestionAppearance(config);
+	const panel = appearance.panel;
+	const button = new ButtonBuilder()
+		.setCustomId(`${SUGGESTION_PREFIX}:open`)
+		.setLabel(panel.buttonLabel)
+		.setStyle(ButtonStyle.Primary);
+	if (panel.buttonEmoji) button.setEmoji(panel.buttonEmoji);
 	const components = [
-		new ActionRowBuilder().addComponents(
-			new ButtonBuilder()
-				.setCustomId(`${SUGGESTION_PREFIX}:open`)
-				.setLabel('Suggest')
-				.setEmoji(emojis.custom.pencil)
-				.setStyle(ButtonStyle.Primary)
-		)
+		new ActionRowBuilder().addComponents(button)
 	];
 	const allowedMentions = { parse: [] };
 
-	if (style === 'message') {
+	if (appearance.style === 'message') {
+		const content = [panel.title ? `**${panel.title}**` : '', panel.description, panel.footer ? `-# ${panel.footer}` : '']
+			.filter(Boolean)
+			.join('\n');
 		return {
-			content: `${emojis.custom.question} **Have a suggestion?**\n${emojis.custom.arrowright} Use the button below to submit it for community voting.`,
+			content: content || 'Submit a suggestion below.',
 			components,
 			allowedMentions
 		};
 	}
 
-	const embed = new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(`${emojis.custom.question} Server Suggestions`)
-		.setDescription(
-			`${emojis.custom.arrowright} Share an idea with the community.\n\nClick **Suggest** below to submit it. Members can then upvote or downvote it.`
-		)
-		.setFooter({ text: 'Suggestions are visible to everyone in this channel.' })
-		.setTimestamp();
+	const embed = new EmbedBuilder().setColor(panel.color);
+	if (panel.title) embed.setTitle(panel.title);
+	if (panel.description) embed.setDescription(panel.description);
+	if (panel.footer) embed.setFooter({ text: panel.footer });
+	if (panel.thumbnailUrl) embed.setThumbnail(panel.thumbnailUrl);
+	if (panel.imageUrl) embed.setImage(panel.imageUrl);
+	if (!panel.title && !panel.description && !panel.footer && !panel.thumbnailUrl && !panel.imageUrl) {
+		embed.setDescription('Submit a suggestion below.');
+	}
 
 	return { embeds: [embed], components, allowedMentions };
 }
@@ -76,23 +83,30 @@ function buildSuggestionModal() {
 		);
 }
 
-function buildSuggestionPost(suggestion) {
+function buildSuggestionPost(suggestion, config = {}) {
 	const upvotes = suggestion.upvotes?.length || 0;
 	const downvotes = suggestion.downvotes?.length || 0;
-	const embed = new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(`${emojis.custom.pencil} ${suggestion.title}`)
-		.setDescription(
-			[
-				suggestion.body,
-				'',
-				`${emojis.custom.upvote} **Upvotes:** ${upvotes}`,
-				`${emojis.custom.downvote} **Downvotes:** ${downvotes}`,
-				`${emojis.custom.person} **Suggested by:** <@${suggestion.authorId}>`
-			].join('\n')
-		)
-		.setFooter({ text: `Suggestion ID: ${suggestion.suggestionId}` })
-		.setTimestamp(suggestion.createdAt || Date.now());
+	const post = normalizeSuggestionAppearance(config).post;
+	const variables = {
+		title: suggestion.title,
+		body: suggestion.body,
+		upvotes,
+		downvotes,
+		author: `<@${suggestion.authorId}>`,
+		id: suggestion.suggestionId,
+		status: suggestion.status || 'open'
+	};
+	const embed = new EmbedBuilder().setColor(post.color);
+	const title = renderTemplate(post.title, variables, 256);
+	const description = renderTemplate(post.description, variables, 4096);
+	const footer = renderTemplate(post.footer, variables, 2048);
+	if (title) embed.setTitle(title);
+	if (description) embed.setDescription(description);
+	if (footer) embed.setFooter({ text: footer });
+	if (post.thumbnailUrl) embed.setThumbnail(post.thumbnailUrl);
+	if (post.imageUrl) embed.setImage(post.imageUrl);
+	if (post.showTimestamp) embed.setTimestamp(suggestion.createdAt || Date.now());
+	if (!title && !description && !footer && !post.thumbnailUrl && !post.imageUrl) embed.setDescription(suggestion.body || 'Suggestion');
 	const components = [
 		new ActionRowBuilder().addComponents(
 			new ButtonBuilder()
@@ -161,7 +175,7 @@ async function submitSuggestion(interaction) {
 	});
 
 	try {
-		const message = await interaction.channel.send(buildSuggestionPost(suggestion));
+		const message = await interaction.channel.send(buildSuggestionPost(suggestion, config));
 		suggestion.messageId = message.id;
 		suggestion.updatedAt = Date.now();
 		await suggestion.save();
@@ -199,7 +213,8 @@ async function voteOnSuggestion(interaction) {
 			return interaction.followUp({ content: 'Voting on this suggestion is closed.', flags: MessageFlags.Ephemeral });
 		}
 
-		return interaction.message.edit(buildSuggestionPost(suggestion));
+		const config = await SuggestionConfig.findOne({ guildId: suggestion.guildId });
+		return interaction.message.edit(buildSuggestionPost(suggestion, config || {}));
 	});
 }
 

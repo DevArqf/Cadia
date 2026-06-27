@@ -1,5 +1,9 @@
 const { DEFAULT_IPC_ENDPOINT, createIpcServer } = require('@cadia/ipc');
+const { PermissionFlagsBits } = require('discord.js');
 const { createInviteUrl } = require('../../config/invite');
+const SuggestionConfig = require('../schemas/suggestionConfigSchema');
+const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
+const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
 
 function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT || DEFAULT_IPC_ENDPOINT } = {}) {
 	const server = createIpcServer({
@@ -9,6 +13,8 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'bot.status') return botStatus(client);
 			if (request.type === 'bot.inviteUrl') return { url: createInviteUrl(client) };
 			if (request.type === 'bot.guilds') return botGuilds(client);
+			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
+			if (request.type === 'suggestions.config.update') return updateSuggestionConfig(client, request.payload);
 
 			const error = new Error(`Unsupported IPC request: ${request.type}`);
 			error.code = 'IPC_UNSUPPORTED_REQUEST';
@@ -18,6 +24,119 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 
 	client.logger.info(`Cadia IPC server listening on ${server.endpoint}`);
 	return server;
+}
+
+async function getSuggestionConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const config = await SuggestionConfig.findOne({ guildId: guild.id });
+	return serializeSuggestionConfig(config, guild.id);
+}
+
+async function updateSuggestionConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const input = payload.config && typeof payload.config === 'object' ? payload.config : {};
+	const appearance = normalizeSuggestionAppearance(input);
+	let config = await SuggestionConfig.findOne({ guildId: guild.id });
+	if (!config) config = new SuggestionConfig({ guildId: guild.id, enabled: false });
+
+	const previous = { channelId: config.channelId, panelMessageId: config.panelMessageId };
+	const enabled = input.enabled !== false;
+	const channelId = String(input.channelId || config.channelId || '').trim();
+	Object.assign(config, appearance, { enabled, channelId: channelId || null, updatedAt: Date.now() });
+
+	if (!enabled) {
+		config.panelMessageId = null;
+		await config.save();
+		await deleteSuggestionPanel(guild, previous);
+		return serializeSuggestionConfig(config, guild.id);
+	}
+
+	const channel = await resolveSuggestionChannel(guild, channelId);
+	assertSuggestionChannelPermissions(guild, channel);
+	let panelMessage = null;
+	let createdPanel = false;
+
+	if (previous.channelId === channel.id && previous.panelMessageId) {
+		panelMessage = await channel.messages.fetch(previous.panelMessageId).catch(() => null);
+	}
+	if (panelMessage) {
+		await panelMessage.edit(buildPanelEditPayload(config));
+	} else {
+		panelMessage = await channel.send(buildSuggestionPanel(config));
+		createdPanel = true;
+	}
+
+	config.channelId = channel.id;
+	config.panelMessageId = panelMessage.id;
+	try {
+		await config.save();
+	} catch (error) {
+		if (createdPanel) await panelMessage.delete().catch(() => null);
+		throw error;
+	}
+	if (previous.panelMessageId && previous.panelMessageId !== panelMessage.id) await deleteSuggestionPanel(guild, previous);
+	return serializeSuggestionConfig(config, guild.id);
+}
+
+function serializeSuggestionConfig(config, guildId) {
+	const appearance = normalizeSuggestionAppearance(config || {});
+	return {
+		guildId,
+		channelId: config?.channelId || null,
+		panelMessageId: config?.panelMessageId || null,
+		enabled: Boolean(config?.enabled && config?.channelId),
+		...appearance
+	};
+}
+
+function requireGuild(client, guildId) {
+	const id = String(guildId || '').trim();
+	const guild = client.guilds.cache.get(id);
+	if (guild) return guild;
+	const error = new Error('Cadia is not in that server.');
+	error.code = 'GUILD_NOT_FOUND';
+	throw error;
+}
+
+async function resolveSuggestionChannel(guild, channelId) {
+	if (!channelId) {
+		const error = new Error('Choose a text channel for the suggestion panel.');
+		error.code = 'SUGGESTION_CHANNEL_REQUIRED';
+		throw error;
+	}
+	const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+	if (!channel?.isTextBased?.() || channel.isThread?.()) {
+		const error = new Error('The suggestion channel must be a server text channel.');
+		error.code = 'SUGGESTION_CHANNEL_INVALID';
+		throw error;
+	}
+	return channel;
+}
+
+function assertSuggestionChannelPermissions(guild, channel) {
+	const permissions = channel.permissionsFor(guild.members.me);
+	const required = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
+	if (permissions?.has(required)) return;
+	const error = new Error('Cadia needs View Channel, Send Messages, and Embed Links in the suggestion channel.');
+	error.code = 'SUGGESTION_CHANNEL_PERMISSIONS';
+	throw error;
+}
+
+async function deleteSuggestionPanel(guild, config) {
+	if (!config?.channelId || !config?.panelMessageId) return;
+	const channel = guild.channels.cache.get(config.channelId) || (await guild.channels.fetch(config.channelId).catch(() => null));
+	if (!channel?.messages) return;
+	const message = await channel.messages.fetch(config.panelMessageId).catch(() => null);
+	await message?.delete().catch(() => null);
+}
+
+function buildPanelEditPayload(config) {
+	const payload = buildSuggestionPanel(config);
+	return {
+		...payload,
+		content: payload.content ?? null,
+		embeds: payload.embeds ?? []
+	};
 }
 
 function botStatus(client) {
@@ -89,5 +208,8 @@ function botGuilds(client) {
 module.exports = {
 	botStatus,
 	botGuilds,
-	startBotIpcServer
+	getSuggestionConfig,
+	serializeSuggestionConfig,
+	startBotIpcServer,
+	updateSuggestionConfig
 };
