@@ -4,6 +4,7 @@ const { color, emojis } = require('../config');
 const Level = require('../lib/schemas/levelSchema');
 const LevelConfig = require('../lib/schemas/levelConfigSchema');
 const { MESSAGE_XP_COOLDOWN_MS, XP_PER_LEVEL, CooldownTracker, calculateMessageXp } = require('../lib/util/leveling');
+const { getGuildCommandConfig, isModuleEnabled } = require('../lib/runtime/guildCommandConfig');
 
 const CONFIG_CACHE_MS = 60_000;
 const configCache = new Map();
@@ -24,9 +25,9 @@ class UserEvent extends Listener {
 		try {
 			const guildId = message.guild.id;
 			const userId = message.author.id;
-			const config = await getLevelConfig(guildId);
+			const [config, commandConfig] = await Promise.all([getLevelConfig(guildId), getGuildCommandConfig(guildId)]);
 
-			if (!config?.enabled) return;
+			if (!config?.enabled || !isModuleEnabled(commandConfig, 'levelling')) return;
 			const cooldownKey = `${guildId}:${userId}`;
 			if (!xpCooldowns.tryAcquire(cooldownKey)) return;
 

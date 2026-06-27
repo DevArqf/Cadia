@@ -106,7 +106,8 @@ export function CommandsTab() {
     (r) => r.name !== "@everyone" && r.name.toLowerCase() !== "bot",
   );
 
-  const handleSaveCommand = (moduleId: string, cmd: BotCommand) => {
+  const handleSaveCommand = async (moduleId: string, cmd: BotCommand) => {
+		await useCadia.getState().saveConfig();
     addLog({
       type: "audit",
       serverId: server.id,
@@ -120,6 +121,7 @@ export function CommandsTab() {
   };
 
   const toggleIdInArray = (cmd: BotCommand, field: "allowedRoleIds" | "allowedChannelIds" | "ignoredChannelIds" | "ignoredRoleIds", id: string) => {
+		if (!cmd.moduleId) return;
     const current = (cmd[field] || []) as string[];
     const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
     updateCommand(cmd.moduleId, cmd.id, { [field]: next } as Partial<BotCommand>);
@@ -344,6 +346,20 @@ export function CommandsTab() {
                         </button>
                       </div>
 
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold flex items-center gap-1.5">
+                          <MessageSquare className="h-3 w-3 text-cadia" />
+                          Disabled Message
+                        </Label>
+                        <Textarea
+                          value={c.response || ""}
+                          onChange={(event) => updateCommand(c.moduleId, c.id, { response: event.target.value })}
+                          rows={2}
+                          className="text-xs font-mono"
+                          placeholder="This command is disabled. Use {command} or {module}."
+                        />
+                      </div>
+
                       {/* Cooldown — slider + editable number input */}
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold flex items-center justify-between">
@@ -396,7 +412,7 @@ export function CommandsTab() {
                           <span>60s</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground">
-                          The amount of cooldown set between each {parentModule.name} prefix command
+                          Overrides the module cooldown when greater than zero.
                         </p>
                       </div>
 
@@ -418,7 +434,7 @@ export function CommandsTab() {
                       {renderMultiSelect(
                         c, "allowedRoleIds", "Allowed Roles", Shield,
                         selectableRoles.map((r) => ({ id: r.id, name: r.name, color: r.color })),
-                        "Restricted to Administrator (default)",
+                        "All roles",
                       )}
 
                       {/* Ignored Roles */}
@@ -432,7 +448,6 @@ export function CommandsTab() {
                       <div className="flex justify-end pt-2">
                         <Button
                           onClick={() => handleSaveCommand(c.moduleId, c)}
-                          disabled={!c.enabled}
                           className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-xs font-semibold"
                         >
                           <Save className="h-3.5 w-3.5 mr-1" />

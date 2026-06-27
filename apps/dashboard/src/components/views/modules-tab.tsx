@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Boxes, Settings, Search, Filter } from "lucide-react";
 import { ModuleDetailPage } from "./module-detail-page";
 import { SuggestionEditor } from "./suggestion-editor";
+import { AutoModEditor } from "./automod-editor";
 import type { ModuleCategory } from "@/lib/types";
 
 // Unified palette — all categories use the same gold accent
@@ -30,7 +31,8 @@ export function ModulesTab() {
   if (activeModuleId) {
     const mod = modules.find((m) => m.id === activeModuleId);
     if (mod) {
-      if (mod.id === "mod-suggestions") return <SuggestionEditor onBack={() => setActiveModule(null)} />;
+      if (mod.id === "automod") return <AutoModEditor onBack={() => setActiveModule(null)} />;
+      if (mod.id === "suggestions" || mod.id === "mod-suggestions") return <SuggestionEditor onBack={() => setActiveModule(null)} />;
       return <ModuleDetailPage module={mod} onBack={() => setActiveModule(null)} />;
     }
   }
@@ -41,7 +43,7 @@ export function ModulesTab() {
     return true;
   });
 
-  const categories: (ModuleCategory | "All")[] = ["All", "Moderation", "RPG", "Utility", "Fun", "Logging"];
+  const categories: (ModuleCategory | "All")[] = ["All", "Moderation", "Community", "RPG", "Utility", "Fun", "Logging"];
 
   return (
     <div className="space-y-4">
@@ -112,7 +114,7 @@ export function ModulesTab() {
                   </div>
                   <Switch
                     checked={m.enabled}
-                    onCheckedChange={() => (m.id === "mod-suggestions" ? setActiveModule(m.id) : toggleModule(m.id))}
+                    onCheckedChange={() => toggleModule(m.id)}
                     aria-label={`Enable ${m.name}`}
                   />
                 </div>

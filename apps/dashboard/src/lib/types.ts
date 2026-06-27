@@ -89,7 +89,7 @@ export interface DiscordServer {
 
 export type BotStatus = "online" | "maintenance" | "offline";
 
-export type ModuleCategory = "Moderation" | "RPG" | "Utility" | "Fun" | "Logging";
+export type ModuleCategory = "Moderation" | "RPG" | "Utility" | "Fun" | "Logging" | "Community";
 export type ModuleType = "Command" | "Event" | "Slash" | "Context";
 
 export interface BotCommand {
@@ -105,7 +105,9 @@ export interface BotCommand {
   allowedChannelIds: string[]; // channels where this command works (empty = all)
   ignoredChannelIds: string[]; // channels where this command is blocked
   ignoredRoleIds: string[]; // roles that CANNOT use this command
-  response?: string; // optional per-command response override
+  response?: string; // optional message shown when the command is disabled
+  moduleId?: string;
+  moduleName?: string;
 }
 
 export interface BotModule {
@@ -114,7 +116,7 @@ export interface BotModule {
   description: string;
   category: ModuleCategory;
   enabled: boolean;
-  response: string; // message response template
+  response: string; // message shown when the module is disabled
   cooldown: number; // seconds
   restrictedRoleIds: string[];
   allowedRoleIds: string[]; // roles that CAN use this module (empty = everyone)
@@ -151,6 +153,31 @@ export interface SuggestionConfig {
   style: "embed" | "message";
   panel: SuggestionPanelAppearance;
   post: SuggestionPostAppearance;
+}
+
+export interface AutoModConfig {
+  guildId: string;
+  enabled: boolean;
+  filters: {
+    profanity: boolean;
+    sexualContent: boolean;
+    slurs: boolean;
+    spam: boolean;
+    mentionSpam: boolean;
+    mentionLimit: number;
+    mentionRaidProtection: boolean;
+    keywords: string[];
+    regexPatterns: string[];
+    allowList: string[];
+  };
+  actions: {
+    blockMessage: boolean;
+    customMessage: string;
+    alertChannelId: string | null;
+    timeoutSeconds: number;
+  };
+  exemptRoleIds: string[];
+  exemptChannelIds: string[];
 }
 
 export type LogType =

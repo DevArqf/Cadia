@@ -26,6 +26,7 @@ class UserCommand extends CadiaCommand {
 			builder //
 				.setName('vote')
 				.setDescription(this.description)
+				.setDefaultMemberPermissions(null)
 		);
 	}
 

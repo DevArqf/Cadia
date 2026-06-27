@@ -9,6 +9,7 @@ const {
 } = require('discord.js');
 const { color, emojis } = require('../../config');
 const { AuditLogConfigSchema } = require('../schemas/auditLogConfigSchema');
+const { getGuildCommandConfig, isModuleEnabled } = require('../runtime/guildCommandConfig');
 const AUDIT_CONFIG_CACHE_MS = 60_000;
 const auditConfigCache = new Map();
 
@@ -110,8 +111,11 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 	const action = auditActions[eventKey];
 	if (!guild || !action) return;
 
-	const config = await getAuditConfig(guild.id).catch(() => null);
-	if (!config?.enabled || !config.events?.[eventKey]) return;
+	const [config, commandConfig] = await Promise.all([
+		getAuditConfig(guild.id).catch(() => null),
+		getGuildCommandConfig(guild.id).catch(() => null)
+	]);
+	if (!config?.enabled || !config.events?.[eventKey] || !isModuleEnabled(commandConfig, 'logging')) return;
 
 	const channelId = resolveAuditChannelId(config, eventKey);
 	if (!channelId) return;

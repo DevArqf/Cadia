@@ -7,6 +7,7 @@ class UserCommand extends CadiaCommand {
 		super(context, {
 			...options,
 			requiredUserPermissions: ['Administrator'],
+			requiredClientPermissions: ['ManageGuild'],
 			description: 'Setup the AutoMod System within your server'
 		});
 	}

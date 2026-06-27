@@ -14,6 +14,7 @@ const { withTransaction } = require('../database/mysql');
 const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const Suggestion = require('../schemas/suggestionSchema');
 const { normalizeSuggestionAppearance, renderTemplate } = require('./appearance');
+const { getGuildCommandConfig, isModuleEnabled } = require('../runtime/guildCommandConfig');
 
 const SUGGESTION_PREFIX = 'suggestions';
 const SUGGESTION_COOLDOWN_MS = 5 * 60_000;
@@ -142,11 +143,11 @@ async function openSuggestionModal(interaction) {
 
 async function submitSuggestion(interaction) {
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-	const config = await SuggestionConfig.findOne({
-		guildId: interaction.guildId,
-		channelId: interaction.channelId,
-		enabled: true
-	});
+	const [config, commandConfig] = await Promise.all([
+		SuggestionConfig.findOne({ guildId: interaction.guildId, channelId: interaction.channelId, enabled: true }),
+		getGuildCommandConfig(interaction.guildId)
+	]);
+	if (!isModuleEnabled(commandConfig, 'suggestions')) return interaction.editReply('The suggestion module is disabled in this server.');
 	if (!config) return interaction.editReply('Suggestions are no longer enabled in this channel.');
 
 	const now = Date.now();
@@ -192,6 +193,10 @@ async function voteOnSuggestion(interaction) {
 	if (!suggestionId || !['up', 'down'].includes(voteType)) return ephemeralReply(interaction, 'That vote control is invalid.');
 
 	await interaction.deferUpdate();
+	const commandConfig = await getGuildCommandConfig(interaction.guildId);
+	if (!isModuleEnabled(commandConfig, 'suggestions')) {
+		return interaction.followUp({ content: 'The suggestion module is disabled in this server.', flags: MessageFlags.Ephemeral });
+	}
 	return enqueueVote(suggestionId, async () => {
 		const suggestion = await withTransaction(async () => {
 			const current = await Suggestion.findOneForUpdate({ suggestionId });

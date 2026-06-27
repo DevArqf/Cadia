@@ -4,6 +4,8 @@ const { createInviteUrl } = require('../../config/invite');
 const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
 const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
+const { buildCommandCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
+const { getAutoModConfig, saveAutoModConfig, serializeAutoModConfig, setAutoModModuleEnabled } = require('../automod/autoModService');
 
 function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT || DEFAULT_IPC_ENDPOINT } = {}) {
 	const server = createIpcServer({
@@ -15,6 +17,10 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'bot.guilds') return botGuilds(client);
 			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
 			if (request.type === 'suggestions.config.update') return updateSuggestionConfig(client, request.payload);
+			if (request.type === 'commands.config.get') return getCommandConfig(client, request.payload);
+			if (request.type === 'commands.config.update') return updateCommandConfig(client, request.payload);
+			if (request.type === 'automod.config.get') return getAutoModDashboardConfig(client, request.payload);
+			if (request.type === 'automod.config.update') return updateAutoModDashboardConfig(client, request.payload);
 
 			const error = new Error(`Unsupported IPC request: ${request.type}`);
 			error.code = 'IPC_UNSUPPORTED_REQUEST';
@@ -24,6 +30,69 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 
 	client.logger.info(`Cadia IPC server listening on ${server.endpoint}`);
 	return server;
+}
+
+async function getCommandConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const config = await getGuildCommandConfig(guild.id);
+	return { guildId: guild.id, modules: buildCommandCatalog(client, config) };
+}
+
+async function updateCommandConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const current = await getGuildCommandConfig(guild.id);
+	const catalog = buildCommandCatalog(client, current);
+	const inputModules = Array.isArray(payload.modules) ? payload.modules : [];
+	const input = {
+		modules: Object.fromEntries(
+			inputModules.map((module) => [
+				module.id,
+				{
+					enabled: module.enabled !== false,
+					response: module.response,
+					cooldown: module.cooldown,
+					allowedRoleIds: module.allowedRoleIds,
+					restrictedRoleIds: module.restrictedRoleIds
+				}
+			])
+		),
+		commands: Object.fromEntries(
+			inputModules.flatMap((module) =>
+				(module.commands || []).map((command) => [
+					command.name,
+					{
+						enabled: command.enabled !== false,
+						response: command.response,
+						cooldown: command.cooldown,
+						allowedRoleIds: command.allowedRoleIds,
+						allowedChannelIds: command.allowedChannelIds,
+						ignoredChannelIds: command.ignoredChannelIds,
+						ignoredRoleIds: command.ignoredRoleIds
+					}
+				])
+			)
+		)
+	};
+	const config = await saveGuildCommandConfig(guild.id, input, payload.actorId || null, catalog);
+	const wasAutoModEnabled = isModuleEnabled(current, 'automod');
+	const isAutoModEnabled = isModuleEnabled(config, 'automod');
+	if (wasAutoModEnabled !== isAutoModEnabled) await setAutoModModuleEnabled(guild, isAutoModEnabled);
+	return { guildId: guild.id, modules: buildCommandCatalog(client, config) };
+}
+
+async function getAutoModDashboardConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	return serializeAutoModConfig(await getAutoModConfig(guild.id));
+}
+
+async function updateAutoModDashboardConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const commandConfig = await getGuildCommandConfig(guild.id);
+	const moduleEnabled = isModuleEnabled(commandConfig, 'automod');
+	const config = await saveAutoModConfig(guild, payload.config || {}, payload.actorId || null, {
+		effectiveEnabled: moduleEnabled && payload.config?.enabled === true
+	});
+	return serializeAutoModConfig(config);
 }
 
 async function getSuggestionConfig(client, payload = {}) {
@@ -208,8 +277,12 @@ function botGuilds(client) {
 module.exports = {
 	botStatus,
 	botGuilds,
+	getAutoModDashboardConfig,
+	getCommandConfig,
 	getSuggestionConfig,
 	serializeSuggestionConfig,
 	startBotIpcServer,
+	updateCommandConfig,
+	updateAutoModDashboardConfig,
 	updateSuggestionConfig
 };

@@ -1,6 +1,7 @@
 const { Events, Listener } = require('@sapphire/framework');
 const { GuildSchema } = require('../../../lib/schemas/guildSchema');
 const { CountActivity } = require('../../../lib/schemas/countSchema');
+const { getGuildCommandConfig, isModuleEnabled } = require('../../../lib/runtime/guildCommandConfig');
 const CONFIG_CACHE_MS = 15_000;
 const guildConfigCache = new Map();
 
@@ -17,8 +18,8 @@ class UserEvent extends Listener {
 		const guild = message.guild;
 		if (!guild) return;
 
-		const data = await getCountingConfig(guild.id);
-		if (!data?.countChannel) return;
+		const [data, commandConfig] = await Promise.all([getCountingConfig(guild.id), getGuildCommandConfig(guild.id)]);
+		if (!data?.countChannel || !isModuleEnabled(commandConfig, 'counting')) return;
 
 		const channel = guild.channels.cache.get(data.countChannel);
 		if (!channel?.isTextBased() || channel.id !== message.channel.id) return;

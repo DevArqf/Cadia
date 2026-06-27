@@ -66,7 +66,6 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
         setConfig(next);
         setError("");
         setDirty(false);
-        syncModuleEnabled(next.enabled);
       })
       .catch((reason) => {
         if (reason.name !== "AbortError") setError(reason.message);
@@ -107,7 +106,6 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
       setConfig(payload.config);
       setDirty(false);
       useCadia.setState({ hasUnsavedChanges: false });
-      syncModuleEnabled(payload.config.enabled);
       toast.success("Suggestion appearance saved");
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Could not save suggestion settings";
@@ -321,8 +319,4 @@ function validColor(color: string) {
 
 function isHttpsUrl(value: string) {
   return /^https:\/\//i.test(value);
-}
-
-function syncModuleEnabled(enabled: boolean) {
-  useCadia.setState((state) => ({ modules: state.modules.map((module) => module.id === "mod-suggestions" ? { ...module, enabled } : module) }));
 }

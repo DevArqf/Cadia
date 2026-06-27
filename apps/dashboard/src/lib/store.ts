@@ -14,7 +14,6 @@ import type {
 import {
   MOCK_USER,
   MOCK_SERVERS,
-  DEFAULT_MODULES,
   INITIAL_LOGS,
   BOT_OWNER_IDS,
 } from "./mock-data";
@@ -52,6 +51,7 @@ interface CadiaState {
   startLogin: () => void;
   loadDashboardSession: () => Promise<void>;
   loadBotStatus: () => Promise<void>;
+  loadCommandConfig: (guildId: string) => Promise<void>;
   finishLogin: (redirectView?: View) => void;
   logout: () => void;
 
@@ -62,7 +62,7 @@ interface CadiaState {
   setTab: (t: DashboardTab) => void;
   setActiveModule: (id: string | null) => void;
   markChanged: () => void;
-  saveConfig: () => void;
+  saveConfig: () => Promise<void>;
   pendingTab: DashboardTab | null;
   setPendingTab: (t: DashboardTab | null) => void;
   legalPage: "tos" | "faq" | "privacy" | null;
@@ -93,6 +93,36 @@ interface CadiaState {
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v));
+}
+
+function hydrateModules(input: any[]): BotModule[] {
+  return input.map((module) => ({
+    id: String(module.id),
+    name: String(module.name || module.id),
+    description: String(module.description || "Cadia module"),
+    category: module.category as BotModule["category"],
+    enabled: module.enabled !== false,
+    response: String(module.response || ""),
+    cooldown: Number(module.cooldown || 0),
+    restrictedRoleIds: Array.isArray(module.restrictedRoleIds) ? module.restrictedRoleIds.map(String) : [],
+    allowedRoleIds: Array.isArray(module.allowedRoleIds) ? module.allowedRoleIds.map(String) : [],
+    icon: "",
+    commands: (module.commands || []).map((command: any) => ({
+      id: String(command.id || command.name),
+      name: String(command.name),
+      description: String(command.description || "Cadia command"),
+      category: module.category as BotModule["category"],
+      type: command.type || "Slash",
+      enabled: command.enabled !== false,
+      response: String(command.response || ""),
+      cooldown: Number(command.cooldown || 0),
+      restrictedRoleIds: [],
+      allowedRoleIds: Array.isArray(command.allowedRoleIds) ? command.allowedRoleIds.map(String) : [],
+      allowedChannelIds: Array.isArray(command.allowedChannelIds) ? command.allowedChannelIds.map(String) : [],
+      ignoredChannelIds: Array.isArray(command.ignoredChannelIds) ? command.ignoredChannelIds.map(String) : [],
+      ignoredRoleIds: Array.isArray(command.ignoredRoleIds) ? command.ignoredRoleIds.map(String) : [],
+    })),
+  }));
 }
 
 export const useCadia = create<CadiaState>((set, get) => ({
@@ -148,6 +178,18 @@ export const useCadia = create<CadiaState>((set, get) => ({
       set({ globalBotStatus: payload.status === "online" ? "online" : "offline" });
     } catch {
       set({ globalBotStatus: "offline" });
+    }
+  },
+
+  loadCommandConfig: async (guildId) => {
+    try {
+      const response = await fetch(`/api/servers/${guildId}/command-config`, { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || "Could not load command configuration");
+      if (get().selectedServer?.id !== guildId) return;
+      set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load command configuration");
     }
   },
 
@@ -212,17 +254,17 @@ export const useCadia = create<CadiaState>((set, get) => ({
       return;
     }
 
-    // Deep-clone modules for editing per-server
-    // Apply pending tab if set (e.g. user clicked "Bot Commands" from footer)
+    // Modules and commands are loaded only from the bot's live Sapphire store.
     const pending = get().pendingTab;
     set({
       selectedServer: clone(server),
-      modules: clone(DEFAULT_MODULES),
+      modules: [],
       activeTab: pending || "dashboard",
       activeModuleId: null,
       pendingTab: null,
       view: "dashboard",
     });
+    void get().loadCommandConfig(id);
   },
 
   selectServerAsAdmin: (id) => {
@@ -237,11 +279,12 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
     set({
       selectedServer: clone(server),
-      modules: clone(DEFAULT_MODULES),
+      modules: [],
       activeTab: "dashboard",
       activeModuleId: null,
       view: "dashboard",
     });
+    void get().loadCommandConfig(id);
     get().addLog({
       type: "audit",
       serverId: server.id,
@@ -270,10 +313,18 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
   markChanged: () => set({ hasUnsavedChanges: true }),
 
-  saveConfig: () => {
-    set({ hasUnsavedChanges: false });
+  saveConfig: async () => {
     const server = get().selectedServer;
-    if (server) {
+		if (!server) return;
+		try {
+			const response = await fetch(`/api/servers/${server.id}/command-config`, {
+				method: "PUT",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ modules: get().modules }),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.message || "Could not save command configuration");
+			set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
       get().addLog({
         type: "config",
         serverId: server.id,
@@ -283,7 +334,11 @@ export const useCadia = create<CadiaState>((set, get) => ({
         action: "Saved configuration",
         details: `${server.name} configuration saved by ${get().user?.username || "unknown"}`,
       });
-    }
+			toast.success("Command and module configuration saved");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not save command configuration");
+			throw error;
+		}
   },
   setPendingTab: (t) => set({ pendingTab: t }),
   setLegalPage: (p) => set({ legalPage: p, view: p ? "legal" : "landing" }),
@@ -298,7 +353,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     if (m && server) {
       const action = m.enabled ? "Enabled" : "Disabled";
       toast.success(`${action} ${m.name} module`, {
-        description: "Remember to save your changes",
+        description: "Saving this change now",
       });
       get().addLog({
         type: "config",
@@ -309,6 +364,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         action: m.enabled ? "Enabled module" : "Disabled module",
         details: `${m.name} module ${m.enabled ? "enabled" : "disabled"} by ${get().user?.username || "unknown"}`,
       });
+			void get().saveConfig().catch(() => undefined);
     }
   },
 
@@ -366,8 +422,9 @@ export const useCadia = create<CadiaState>((set, get) => ({
     if (m && c) {
       const action = c.enabled ? "Enabled" : "Disabled";
       toast.success(`${action} command /${c.name}`, {
-        description: "Remember to save your changes",
+        description: "Saving this change now",
       });
+			void get().saveConfig().catch(() => undefined);
     }
   },
 

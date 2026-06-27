@@ -1,6 +1,8 @@
 const { Listener } = require('@sapphire/framework');
 const { Events } = require('discord.js');
 const { TICKET_CLAIM_ID, TICKET_CLOSE_ID, TICKET_OPEN_ID, claimTicket, closeTicket, createTicket } = require('../lib/util/ticketSystem');
+const { getGuildCommandConfig, isModuleEnabled } = require('../lib/runtime/guildCommandConfig');
+const { replyModuleDisabled } = require('../lib/runtime/interactionRouter');
 
 class UserEvent extends Listener {
 	constructor(context) {
@@ -11,6 +13,9 @@ class UserEvent extends Listener {
 
 	async run(interaction) {
 		if (!interaction.isButton() || !interaction.inGuild()) return;
+		if (![TICKET_OPEN_ID, TICKET_CLAIM_ID, TICKET_CLOSE_ID].includes(interaction.customId)) return;
+		const config = await getGuildCommandConfig(interaction.guildId);
+		if (!isModuleEnabled(config, 'tickets')) return replyModuleDisabled(interaction, 'tickets');
 
 		if (interaction.customId === TICKET_OPEN_ID) return createTicket(interaction);
 		if (interaction.customId === TICKET_CLAIM_ID) return claimTicket(interaction);

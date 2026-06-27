@@ -1,6 +1,7 @@
 const { Listener } = require('@sapphire/framework');
 const { WelcomeSchema } = require('../lib/schemas/welcomeSchema');
 const { normalizeWelcomeConfig, renderWelcomeMessage } = require('../lib/util/welcomeTemplates');
+const { getGuildCommandConfig, isModuleEnabled } = require('../lib/runtime/guildCommandConfig');
 
 class UserEvent extends Listener {
 	constructor(context, options = {}) {
@@ -12,8 +13,11 @@ class UserEvent extends Listener {
 	}
 
 	async run(member) {
-		const find = await WelcomeSchema.findOne({ guildId: member.guild.id });
-		if (!find || find.enabled === false) return;
+		const [find, commandConfig] = await Promise.all([
+			WelcomeSchema.findOne({ guildId: member.guild.id }),
+			getGuildCommandConfig(member.guild.id)
+		]);
+		if (!find || find.enabled === false || !isModuleEnabled(commandConfig, 'welcome')) return;
 
 		const config = normalizeWelcomeConfig(find);
 		const channel =

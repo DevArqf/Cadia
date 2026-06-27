@@ -6,6 +6,13 @@ process.env.DEVELOPERS ??= 'developer';
 
 const { branding } = require('../src/config');
 const { buildVoteResponse } = require('../src/commands/Systems/Top.gg/vote');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('vote command explicitly clears stale Discord member permission restrictions', () => {
+	const source = fs.readFileSync(path.resolve(__dirname, '../src/commands/Systems/Top.gg/vote.js'), 'utf8');
+	assert.match(source, /setDefaultMemberPermissions\(null\)/);
+});
 
 test('vote panel remains available after a user has already voted', () => {
 	const response = buildVoteResponse({

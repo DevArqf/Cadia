@@ -17,7 +17,8 @@ const invitePermissions = [
 	PermissionFlagsBits.ManageNicknames,
 	PermissionFlagsBits.ManageChannels,
 	PermissionFlagsBits.ManageRoles,
-	PermissionFlagsBits.ManageGuildExpressions
+	PermissionFlagsBits.ManageGuildExpressions,
+	PermissionFlagsBits.ManageGuild
 ];
 const invitePermissionPresets = [
 	{

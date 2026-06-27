@@ -96,7 +96,8 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
     updateModule(m.id, { allowedRoleIds: next } as Partial<BotModule>);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+		await useCadia.getState().saveConfig();
     addLog({
       type: "audit",
       serverId: server.id,
@@ -169,13 +170,13 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
 
       {/* Configuration sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Response template with Variables button */}
+        {/* Message shown when the module is disabled */}
         <div className="cadia-card p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-cadia" />
               <h3 className="text-sm font-semibold text-foreground">
-                Response Template
+                Disabled Message
               </h3>
             </div>
             <button
@@ -191,7 +192,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
             onChange={(e) => updateModule(m.id, { response: e.target.value })}
             rows={3}
             className="text-xs font-mono"
-            placeholder="Use {user}, {target}, {action}…"
+            placeholder="This module is currently disabled. Use {module} or {command}."
           />
         </div>
 
@@ -250,7 +251,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
             <span>60s</span>
           </div>
           <p className="text-[10px] text-muted-foreground mt-2">
-            The amount of cooldown set between each {m.name} prefix command
+            Applied to this module&apos;s commands unless a command has its own cooldown.
           </p>
         </div>
       </div>
@@ -264,7 +265,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
           </h3>
         </div>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Only members with these roles can use this module&apos;s commands. Defaults to Administrator only for maximum security.
+          Only members with one of these roles can use this module&apos;s commands. Leave empty to allow every role.
         </p>
         <Popover open={allowedPickerOpen} onOpenChange={setAllowedPickerOpen}>
           <PopoverTrigger asChild>
@@ -277,7 +278,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
               {allowedRoles.length === 0 ? (
                 <span className="text-muted-foreground text-xs flex items-center gap-1.5 py-1.5">
                   <Shield className="h-3 w-3 text-fail" />
-                  Restricted to Administrator (default)
+                  All roles can use this module
                 </span>
               ) : (
                 <div className="flex items-center gap-1.5 flex-wrap py-1.5">
@@ -363,7 +364,6 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
       <div className="flex justify-end">
         <Button
           onClick={handleSave}
-          disabled={!m.enabled}
           className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
         >
           <Save className="h-3.5 w-3.5 mr-1.5" />
