@@ -14,7 +14,7 @@ class UserCommand extends CadiaCommand {
 		super(context, {
 			...options,
 			permissionLevel: PermissionLevels.Everyone,
-			description: 'Vote for Cadia on Top.gg (DEV ONLY)'
+			description: 'Vote for Cadia on Top.gg'
 		});
 	}
 
