@@ -20,8 +20,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ServerIconBadge, isMediaUrl } from "@/components/discord-media";
 import {
-  Users,
   Hash,
   Settings2,
   Check,
@@ -174,47 +174,64 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-5">
-      {/* Header — reduced (no online %, no region) */}
-      <div className="cadia-card cadia-card-hover p-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div
-            className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 flex items-center justify-center text-base sm:text-lg font-bold rounded-2xl border-2"
-            style={{ background: server.icon, color: "#0b0f14", borderColor: server.icon }}
-          >
-            {server.name.slice(0, 2).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground break-words">
-                {server.name}
-              </h1>
-              {server.premium && (
-                <span className="cadia-server-premium-tag">
-                  <span className="relative z-10">Premium</span>
-                </span>
-              )}
+      {/* Header — blurred server icon/banner background, name shifted down,
+          member/online counts removed (kept age + bot-joined). */}
+      {(() => {
+        const headerBgImage =
+          (server.botInServer && isMediaUrl(server.banner))
+            ? server.banner
+            : isMediaUrl(server.icon)
+              ? server.icon
+              : null;
+        return (
+          <div className="cadia-card cadia-card-hover p-5 relative overflow-hidden">
+            {headerBgImage && (
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundImage: `url("${headerBgImage}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  filter: "blur(26px) saturate(1.15)",
+                  transform: "scale(1.25)",
+                  opacity: 0.5,
+                }}
+              />
+            )}
+            <div className="relative z-10 flex flex-col sm:flex-row items-start gap-4">
+              <ServerIconBadge
+                icon={server.icon}
+                name={server.name}
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl text-base sm:text-lg font-bold"
+              />
+              <div className="flex-1 min-w-0 mt-2 sm:mt-3">
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground break-words drop-shadow-sm">
+                    {server.name}
+                  </h1>
+                  {server.premium && (
+                    <span className="cadia-server-premium-tag">
+                      <span className="relative z-10">Premium</span>
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDuration(server.createdAt)} old
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Bot className="h-3 w-3" />
+                    Cadia joined {formatDuration(server.botJoinedAt)} ago
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {server.memberCount.toLocaleString()} total
-              </span>
-              <span className="flex items-center gap-1 text-success">
-                <span className="h-2 w-2 rounded-full bg-success inline-block" />
-                {server.onlineCount.toLocaleString()} online
-              </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {formatDuration(server.createdAt)} old
-              </span>
-              <span className="flex items-center gap-1">
-                <Bot className="h-3 w-3" />
-                Cadia joined {formatDuration(server.botJoinedAt)} ago
-              </span>
-            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Quick stats — 4 cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

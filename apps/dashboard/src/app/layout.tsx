@@ -21,25 +21,25 @@ const pixelFont = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "Cadia — Discord Bot & Dashboard",
-  description: "Cadia — a modular Discord bot with a secure, fast dashboard. Moderation, RPG, logging, and more.",
+  title: "Cadia | Dashboard",
+  description: "Cadia is a .",
   keywords: ["Cadia", "Discord Bot", "Dashboard", "Moderation", "RPG"],
   authors: [{ name: "Cadia" }],
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ),
   icons: {
     icon: "/cadia-logo.png",
     shortcut: "/cadia-logo.png",
     apple: "/cadia-logo.png",
   },
   openGraph: {
-    title: "Cadia — Discord Bot & Dashboard",
-    description: "A modular Discord bot with a pixel-perfect dashboard.",
+    title: "Cadia | Dashboard",
+    description: "Cadia is a .",
     images: ["/cadia-logo.png"],
   },
 };
 
-// This inline script runs BEFORE React hydrates, guaranteeing window.cadia
-// exists the moment the page loads. The owner-only command is namespaced
-// under cadia.dev.admin.panel() to avoid being guessed.
 const CADIA_BOOT_SCRIPT = `
 (function() {
   if (window.cadia) return;

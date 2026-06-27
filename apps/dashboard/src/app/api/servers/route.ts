@@ -1,98 +1,99 @@
-import { NextResponse } from "next/server";
-import { readDashboardSession } from "@/lib/server/auth-session";
-import { requestBot } from "@/lib/server/bot-ipc";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  clearSessionCookie,
+  createOAuthState,
+  createSessionCookie,
+  getDashboardBaseUrl,
+  getDiscordRedirectUri,
+  readOAuthState,
+} from "@/lib/server/auth-session";
 
-export async function GET() {
-  const session = await readDashboardSession();
-  const accessToken = session?.accessToken;
-  if (!accessToken) {
-    return NextResponse.json({ servers: [], message: "Authentication required" }, { status: 401 });
-  }
+export async function GET(request: NextRequest, context: any) {
+  const action = (await context.params)?.nextauth?.join("/") || "";
 
-  const [discordGuilds, botGuilds] = await Promise.all([
-    fetchDiscordGuilds(accessToken),
-    requestBot<any[]>("bot.guilds").catch(() => []),
-  ]);
+  if (action === "signin/discord") return redirectToDiscord(request);
+  if (action === "callback/discord") return handleDiscordCallback(request);
+  if (action === "signout") return signOut(request);
 
-  const botGuildById = new Map(botGuilds.map((guild) => [guild.id, guild]));
-  const servers = discordGuilds
-    .filter((guild) => canManageGuild(guild))
-    .map((guild) => mapGuild(guild, botGuildById.get(guild.id)));
-
-  return NextResponse.json({ servers });
+  return NextResponse.json({ error: "Unsupported auth route" }, { status: 404 });
 }
 
-async function fetchDiscordGuilds(accessToken: string) {
-  const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
+export async function POST(request: NextRequest, context: any) {
+  return GET(request, context);
+}
+
+function redirectToDiscord(request: NextRequest) {
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  if (!clientId) return NextResponse.json({ error: "DISCORD_CLIENT_ID is not configured" }, { status: 500 });
+
+  const callbackUrl = request.nextUrl.searchParams.get("callbackUrl") || "/";
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: getDiscordRedirectUri(request.url),
+    response_type: "code",
+    scope: "identify guilds",
+    state: createOAuthState(callbackUrl),
+    prompt: "none",
   });
-  if (!response.ok) throw new Error(`Discord guild fetch failed: ${response.status}`);
+
+  return NextResponse.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
+}
+
+async function handleDiscordCallback(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get("code");
+  const state = readOAuthState(request.nextUrl.searchParams.get("state"));
+  const dashboardBaseUrl = getDashboardBaseUrl(request.url);
+  if (!code || !state) return NextResponse.redirect(new URL("/", dashboardBaseUrl));
+
+  const token = await exchangeDiscordCode(code, request.url);
+  const user = await fetchDiscordUser(token.access_token);
+  const response = NextResponse.redirect(new URL(state.callbackUrl, dashboardBaseUrl));
+  const sessionCookie = createSessionCookie({
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    user: {
+      id: user.id,
+      username: user.username,
+      globalName: user.global_name || user.username,
+      discriminator: user.discriminator || "0",
+      avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128` : "#65b8da",
+    },
+    expiresAt: Date.now() + Number(token.expires_in || 604800) * 1000,
+  });
+  response.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.options);
+  return response;
+}
+
+function signOut(request: NextRequest) {
+  const response = NextResponse.redirect(new URL("/", getDashboardBaseUrl(request.url)));
+  const cookie = clearSessionCookie();
+  response.cookies.set(cookie.name, cookie.value, cookie.options);
+  return response;
+}
+
+async function exchangeDiscordCode(code: string, requestUrl: string) {
+  const response = await fetch("https://discord.com/api/v10/oauth2/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID || "",
+      client_secret: process.env.DISCORD_CLIENT_SECRET || "",
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: getDiscordRedirectUri(requestUrl),
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Discord token exchange failed: ${response.status}`);
   return response.json();
 }
 
-function canManageGuild(guild: any) {
-  if (guild.owner) return true;
-  const permissions = BigInt(guild.permissions || "0");
-  return (permissions & 0x8n) !== 0n || (permissions & 0x20n) !== 0n;
-}
+async function fetchDiscordUser(accessToken: string) {
+  const response = await fetch("https://discord.com/api/v10/users/@me", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
 
-function mapGuild(discordGuild: any, botGuild: any) {
-  const botInServer = Boolean(botGuild);
-  const permissions = BigInt(discordGuild.permissions || "0");
-  const userPermissions = [
-    (permissions & 0x8n) !== 0n ? "ADMINISTRATOR" : null,
-    (permissions & 0x20n) !== 0n ? "MANAGE_GUILD" : null,
-  ].filter(Boolean);
-
-  return {
-    id: discordGuild.id,
-    name: discordGuild.name,
-    icon: discordGuild.icon
-      ? `https://cdn.discordapp.com/icons/${discordGuild.id}/${discordGuild.icon}.png?size=128`
-      : "#65b8da",
-    ownerId: botGuild?.ownerId || "",
-    memberCount: botGuild?.memberCount || 0,
-    onlineCount: 0,
-    botInServer,
-    userPermissions,
-    userCanManage: true,
-    roles: (botGuild?.roles || []).map((role: any) => ({ ...role, canManageCadia: false })),
-    features: botGuild?.features || discordGuild.features || [],
-    premium: false,
-    region: "auto",
-    createdAt: Number((BigInt(discordGuild.id) >> 22n) + 1420070400000n),
-    boostLevel: botGuild?.premiumTier || 0,
-    boostCount: botGuild?.premiumSubscriptionCount || 0,
-    channelCount: botGuild?.channelCount || 0,
-    textChannelCount: botGuild?.textChannelCount || 0,
-    voiceChannelCount: botGuild?.voiceChannelCount || 0,
-    categoryCount: botGuild?.categoryCount || 0,
-    emojiCount: botGuild?.emojiCount || 0,
-    stickerCount: botGuild?.stickerCount || 0,
-    roleCount: botGuild?.roleCount || 0,
-    bannedCount: 0,
-    invitesCount: 0,
-    integrationsCount: 0,
-    webhooksCount: 0,
-    botJoinedAt: botGuild?.joinedAt || Date.now(),
-    botNickname: botGuild?.nickname || "Cadia",
-    verificationLevel: botGuild?.verificationLevel || "Unknown",
-    explicitContentFilter: botGuild?.explicitContentFilter || "Unknown",
-    defaultNotifications: botGuild?.defaultMessageNotifications || "Unknown",
-    twoFactorRequired: Boolean(botGuild?.mfaLevel),
-    vanityUrl: botGuild?.vanityURLCode || null,
-    banner: null,
-    description: botGuild?.description || null,
-    maxBitrate: Math.round((botGuild?.maxBitrate || 96000) / 1000),
-    maxFileSize: botGuild?.maxFileSize || 25,
-    afkChannel: botGuild?.afkChannel || null,
-    afkTimeout: botGuild?.afkTimeout || 300,
-    systemChannel: botGuild?.systemChannel || null,
-    rulesChannel: botGuild?.rulesChannel || null,
-    updatesChannel: botGuild?.publicUpdatesChannel || null,
-    botPrefix: "cd ",
-    channels: botGuild?.channels || [],
-    botStatus: botInServer ? "online" : "offline",
-  };
+  if (!response.ok) throw new Error(`Discord user fetch failed: ${response.status}`);
+  return response.json();
 }

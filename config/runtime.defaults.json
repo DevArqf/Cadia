@@ -1,0 +1,8 @@
+{
+	"maintenance.enabled": false,
+	"commands.disabled": [],
+	"cooldowns.defaultSeconds": 5,
+	"rpg.xpMultiplier": 1,
+	"rpg.goldMultiplier": 1,
+	"messages.restartFallback": "That control could not be handled after the restart. Reopen the command and try again."
+}
