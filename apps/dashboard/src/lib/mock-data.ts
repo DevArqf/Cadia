@@ -7,13 +7,13 @@ import type {
   Role,
 } from "./types";
 
-// === Bot Owner IDs (very private) ===
+// === Bot Owner IDs  ===
 export const BOT_OWNER_IDS = ["899385550585364481", "833997532040134656"];
 
-// Mock admin credential (in real life this lives server-side, hashed)
+// Mock admin credential
 export const ADMIN_PANEL_PASSWORD = "cadia.dev.psa";
 
-// === Mock logged-in user (regular member, not owner) ===
+// === Mock logged-in user  ===
 export const MOCK_USER: DiscordUser = {
   id: "899385550585364481", // matches owner — for demo, user IS the owner
   username: "nyx",
@@ -22,7 +22,7 @@ export const MOCK_USER: DiscordUser = {
   avatar: "#65b8da",
 };
 
-// Alt user (non-owner) for testing permission filtering
+// Alt user  for testing permission filtering
 export const MOCK_USER_NON_OWNER: DiscordUser = {
   id: "123456789012345678",
   username: "regular_user",
@@ -43,8 +43,7 @@ function role(
   return { id, name, color, position, permissions, canManageCadia };
 }
 
-// === Mock Discord servers (mutual servers between bot & user) ===
-// Only servers where userCanManage === true will be shown in the dash.
+// === Mock Discord servers  ===.
 export const MOCK_SERVERS: DiscordServer[] = [
   {
     id: "101",
@@ -353,21 +352,21 @@ export const DEFAULT_MODULES: BotModule[] = [
     ],
   },
   {
-		id: "mod-suggestions",
-		name: "Suggestions",
-		description: "Collect community ideas with configurable panels, embeds, and persistent voting.",
-		category: "Utility",
-		enabled: false,
-		response: "Submit and vote on community suggestions.",
-		cooldown: 300,
-		restrictedRoleIds: [],
-		allowedRoleIds: [],
-		icon: "",
-		commands: [
-			{ id: "c-suggestions", name: "suggestions", description: "Configure the suggestion system", category: "Utility", type: "Slash", enabled: true, cooldown: 5, restrictedRoleIds: [], allowedRoleIds: [], allowedChannelIds: [], ignoredChannelIds: [], ignoredRoleIds: [] },
-		],
-	},
-	{
+                id: "mod-suggestions",
+                name: "Suggestions",
+                description: "Collect community ideas with configurable panels, embeds, and persistent voting.",
+                category: "Utility",
+                enabled: false,
+                response: "Submit and vote on community suggestions.",
+                cooldown: 300,
+                restrictedRoleIds: [],
+                allowedRoleIds: [],
+                icon: "",
+                commands: [
+                        { id: "c-suggestions", name: "suggestions", description: "Configure the suggestion system", category: "Utility", type: "Slash", enabled: true, cooldown: 5, restrictedRoleIds: [], allowedRoleIds: [], allowedChannelIds: [], ignoredChannelIds: [], ignoredRoleIds: [] },
+                ],
+        },
+        {
     id: "mod-fun",
     name: "Fun",
     description: "Memes, 8ball, dice, trivia — keep the chat lively.",
@@ -397,7 +396,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Used /kick",
-    details: "Kicked user 'spammer123' by nyx — reason: spam",
+    details: "Kicked user 'spammer123' — reason: spam",
     timestamp: Date.now() - 1000 * 60 * 5,
   },
   {
@@ -408,7 +407,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Moderator Alex",
     actorId: "222222222222222222",
     action: "Muted member",
-    details: "Muted 'noisy_user' for 10 minutes by Moderator Alex — reason: caps spam",
+    details: "Muted 'noisy_user' for 10 minutes — reason: caps spam",
     timestamp: Date.now() - 1000 * 60 * 22,
   },
   {
@@ -419,7 +418,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Cadia AutoMod",
     actorId: "0",
     action: "Auto-banned member",
-    details: "Auto-banned 'raider_99' by Cadia AutoMod — triggered anti-raid protection",
+    details: "Auto-banned 'raider_99' — triggered anti-raid protection",
     timestamp: Date.now() - 1000 * 60 * 60 * 2,
   },
   {
@@ -430,7 +429,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Updated module config",
-    details: "Set cooldown to 5s by nyx — RPG System",
+    details: "Set cooldown to 5s — RPG System",
     timestamp: Date.now() - 1000 * 60 * 60 * 6,
   },
   {
@@ -441,7 +440,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Added manager role",
-    details: "Added Admin to Manager access by nyx",
+    details: "Added Admin to Manager access",
     timestamp: Date.now() - 1000 * 60 * 60 * 12,
   },
   {
@@ -463,7 +462,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Moderator Alex",
     actorId: "222222222222222222",
     action: "Warned member",
-    details: "Warned 'troublemaker' by Moderator Alex — reason: inappropriate language",
+    details: "Warned 'troublemaker' — reason: inappropriate language",
     timestamp: Date.now() - 1000 * 60 * 30,
   },
   {
@@ -474,7 +473,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Used /purge",
-    details: "Purged 15 messages in #general by nyx",
+    details: "Purged 15 messages in #general",
     timestamp: Date.now() - 1000 * 60 * 45,
   },
   {
@@ -485,7 +484,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Cadia AutoMod",
     actorId: "0",
     action: "Auto-muted member",
-    details: "Auto-muted 'spammer_x' for 5 minutes by Cadia AutoMod — reason: link spam",
+    details: "Auto-muted 'spammer_x' for 5 minutes — reason: link spam",
     timestamp: Date.now() - 1000 * 60 * 90,
   },
   {
@@ -496,7 +495,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Updated bot prefix",
-    details: "Set prefix to '!' by nyx",
+    details: "Set prefix to '!'",
     timestamp: Date.now() - 1000 * 60 * 120,
   },
   {
@@ -507,7 +506,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Removed manager role",
-    details: "Removed Moderator from Manager access by nyx",
+    details: "Removed Moderator from Manager access",
     timestamp: Date.now() - 1000 * 60 * 180,
   },
   {
@@ -518,7 +517,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Moderator Alex",
     actorId: "222222222222222222",
     action: "Banned member",
-    details: "Banned 'raider_42' by Moderator Alex — reason: mass mention spam",
+    details: "Banned 'raider_42' — reason: mass mention spam",
     timestamp: Date.now() - 1000 * 60 * 210,
   },
   {
@@ -529,7 +528,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Used /ban",
-    details: "Banned user 'toxic_player' by nyx — reason: toxicity",
+    details: "Banned user 'toxic_player' — reason: toxicity",
     timestamp: Date.now() - 1000 * 60 * 240,
   },
   {
@@ -540,7 +539,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Cadia AutoMod",
     actorId: "0",
     action: "Auto-deleted messages",
-    details: "Auto-deleted 3 messages from 'caps_user' by Cadia AutoMod — reason: excessive caps",
+    details: "Auto-deleted 3 messages from 'caps_user' — reason: excessive caps",
     timestamp: Date.now() - 1000 * 60 * 300,
   },
   {
@@ -551,7 +550,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Enabled module",
-    details: "Welcome module enabled by nyx",
+    details: "Welcome module enabled",
     timestamp: Date.now() - 1000 * 60 * 360,
   },
   {
@@ -562,7 +561,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Updated module config",
-    details: "Set cooldown to 3s by nyx — RPG System",
+    details: "Set cooldown to 3s — RPG System",
     timestamp: Date.now() - 1000 * 60 * 420,
   },
   {
@@ -573,7 +572,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "Moderator Alex",
     actorId: "222222222222222222",
     action: "Kicked member",
-    details: "Kicked 'rule_breaker' by Moderator Alex — reason: repeated rule violations",
+    details: "Kicked 'rule_breaker' — reason: repeated rule violations",
     timestamp: Date.now() - 1000 * 60 * 480,
   },
   {
@@ -584,7 +583,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Used /warn",
-    details: "Warned user 'newbie' by nyx — reason: spamming emojis",
+    details: "Warned user 'newbie' — reason: spamming emojis",
     timestamp: Date.now() - 1000 * 60 * 540,
   },
   {
@@ -606,7 +605,7 @@ export const INITIAL_LOGS: LogEntry[] = [
     actor: "nyx",
     actorId: "899385550585364481",
     action: "Disabled module",
-    details: "Economy module disabled by nyx",
+    details: "Economy module disabled",
     timestamp: Date.now() - 1000 * 60 * 720,
   },
 ];
