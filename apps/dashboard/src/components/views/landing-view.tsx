@@ -251,18 +251,15 @@ export function LandingView() {
           </Button>
         </motion.div>
 
-        {/* Feature cards — stacked vertically, each slides in from an
-            alternating direction. Animate on mount (not whileInView) so the
-            cards always render on mobile, where IntersectionObserver-based
-            scroll reveals can fail to fire and leave cards invisible. */}
+        {/* Feature cards — stacked vertically, each slides in from alternating direction on scroll */}
         <div className="flex flex-col gap-5 w-full">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.title}
               variants={slideVariants[f.slideDirection]}
               initial="hidden"
-              animate="visible"
-              transition={{ delay: 0.15 + i * 0.12, duration: 0.5, ease: "easeOut" }}
+              whileInView="visible"
+              viewport={{ once: true, margin: "-80px" }}
               onMouseEnter={() => setHoveredCard(i)}
               onMouseLeave={() => setHoveredCard(null)}
               className="relative rounded-2xl border p-6 text-left transition-all duration-300 cursor-default overflow-hidden"

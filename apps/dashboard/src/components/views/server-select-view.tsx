@@ -1,12 +1,12 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useCadia } from "@/lib/store";
 import { CadiaLogo } from "@/components/cadia-logo";
 import { CadiaFooter } from "@/components/cadia-footer";
 import { Button } from "@/components/ui/button";
-import { ServerIconBadge, UserAvatarBadge } from "@/components/discord-media";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   LogOut,
   Server as ServerIcon,
@@ -15,11 +15,7 @@ import {
   X,
   ExternalLink,
   ArrowLeft,
-  Loader2,
 } from "lucide-react";
-
-// sessionStorage key tracking the guild the user is currently adding Cadia to.
-const PENDING_INVITE_KEY = "cadia.pendingInvite";
 
 export function ServerSelectView() {
   const user = useCadia((s) => s.user);
@@ -27,81 +23,12 @@ export function ServerSelectView() {
   const setView = useCadia((s) => s.setView);
   const blacklistedIds = useCadia((s) => s.blacklistedServerIds);
   const selectServer = useCadia((s) => s.selectServer);
-  const servers = useCadia((s) => s.servers);
 
   const visibleServers = useMemo(() => {
     // Show ALL servers the user can manage — including blacklisted ones
     // (blacklisted servers show a fallback page when selected)
     return useCadia.getState().visibleServers();
-  }, [blacklistedIds, servers]);
-
-  // === Pending invite: after the user clicks "Add Cadia Now" the invite opens
-  // in a new tab. This tab polls /api/servers until the bot joins that guild,
-  // then drops the user straight onto THAT server's dashboard. We also poll
-  // immediately when the tab regains focus (visibilitychange) so the redirect
-  // happens the moment the user comes back from Discord, instead of waiting
-  // for the next tick. ===
-  const [pendingInvite, setPendingInvite] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const pending = sessionStorage.getItem(PENDING_INVITE_KEY);
-    if (!pending) return;
-    setPendingInvite(pending);
-
-    let stopped = false;
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/servers", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const list = data.servers || [];
-          useCadia.setState({ servers: list });
-          const target = list.find((s: any) => s.id === pending);
-          if (target?.botInServer) {
-            sessionStorage.removeItem(PENDING_INVITE_KEY);
-            setPendingInvite(null);
-            // selectServer routes to /manage/<id> via the URL sync layer.
-            selectServer(pending);
-            return;
-          }
-        }
-      } catch {
-        /* ignore — retry on next tick */
-      }
-      if (!stopped) {
-        pollRef.current = setTimeout(poll, 2000);
-      }
-    };
-    poll();
-
-    // When the user returns to this tab (from the Discord authorize tab),
-    // poll immediately for a snappier redirect.
-    const onVisibility = () => {
-      if (document.visibilityState === "visible" && !stopped) {
-        if (pollRef.current) clearTimeout(pollRef.current);
-        poll();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      stopped = true;
-      if (pollRef.current) clearTimeout(pollRef.current);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [selectServer]);
-
-  const handleAddBot = (guildId: string) => {
-    try {
-      sessionStorage.setItem(PENDING_INVITE_KEY, guildId);
-    } catch {
-      /* ignore */
-    }
-    setPendingInvite(guildId);
-    // The <a> below opens Discord's invite in a new tab; this tab polls.
-  };
+  }, [blacklistedIds]);
 
   return (
     <div className="min-h-screen flex flex-col cadia-bg scanlines">
@@ -114,12 +41,14 @@ export function ServerSelectView() {
           <span className="font-pixel text-sm text-cadia tracking-wider">CADIA</span>
         </div>
         <div className="flex items-center gap-3">
-          <UserAvatarBadge
-            avatar={user?.avatar}
-            username={user?.username}
-            className="h-8 w-8 border-2"
-            fallbackClassName="text-xs font-semibold"
-          />
+          <Avatar className="h-8 w-8 border-2" style={{ borderColor: user?.avatar }}>
+            <AvatarFallback
+              className="text-xs font-semibold"
+              style={{ background: user?.avatar, color: "#0b0f14" }}
+            >
+              {user?.username?.slice(0, 2).toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
           <div className="hidden sm:block">
             <p className="text-sm font-semibold leading-tight">{user?.globalName}</p>
             <p className="text-xs text-muted-foreground">
@@ -159,27 +88,6 @@ export function ServerSelectView() {
             Select a server
           </h1>
         </motion.div>
-
-        {/* Pending-invite banner: shown while we wait for Cadia to join a
-            server the user just added it to. Auto-redirects on detection. */}
-        {pendingInvite && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-center gap-3 rounded-xl border border-cadia/40 bg-cadia/10 px-4 py-3"
-          >
-            <Loader2 className="h-4 w-4 animate-spin text-cadia shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">
-                Waiting for Cadia to join your server…
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Complete the authorization in the Discord tab, then you&apos;ll be
-                taken straight to the dashboard.
-              </p>
-            </div>
-          </motion.div>
-        )}
 
         {/* Server grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,11 +143,16 @@ export function ServerSelectView() {
                 </div>
 
                 <div className="flex items-start gap-3 mb-4">
-                  <ServerIconBadge
-                    icon={s.icon}
-                    name={s.name}
-                    className="h-12 w-12 rounded-xl text-sm font-bold"
-                  />
+                  <div
+                    className="h-12 w-12 shrink-0 flex items-center justify-center text-sm font-bold rounded-xl border-2"
+                    style={{
+                      background: s.icon,
+                      borderColor: s.icon,
+                      color: "#0b0f14",
+                    }}
+                  >
+                    {s.name.slice(0, 2).toUpperCase()}
+                  </div>
                   <div className="flex-1 min-w-0 pr-32">
                     <h3 className="text-sm font-semibold text-foreground truncate">
                       {s.name}
@@ -272,12 +185,12 @@ export function ServerSelectView() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
-                    onClick={() => handleAddBot(s.id)}
                   >
                     <Button className="cadia-add-bot-btn w-full text-white text-sm font-semibold h-11 group relative overflow-hidden">
                       <span className="relative z-10 flex items-center justify-center">
                         <ExternalLink className="h-4 w-4 mr-2 transition-transform group-hover:translate-x-0.5" />
                         Add Cadia Now
+                        <span className="ml-2 text-[10px] opacity-80 font-normal">· Free · 2-min setup</span>
                       </span>
                     </Button>
                   </a>

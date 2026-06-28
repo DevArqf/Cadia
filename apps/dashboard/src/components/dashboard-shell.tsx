@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCadia } from "@/lib/store";
 import { CadiaLogo } from "@/components/cadia-logo";
 import { Button } from "@/components/ui/button";
-import { ServerIconBadge, UserAvatarBadge } from "@/components/discord-media";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -177,11 +177,16 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </button>
 
           <div className="hidden md:flex items-center gap-2 ml-2 pl-3 border-l border-border/50">
-            <ServerIconBadge
-              icon={server.icon}
-              name={server.name}
-              className="h-7 w-7 rounded-lg text-[10px] font-bold"
-            />
+            <div
+              className="h-7 w-7 flex items-center justify-center text-[10px] font-bold rounded-lg border"
+              style={{
+                background: server.icon,
+                color: "#0b0f14",
+                borderColor: server.icon,
+              }}
+            >
+              {server.name.slice(0, 2).toUpperCase()}
+            </div>
             <span className="text-sm font-semibold text-foreground truncate max-w-[180px]">
               {server.name}
             </span>
@@ -215,11 +220,17 @@ export function DashboardShell({ children }: DashboardShellProps) {
             <ShieldCheck className="h-3.5 w-3.5" />
             Verified
           </div>
-          <UserAvatarBadge
-            avatar={effectiveUser.avatar}
-            username={effectiveUser.username}
+          <Avatar
             className="h-7 w-7 border-2"
-          />
+            style={{ borderColor: effectiveUser.avatar }}
+          >
+            <AvatarFallback
+              className="text-[10px] font-semibold"
+              style={{ background: effectiveUser.avatar, color: "#0b0f14" }}
+            >
+              {effectiveUser.username.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <Button
             variant="ghost"
             size="sm"
@@ -289,7 +300,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       {/* Unsaved changes dialog */}
       <Dialog open={pendingTab !== null || pendingHome} onOpenChange={(o) => !o && handleCancelSwitch()}>
-        <DialogContent className="max-w-md p-0 overflow-hidden bg-popover border-warning/40 shadow-2xl" showCloseButton={false}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-card border-warning/40 shadow-2xl" showCloseButton={false}>
           <div className="h-0.5 bg-gradient-to-r from-warning via-fail to-warning" />
           <DialogHeader className="px-5 pt-4 pb-2">
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-warning">

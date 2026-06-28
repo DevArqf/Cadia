@@ -22,12 +22,11 @@ interface CadiaState {
   // view state
   view: View;
   isAuthenticating: boolean;
-  authChecked: boolean;
 
   // auth
   user: DiscordUser | null;
 
-  // selected server + its modules
+  // selected server + its modules (deep clone for editing)
   servers: DiscordServer[];
   selectedServer: DiscordServer | null;
   modules: BotModule[];
@@ -129,7 +128,6 @@ function hydrateModules(input: any[]): BotModule[] {
 export const useCadia = create<CadiaState>((set, get) => ({
   view: "landing",
   isAuthenticating: false,
-  authChecked: false,
   user: null,
   servers: [],
   selectedServer: null,
@@ -151,20 +149,14 @@ export const useCadia = create<CadiaState>((set, get) => ({
   startLogin: () => {
     set({ isAuthenticating: true });
     if (typeof window !== "undefined") {
-      // Return the user to the page they initiated login from after Discord
-      // OAuth completes (the router then resolves the correct view).
-      const callbackUrl = window.location.pathname || "/";
-      window.location.href = `/api/auth/signin/discord?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+      window.location.href = "/api/auth/signin/discord?callbackUrl=/";
     }
   },
 
   loadDashboardSession: async () => {
     try {
       const meResponse = await fetch("/api/me", { cache: "no-store" });
-      if (!meResponse.ok) {
-        set({ isAuthenticating: false, authChecked: true });
-        return;
-      }
+      if (!meResponse.ok) return;
       const me = await meResponse.json();
       const serversResponse = await fetch("/api/servers", { cache: "no-store" });
       const serversPayload = serversResponse.ok ? await serversResponse.json() : { servers: [] };
@@ -172,14 +164,10 @@ export const useCadia = create<CadiaState>((set, get) => ({
         user: me.user,
         servers: serversPayload.servers || [],
         isAuthenticating: false,
-        authChecked: true,
+        view: "server-select",
       });
-      // Resolve the view from the current URL (deep links / redirect to
-      // /servers) now that the user + server list are available.
-      const { resolveViewAfterAuth } = await import("@/lib/url-sync");
-      resolveViewAfterAuth();
     } catch {
-      set({ isAuthenticating: false, authChecked: true });
+      set({ isAuthenticating: false });
     }
   },
 
@@ -212,7 +200,6 @@ export const useCadia = create<CadiaState>((set, get) => ({
     set({
       user: MOCK_USER,
       isAuthenticating: false,
-      authChecked: true,
       view: redirectView || "server-select",
     });
     const u = MOCK_USER;
@@ -227,17 +214,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     });
   },
 
-  logout: () => {
-    // Clear client state immediately for snappy UI feedback, then clear the
-    // signed session cookie server-side so the user is truly logged out (a
-    // reload won't silently re-authenticate them).
-    if (typeof window !== "undefined") {
-      try {
-        sessionStorage.removeItem("cadia.pendingInvite");
-      } catch {
-        /* ignore */
-      }
-    }
+  logout: () =>
     set({
       user: null,
       view: "landing",
@@ -246,12 +223,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       modules: [],
       activeTab: "dashboard",
       adminUnlocked: false,
-      authChecked: true,
-    });
-    if (typeof window !== "undefined") {
-      window.location.href = "/api/auth/signout";
-    }
-  },
+    }),
 
   selectServer: (id) => {
     const all = get().servers.length ? get().servers : MOCK_SERVERS;
@@ -360,7 +332,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: get().user?.username || "unknown",
         actorId: get().user?.id || "0",
         action: "Saved configuration",
-        details: `${server.name} configuration saved`,
+        details: `${server.name} configuration saved by ${get().user?.username || "unknown"}`,
       });
 			toast.success("Command and module configuration saved");
 		} catch (error) {
@@ -390,7 +362,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: get().user?.username || "unknown",
         actorId: get().user?.id || "0",
         action: m.enabled ? "Enabled module" : "Disabled module",
-        details: `${m.name} module ${m.enabled ? "enabled" : "disabled"}`,
+        details: `${m.name} module ${m.enabled ? "enabled" : "disabled"} by ${get().user?.username || "unknown"}`,
       });
 			void get().saveConfig().catch(() => undefined);
     }
@@ -428,7 +400,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: get().user?.username || "unknown",
         actorId: get().user?.id || "0",
         action: "Updated module config",
-        details: `${changes}${m ? ` — ${m.name}` : ""}`,
+        details: `${changes} by ${get().user?.username || "unknown"}${m ? ` — ${m.name}` : ""}`,
       });
     }
   },
@@ -499,7 +471,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: get().user?.username || "unknown",
         actorId: get().user?.id || "0",
         action: r.canManageCadia ? "Added manager role" : "Removed manager role",
-        details: `${r.canManageCadia ? "Added" : "Removed"} ${r.name} ${r.canManageCadia ? "to" : "from"} Manager access`,
+        details: `${r.canManageCadia ? "Added" : "Removed"} ${r.name} ${r.canManageCadia ? "to" : "from"} Manager access by ${get().user?.username || "unknown"}`,
       });
     }
   },
@@ -519,7 +491,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       actor: get().user?.username || "unknown",
       actorId: get().user?.id || "0",
       action: "Updated bot prefix",
-      details: `Set prefix to '${trimmed || "(empty)"}'`,
+      details: `Set prefix to '${trimmed || "(empty)"}' by ${get().user?.username || "unknown"}`,
     });
   },
 
@@ -555,18 +527,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     return true;
   },
 
-  lockAdmin: () => {
-    // Clear the persisted owner-unlock flag so the panel can't be re-entered
-    // without credentials, then drop back to the landing page.
-    if (typeof window !== "undefined") {
-      try {
-        sessionStorage.removeItem("cadia.admin.unlocked");
-      } catch {
-        /* ignore */
-      }
-    }
-    set({ adminUnlocked: false, view: "landing", selectedServer: null, modules: [] });
-  },
+  lockAdmin: () => set({ adminUnlocked: false, view: "landing" }),
 
   setGlobalBotStatus: (status) => {
     const prev = get().globalBotStatus;
@@ -644,3 +605,13 @@ export const useCadia = create<CadiaState>((set, get) => ({
     );
   },
 }));
+
+// === Hidden console command ===
+// Only works in browser devtools console. Owner types:
+//    cadia.dev.admin.panel()
+// Discreet trigger: 5 rapid clicks on the footer dot
+//
+// The window.cadia boot script is injected in layout.tsx (before hydration),
+// so the command is always available — even before React finishes mounting.
+// AdminConsoleListener listens for the 'cadia:admin' event and opens the
+// credential dialog. No keyboard shortcut (too easy to discover).

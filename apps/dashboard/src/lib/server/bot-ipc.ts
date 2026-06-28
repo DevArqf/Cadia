@@ -1,3 +1,8 @@
+const { DEFAULT_IPC_ENDPOINT, createIpcClient } = require("@cadia/ipc") as {
+	DEFAULT_IPC_ENDPOINT: string;
+	createIpcClient: (options: { endpoint: string; timeoutMs: number }) => IpcClient;
+};
+
 type IpcClient = { request: (type: string, payload: Record<string, unknown>) => Promise<unknown> };
 
 const ipc = createIpcClient({

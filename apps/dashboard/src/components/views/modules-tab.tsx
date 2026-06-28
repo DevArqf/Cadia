@@ -98,10 +98,11 @@ export function ModulesTab() {
             return (
               <motion.div
                 key={m.id}
-                initial={{ opacity: 0, x: -24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24 }}
-                transition={{ delay: Math.min(idx * 0.04, 0.3), ease: "easeOut" }}
+                layout
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: idx * 0.04 }}
                 className="cadia-card cadia-card-hover p-4 flex flex-col"
               >
                 {/* Header: title + toggle */}

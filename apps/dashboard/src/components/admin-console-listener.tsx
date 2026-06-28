@@ -70,30 +70,28 @@ export function AdminConsoleListener() {
     return () => window.removeEventListener("cadia:admin", handler);
   }, []);
 
-  // === 2) On mount, restore owner unlock from sessionStorage.
-  // The flag is intentionally KEPT (not removed) so the owner stays unlocked
-  // across refreshes and in-app navigation within the tab session — only
-  // lockAdmin() clears it. Previously removing it here meant a second refresh
-  // (or opening a server then refreshing) silently logged the owner out. ===
+  // === 2) On mount, check sessionStorage for owner unlock (refresh-redirect) ===
   useEffect(() => {
     try {
       const unlocked = sessionStorage.getItem("cadia.admin.unlocked");
       if (unlocked === "1") {
+        sessionStorage.removeItem("cadia.admin.unlocked");
         useCadia.setState({ adminUnlocked: true });
+        setView("admin");
         addLog({
           type: "audit",
           serverId: "-",
           serverName: "-",
           actor: "owner",
           actorId: userId || "899385550585364481",
-          action: "Owner admin session restored",
-          details: "Owner unlock restored from session after page load",
+          action: "Owner entered admin panel",
+          details: "Refresh-redirect after successful credential verification",
         });
       }
     } catch {
       // ignore
     }
-  }, [addLog, userId]);
+  }, [setView, addLog, userId]);
 
   // === 3) Lockout countdown ticker ===
   useEffect(() => {

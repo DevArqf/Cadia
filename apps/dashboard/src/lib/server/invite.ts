@@ -11,13 +11,11 @@ export function buildInviteUrl({
   permissions = process.env.CADIA_INVITE_PERMISSIONS || DEFAULT_PERMISSIONS,
   guildId,
   disableGuildSelect,
-  redirectUri,
 }: {
   clientId?: string;
   permissions?: string;
   guildId?: string | null;
   disableGuildSelect?: boolean;
-  redirectUri?: string | null;
 } = {}) {
   if (!clientId) return null;
 
@@ -30,11 +28,6 @@ export function buildInviteUrl({
   if (guildId) {
     params.set("guild_id", guildId);
     if (disableGuildSelect) params.set("disable_guild_select", "true");
-  }
-
-  if (redirectUri) {
-    params.set("redirect_uri", redirectUri);
-    params.set("response_type", "code");
   }
 
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
