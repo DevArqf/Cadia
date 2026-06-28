@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  turbopack: {
+    root: workspaceRoot,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
