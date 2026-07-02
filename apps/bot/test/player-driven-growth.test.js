@@ -228,25 +228,24 @@ test('server boss aggregates player damage, enforces cooldown, and rewards contr
 test('seasonal quest migrates analytics activity and requires three consecutive RPG days', async () => {
 	const userProfile = profile('one', 'guild');
 	const player = growthRecord('one');
-	const seasonId = '2026-summer';
-	player.seasonVictories['2026-q2'] = 5;
-	const activity = {
-		userId: 'one',
-		activeDays: {
-			'2026-06-19': true,
-			'2026-06-20': true,
-			'2026-06-21': true
-		}
-	};
-	const loaded = loadGrowth({ profiles: [userProfile], growthRecords: [player], activities: [activity] });
+	const activities = [];
+	const loaded = loadGrowth({ profiles: [userProfile], growthRecords: [player], activities });
 
 	try {
+		const season = loaded.module.currentSeason();
+		const activeDays = [18, 19, 20].map((offset) => new Date(season.startsAt + offset * 86_400_000).toISOString().slice(0, 10));
+		player.seasonVictories[season.id] = season.quest.victories;
+		activities.push({
+			userId: 'one',
+			activeDays: Object.fromEntries(activeDays.map((day) => [day, true]))
+		});
+
 		const status = await loaded.module.seasonalProgress('one');
 		assert.equal(status.complete, true);
 		assert.equal(status.progress.consecutiveDays, 3);
-		assert.deepEqual(Object.keys(player.seasonActiveDays[seasonId]).sort(), ['2026-06-19', '2026-06-20', '2026-06-21']);
+		assert.deepEqual(Object.keys(player.seasonActiveDays[season.id]).sort(), activeDays);
 		const claimed = await loaded.module.claimSeason('one');
-		assert.equal(claimed.growth.seasonClaims.includes(seasonId), true);
+		assert.equal(claimed.growth.seasonClaims.includes(season.id), true);
 		assert.ok(claimed.growth.badges.includes('stormglass-pathfinder'));
 		assert.ok(claimed.profile.inventory.some((entry) => entry.itemId === 'stormglass_aura'));
 	} finally {
