@@ -6,6 +6,7 @@ const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
 const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
 const { buildCommandCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
 const { getAutoModConfig, saveAutoModConfig, serializeAutoModConfig, setAutoModModuleEnabled } = require('../automod/autoModService');
+const { getGuildSettings, normalizeGuildPrefix, saveGuildPrefix } = require('../runtime/guildSettings');
 
 function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT || DEFAULT_IPC_ENDPOINT } = {}) {
 	const server = createIpcServer({
@@ -15,6 +16,8 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'bot.status') return botStatus(client);
 			if (request.type === 'bot.inviteUrl') return { url: createInviteUrl(client) };
 			if (request.type === 'bot.guilds') return botGuilds(client);
+			if (request.type === 'guild.settings.get') return getGuildDashboardSettings(client, request.payload);
+			if (request.type === 'guild.settings.update') return updateGuildDashboardSettings(client, request.payload);
 			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
 			if (request.type === 'suggestions.config.update') return updateSuggestionConfig(client, request.payload);
 			if (request.type === 'commands.config.get') return getCommandConfig(client, request.payload);
@@ -30,6 +33,49 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 
 	client.logger.info(`Cadia IPC server listening on ${server.endpoint}`);
 	return server;
+}
+
+async function getGuildDashboardSettings(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const settings = await getGuildSettings(guild.id);
+	return serializeGuildDashboardSettings(client, guild, settings);
+}
+
+async function updateGuildDashboardSettings(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const prefix = normalizeGuildPrefix(payload.prefix);
+	const nickname = normalizeBotNickname(payload.nickname);
+	const member = guild.members.me || (await guild.members.fetchMe());
+	const targetNickname = nickname === client.user?.username ? null : nickname;
+
+	if ((member.nickname || null) !== targetNickname) {
+		try {
+			await member.setNickname(targetNickname, `Cadia dashboard update by ${payload.actorId || 'unknown user'}`);
+		} catch (error) {
+			const failure = new Error(`Could not change Cadia's nickname: ${error.message}`);
+			failure.code = 'BOT_NICKNAME_UPDATE_FAILED';
+			throw failure;
+		}
+	}
+
+	const settings = await saveGuildPrefix(guild.id, prefix, payload.actorId || null);
+	return serializeGuildDashboardSettings(client, guild, settings);
+}
+
+function normalizeBotNickname(value) {
+	if (typeof value !== 'string') throw new TypeError('Bot nickname must be text.');
+	const nickname = value.trim();
+	if (nickname.length > 32) throw new RangeError('Bot nickname cannot exceed 32 characters.');
+	if (/[\r\n\t]/.test(value)) throw new RangeError('Bot nickname cannot contain line breaks or tabs.');
+	return nickname || null;
+}
+
+function serializeGuildDashboardSettings(client, guild, settings) {
+	return {
+		guildId: guild.id,
+		prefix: settings.prefix,
+		nickname: guild.members.me?.nickname || client.user?.username || 'Cadia'
+	};
 }
 
 async function getCommandConfig(client, payload = {}) {
@@ -220,8 +266,9 @@ function botStatus(client) {
 	};
 }
 
-function botGuilds(client) {
-	return client.guilds.cache.map((guild) => {
+async function botGuilds(client) {
+	return Promise.all(client.guilds.cache.map(async (guild) => {
+		const settings = await getGuildSettings(guild.id).catch(() => ({ prefix: 'cd ' }));
 		const channels = guild.channels.cache.map((channel) => ({
 			id: channel.id,
 			name: channel.name,
@@ -248,6 +295,7 @@ function botGuilds(client) {
 			features: guild.features || [],
 			joinedAt: guild.members.me?.joinedTimestamp || Date.now(),
 			nickname: guild.members.me?.nickname || client.user?.username || 'Cadia',
+			prefix: settings.prefix,
 			verificationLevel: String(guild.verificationLevel ?? 'None'),
 			explicitContentFilter: String(guild.explicitContentFilter ?? 'Disabled'),
 			defaultMessageNotifications: String(guild.defaultMessageNotifications ?? 'OnlyMentions'),
@@ -271,7 +319,7 @@ function botGuilds(client) {
 			channels,
 			roles
 		};
-	});
+	}));
 }
 
 module.exports = {
@@ -279,10 +327,13 @@ module.exports = {
 	botGuilds,
 	getAutoModDashboardConfig,
 	getCommandConfig,
+	getGuildDashboardSettings,
 	getSuggestionConfig,
+	normalizeBotNickname,
 	serializeSuggestionConfig,
 	startBotIpcServer,
 	updateCommandConfig,
+	updateGuildDashboardSettings,
 	updateAutoModDashboardConfig,
 	updateSuggestionConfig
 };

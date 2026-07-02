@@ -79,8 +79,9 @@ class CadiaCommand extends Command {
 			return await runPrefixCommand(this, message, context);
 		} catch (error) {
 			if (error?.identifier || error?.name === 'UserError') throw error;
+			const prefix = context.commandPrefix || 'cd ';
 			return message.reply(
-				`Could not run that prefix command: ${error.message}\nUse \`cd help\` or the slash-command form for guided options.`
+				`Could not run that prefix command: ${error.message}\nUse \`${prefix}help\` or the slash-command form for guided options.`
 			);
 		}
 	}

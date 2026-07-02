@@ -74,7 +74,7 @@ interface CadiaState {
   updateCommand: (moduleId: string, commandId: string, patch: Partial<BotModule["commands"][number]>) => void;
 
   toggleRoleManageCadia: (roleId: string) => void;
-  updateBotPrefix: (prefix: string) => void;
+  saveBotSettings: (prefix: string, nickname: string) => Promise<void>;
 
   addLog: (entry: Omit<LogEntry, "id" | "timestamp">) => void;
 
@@ -93,6 +93,19 @@ interface CadiaState {
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v));
+}
+
+async function readApiPayload(response: Response) {
+  const body = await response.text();
+  try {
+    return body ? JSON.parse(body) : {};
+  } catch {
+    throw new Error(
+      response.status === 404
+        ? "The bot settings API is not loaded. Restart the dashboard after deploying the latest files."
+        : `The dashboard returned an invalid response (${response.status}). Restart the dashboard and try again.`,
+    );
+  }
 }
 
 function hydrateModules(input: any[]): BotModule[] {
@@ -476,22 +489,39 @@ export const useCadia = create<CadiaState>((set, get) => ({
     }
   },
 
-  updateBotPrefix: (prefix) => {
+  saveBotSettings: async (prefix, nickname) => {
     const server = get().selectedServer;
     if (!server) return;
-    const trimmed = prefix.slice(0, 8); // cap at 8 chars
-    set({ selectedServer: { ...server, botPrefix: trimmed }, hasUnsavedChanges: true });
-    toast.success(`Changed Cadia prefix to '${trimmed || "(empty)"}'`, {
-      description: "Remember to save your changes",
+    const response = await fetch(`/api/servers/${server.id}/settings`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefix, nickname }),
     });
+    const payload = await readApiPayload(response);
+    if (!response.ok) {
+      if (payload.code === "IPC_UNSUPPORTED_REQUEST" || String(payload.message || "").includes("Unsupported IPC request")) {
+        throw new Error("The bot process is outdated. Restart the bot after deploying the latest files.");
+      }
+      throw new Error(payload.message || "Could not update bot settings");
+    }
+    if (get().selectedServer?.id !== server.id) return;
+
+    set({
+      selectedServer: {
+        ...get().selectedServer!,
+        botPrefix: String(payload.prefix),
+        botNickname: String(payload.nickname),
+      },
+    });
+    toast.success("Bot configuration updated");
     get().addLog({
       type: "audit",
       serverId: server.id,
       serverName: server.name,
       actor: get().user?.username || "unknown",
       actorId: get().user?.id || "0",
-      action: "Updated bot prefix",
-      details: `Set prefix to '${trimmed || "(empty)"}' by ${get().user?.username || "unknown"}`,
+      action: "Updated bot configuration",
+      details: `Prefix '${server.botPrefix}' -> '${payload.prefix}', nickname '${server.botNickname}' -> '${payload.nickname}'`,
     });
   },
 

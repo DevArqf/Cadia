@@ -71,13 +71,14 @@ export function DashboardTab() {
   const server = useCadia((s) => s.selectedServer);
   const user = useCadia((s) => s.user);
   const toggleRole = useCadia((s) => s.toggleRoleManageCadia);
-  const updateBotPrefix = useCadia((s) => s.updateBotPrefix);
+  const saveBotSettings = useCadia((s) => s.saveBotSettings);
   const addLog = useCadia((s) => s.addLog);
   const allLogs = useCadia((s) => s.logs);
 
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [prefixInput, setPrefixInput] = useState(server?.botPrefix ?? "!");
   const [nicknameInput, setNicknameInput] = useState(server?.botNickname ?? "Cadia");
+  const [isSavingBotConfig, setIsSavingBotConfig] = useState(false);
   const [updateChannelId, setUpdateChannelId] = useState<string | null>(
     server?.channels.find((c) => c.name === server.updatesChannel)?.id ?? null,
   );
@@ -132,38 +133,36 @@ export function DashboardTab() {
     });
   };
 
-  const handleSaveBotConfig = () => {
-    if (prefixInput !== server.botPrefix) {
-      updateBotPrefix(prefixInput);
-    }
-    if (nicknameInput !== server.botNickname) {
-      addLog({
-        type: "audit",
-        serverId: server.id,
-        serverName: server.name,
-        actor: effectiveUser.username,
-        actorId: effectiveUser.id,
-        action: "Updated bot nickname",
-        details: `Nickname changed from '${server.botNickname}' to '${nicknameInput}'`,
-      });
-      useCadia.setState({
-        selectedServer: { ...server, botNickname: nicknameInput },
-      });
-    }
-    const newChannelName = selectedChannel?.name ?? null;
-    if (newChannelName !== server.updatesChannel) {
-      addLog({
-        type: "audit",
-        serverId: server.id,
-        serverName: server.name,
-        actor: effectiveUser.username,
-        actorId: effectiveUser.id,
-        action: "Updated update channel",
-        details: `Update channel set to '${newChannelName || "(none)"}'`,
-      });
-      useCadia.setState({
-        selectedServer: { ...server, updatesChannel: newChannelName },
-      });
+  const handleSaveBotConfig = async () => {
+    setIsSavingBotConfig(true);
+    try {
+      if (prefixInput !== server.botPrefix || nicknameInput !== server.botNickname) {
+        await saveBotSettings(prefixInput, nicknameInput);
+        const savedServer = useCadia.getState().selectedServer;
+        if (savedServer) {
+          setPrefixInput(savedServer.botPrefix);
+          setNicknameInput(savedServer.botNickname);
+        }
+      }
+
+      const newChannelName = selectedChannel?.name ?? null;
+      const currentServer = useCadia.getState().selectedServer;
+      if (currentServer && newChannelName !== currentServer.updatesChannel) {
+        addLog({
+          type: "audit",
+          serverId: currentServer.id,
+          serverName: currentServer.name,
+          actor: effectiveUser.username,
+          actorId: effectiveUser.id,
+          action: "Updated update channel",
+          details: `Update channel set to '${newChannelName || "(none)"}'`,
+        });
+        useCadia.setState({ selectedServer: { ...currentServer, updatesChannel: newChannelName } });
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update bot configuration");
+    } finally {
+      setIsSavingBotConfig(false);
     }
   };
 
@@ -347,11 +346,11 @@ export function DashboardTab() {
         <div className="flex justify-end mt-4">
           <Button
             onClick={handleSaveBotConfig}
-            disabled={!hasBotConfigChanges}
+            disabled={!hasBotConfigChanges || !prefixInput.length || isSavingBotConfig}
             className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
           >
             <Save className="h-3.5 w-3.5 mr-1.5" />
-            Save Configuration
+            {isSavingBotConfig ? "Saving..." : "Save Configuration"}
           </Button>
         </div>
       </div>

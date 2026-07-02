@@ -4,6 +4,7 @@ const { GatewayIntentBits, Partials } = require('discord.js');
 const { seconds } = require('../lib/util/common/time');
 const { PrivilegedUsers } = require('../lib/util/constants');
 const { buildCadiaShardingStrategy } = require('../lib/gateway/CadiaShardingStrategy');
+const { getGuildPrefix } = require('../lib/runtime/guildSettings');
 
 const ClientConfig = {
 	baseUserDirectory: path.resolve(__dirname, '..'),
@@ -25,6 +26,7 @@ const ClientConfig = {
 	caseInsensitiveCommands: true,
 	caseInsensitivePrefixes: true,
 	defaultPrefix: 'cd ',
+	fetchPrefix: getGuildPrefix,
 	defaultCooldown: {
 		delay: seconds(5),
 		filteredUsers: PrivilegedUsers,

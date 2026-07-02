@@ -7,9 +7,9 @@ class UserEvent extends Listener {
 	}
 
 	run({ message, commandPrefix }) {
-		if (String(commandPrefix).trim().toLowerCase() !== 'cd') return null;
+		const prefix = String(commandPrefix || 'cd ');
 		return message.reply(
-			`${emojis.custom.question} Need help using Cadia? Run \`cd help\` to browse every command, or try \`cd rpg tutorial\` to begin.`
+			`${emojis.custom.question} Need help using Cadia? Run \`${prefix}help\` to browse every command, or try \`${prefix}rpg tutorial\` to begin.`
 		);
 	}
 }

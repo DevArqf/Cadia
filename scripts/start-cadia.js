@@ -14,6 +14,7 @@ let shuttingDown = false;
 let tunnelRecoveryAttempted = false;
 
 loadDotEnv(path.join(root, '.env'));
+const dashboardMode = normalizeDashboardMode(process.env.DASHBOARD_MODE || 'development');
 process.env.NODE_ENV ||= 'production';
 process.env.PORT ||= process.env.DASHBOARD_PORT || '3000';
 process.env.HOSTNAME = process.env.DASHBOARD_HOST || '0.0.0.0';
@@ -24,13 +25,30 @@ main().catch((error) => {
 });
 
 async function main() {
-	if (!fs.existsSync(dashboardServer)) {
-		await installAndBuildDashboard();
-	}
-	normalizeDashboardAssets();
-
 	startProcess('bot', process.execPath, ['apps/bot/src/index.js']);
-	startProcess('dashboard', process.execPath, [dashboardServer], { cwd: dashboardStandaloneRoot });
+	if (dashboardMode === 'development') {
+		console.log('[startup] Dashboard live mode enabled. Source changes will refresh without rebuilding.');
+		startProcess(
+			'dashboard',
+			getNpmCommand(),
+			[
+				'--workspace',
+				'@cadia/dashboard',
+				'run',
+				'dev',
+				'--',
+				'--hostname',
+				process.env.HOSTNAME,
+				'--port',
+				process.env.PORT
+			],
+			{ env: { NODE_ENV: 'development' } }
+		);
+	} else {
+		if (!fs.existsSync(dashboardServer)) await installAndBuildDashboard();
+		normalizeDashboardAssets();
+		startProcess('dashboard', process.execPath, [dashboardServer], { cwd: dashboardStandaloneRoot });
+	}
 
 	const token = readCloudflaredToken();
 	if (!token) {
@@ -39,6 +57,13 @@ async function main() {
 	}
 
 	await startTunnel(token);
+}
+
+function normalizeDashboardMode(value) {
+	const mode = String(value || '').trim().toLowerCase();
+	if (['dev', 'development', 'live'].includes(mode)) return 'development';
+	if (['prod', 'production'].includes(mode)) return 'production';
+	throw new Error(`Unsupported DASHBOARD_MODE: ${value}. Use development or production.`);
 }
 
 async function startTunnel(token) {
@@ -167,7 +192,7 @@ async function installAndBuildDashboard() {
 function startProcess(name, command, args, options = {}) {
 	const child = spawn(command, args, {
 		cwd: options.cwd || root,
-		env: process.env,
+		env: { ...process.env, ...(options.env || {}) },
 		stdio: ['ignore', 'pipe', 'pipe'],
 		windowsHide: true
 	});

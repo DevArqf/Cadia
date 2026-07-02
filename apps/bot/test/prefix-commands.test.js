@@ -16,6 +16,7 @@ const { branding } = require('../src/config');
 
 test('Cadia enables cd prefix commands for every Cadia command', () => {
 	assert.equal(ClientConfig.defaultPrefix, 'cd ');
+	assert.equal(typeof ClientConfig.fetchPrefix, 'function');
 	assert.equal(typeof CadiaCommand.prototype.messageRun, 'function');
 	assert.equal(branding.version, '6.8.5');
 });

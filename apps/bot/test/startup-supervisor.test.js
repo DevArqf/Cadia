@@ -19,3 +19,12 @@ test('Cloudflare tunnel failure does not stop bot and dashboard', () => {
 	assert.match(source, /fs\.rmSync\(cloudflaredBinary, \{ force: true \}\)/);
 	assert.match(source, /Bot and dashboard processes will remain running without the tunnel/);
 });
+
+test('Cadia startup defaults the dashboard to live development mode', () => {
+	const source = readFileSync(startupScript, 'utf8');
+
+	assert.match(source, /DASHBOARD_MODE \|\| 'development'/);
+	assert.match(source, /Dashboard live mode enabled/);
+	assert.match(source, /'--hostname',[\s\S]*?'--port'/);
+	assert.match(source, /if \(!fs\.existsSync\(dashboardServer\)\) await installAndBuildDashboard\(\)/);
+});
