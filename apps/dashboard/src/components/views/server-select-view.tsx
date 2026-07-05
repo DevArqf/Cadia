@@ -1,12 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useCadia } from "@/lib/store";
 import { CadiaLogo } from "@/components/cadia-logo";
 import { CadiaFooter } from "@/components/cadia-footer";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { DiscordServer } from "@/lib/types";
 import {
   LogOut,
   Server as ServerIcon,
@@ -42,6 +43,7 @@ export function ServerSelectView() {
         </div>
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8 border-2" style={{ borderColor: user?.avatar }}>
+            {isImageUrl(user?.avatar) && <AvatarImage src={user?.avatar} alt={user?.globalName || user?.username || "User"} />}
             <AvatarFallback
               className="text-xs font-semibold"
               style={{ background: user?.avatar, color: "#0b0f14" }}
@@ -93,17 +95,66 @@ export function ServerSelectView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AnimatePresence>
             {visibleServers.map((s, idx) => (
-              <motion.div
+              <ServerCard
                 key={s.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: idx * 0.05 }}
-                className={`cadia-card cadia-card-hover p-5 relative ${
-                  !s.botInServer ? "opacity-95" : ""
-                }`}
-              >
+                server={s}
+                index={idx}
+                blacklisted={blacklistedIds.includes(s.id)}
+                onSelect={() => selectServer(s.id)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {visibleServers.length === 0 && (
+          <div className="cadia-card p-8 text-center">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">
+              No mutual servers found
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You don&apos;t manage any server Cadia is in. Add Cadia to your
+              server to get started.
+            </p>
+          </div>
+        )}
+      </main>
+
+      <CadiaFooter />
+    </div>
+  );
+}
+
+function ServerCard({ server: s, index, blacklisted, onSelect }: {
+  server: DiscordServer;
+  index: number;
+  blacklisted: boolean;
+  onSelect: () => void;
+}) {
+  const backgroundUrl = s.botInServer && s.banner ? s.banner : isImageUrl(s.icon) ? s.icon : null;
+  const [backgroundLoaded, setBackgroundLoaded] = useState(false);
+  const [iconFailed, setIconFailed] = useState(false);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ delay: index * 0.05 }}
+      className={`cadia-card cadia-card-hover p-5 relative overflow-hidden ${!s.botInServer ? "opacity-95" : ""}`}
+    >
+      {backgroundUrl && (
+        <img
+          src={backgroundUrl}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setBackgroundLoaded(true)}
+          onError={() => setBackgroundLoaded(false)}
+          className={`absolute inset-[-8px] h-[calc(100%+16px)] w-[calc(100%+16px)] object-cover blur-md scale-105 transition-opacity duration-300 ${backgroundLoaded ? "opacity-55" : "opacity-0"}`}
+        />
+      )}
+      {backgroundLoaded && <div className="absolute inset-0 bg-card/55" aria-hidden="true" />}
+      <div className="relative z-[1]">
                 {/* Top-right tags: Premium + Installed + Blacklisted */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
                   {s.premium && (
@@ -111,7 +162,7 @@ export function ServerSelectView() {
                       <span className="relative z-10">Premium</span>
                     </span>
                   )}
-                  {blacklistedIds.includes(s.id) && (
+                  {blacklisted && (
                     <div
                       className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border bg-fail/15 text-fail border-fail/40"
                       title="This server is blacklisted from using Cadia"
@@ -142,38 +193,40 @@ export function ServerSelectView() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 mb-4">
+                <div className="flex items-start gap-3 mb-5 pt-2">
                   <div
-                    className="h-12 w-12 shrink-0 flex items-center justify-center text-sm font-bold rounded-xl border-2"
+                    className="relative h-12 w-12 shrink-0 flex items-center justify-center text-sm font-bold rounded-xl border-2 overflow-hidden"
                     style={{
-                      background: s.icon,
-                      borderColor: s.icon,
+                      background: isImageUrl(s.icon) ? "#65b8da" : s.icon,
+                      borderColor: isImageUrl(s.icon) ? "rgba(255,255,255,.35)" : s.icon,
                       color: "#0b0f14",
                     }}
                   >
-                    {s.name.slice(0, 2).toUpperCase()}
+                    {(!isImageUrl(s.icon) || iconFailed) && s.name.slice(0, 2).toUpperCase()}
+                    {isImageUrl(s.icon) && !iconFailed && (
+                      <img
+                        src={s.icon}
+                        alt={`${s.name} icon`}
+                        className="h-full w-full object-cover"
+                        onError={() => setIconFailed(true)}
+                      />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0 pr-32">
+                  <div className="flex-1 min-w-0 pr-32 pt-2">
                     <h3 className="text-sm font-semibold text-foreground truncate">
                       {s.name}
                     </h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {s.memberCount.toLocaleString()} total
-                      </span>
-                      <span className="flex items-center gap-1 text-success">
-                        <span className="h-2 w-2 rounded-full bg-success inline-block" />
-                        {s.onlineCount.toLocaleString()} online
-                      </span>
-                    </div>
+                    <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Users className="h-3 w-3" />
+                      {s.memberCount.toLocaleString()} total members
+                    </span>
                   </div>
                 </div>
 
                 {/* Action */}
                 {s.botInServer ? (
                   <Button
-                    onClick={() => selectServer(s.id)}
+                    onClick={onSelect}
                     className="cadia-btn w-full bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
                   >
                     <ServerIcon className="h-4 w-4 mr-1.5" />
@@ -195,25 +248,11 @@ export function ServerSelectView() {
                     </Button>
                   </a>
                 )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {visibleServers.length === 0 && (
-          <div className="cadia-card p-8 text-center">
-            <p className="text-sm font-semibold text-muted-foreground mb-3">
-              No mutual servers found
-            </p>
-            <p className="text-sm text-muted-foreground">
-              You don&apos;t manage any server Cadia is in. Add Cadia to your
-              server to get started.
-            </p>
-          </div>
-        )}
-      </main>
-
-      <CadiaFooter />
-    </div>
+      </div>
+    </motion.div>
   );
+}
+
+function isImageUrl(value?: string | null): value is string {
+  return Boolean(value && /^https?:\/\//i.test(value));
 }

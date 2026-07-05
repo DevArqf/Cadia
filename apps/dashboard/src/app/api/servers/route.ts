@@ -48,9 +48,9 @@ function mapGuild(discordGuild: any, botGuild: any) {
   return {
     id: discordGuild.id,
     name: discordGuild.name,
-    icon: discordGuild.icon
-      ? `https://cdn.discordapp.com/icons/${discordGuild.id}/${discordGuild.icon}.png?size=128`
-      : "#65b8da",
+    icon: botGuild?.iconUrl || (discordGuild.icon
+      ? `https://cdn.discordapp.com/icons/${discordGuild.id}/${discordGuild.icon}.webp?size=256`
+      : "#65b8da"),
     ownerId: botGuild?.ownerId || "",
     memberCount: botGuild?.memberCount || 0,
     onlineCount: 0,
@@ -82,7 +82,7 @@ function mapGuild(discordGuild: any, botGuild: any) {
     defaultNotifications: botGuild?.defaultMessageNotifications || "Unknown",
     twoFactorRequired: Boolean(botGuild?.mfaLevel),
     vanityUrl: botGuild?.vanityURLCode || null,
-    banner: null,
+    banner: botInServer ? botGuild?.bannerUrl || null : null,
     description: botGuild?.description || null,
     maxBitrate: Math.round((botGuild?.maxBitrate || 96000) / 1000),
     maxFileSize: botGuild?.maxFileSize || 25,

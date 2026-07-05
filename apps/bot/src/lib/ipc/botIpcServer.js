@@ -288,6 +288,7 @@ async function botGuilds(client) {
 			id: guild.id,
 			name: guild.name,
 			iconUrl: guild.iconURL?.({ size: 128 }) || null,
+			bannerUrl: guild.bannerURL?.({ size: 1024 }) || null,
 			ownerId: guild.ownerId,
 			memberCount: guild.memberCount || 0,
 			premiumTier: guild.premiumTier || 0,

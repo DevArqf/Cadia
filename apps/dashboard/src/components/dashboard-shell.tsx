@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCadia } from "@/lib/store";
 import { CadiaLogo } from "@/components/cadia-logo";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<DashboardTab | null>(null);
   const [pendingHome, setPendingHome] = useState(false);
+  const [serverIconFailed, setServerIconFailed] = useState(false);
 
   // Guarded tab switch — checks for unsaved changes
   const handleTabSwitch = (tab: DashboardTab) => {
@@ -178,14 +179,22 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
           <div className="hidden md:flex items-center gap-2 ml-2 pl-3 border-l border-border/50">
             <div
-              className="h-7 w-7 flex items-center justify-center text-[10px] font-bold rounded-lg border"
+              className="relative h-7 w-7 flex items-center justify-center text-[10px] font-bold rounded-lg border overflow-hidden"
               style={{
-                background: server.icon,
+                background: isImageUrl(server.icon) ? "#65b8da" : server.icon,
                 color: "#0b0f14",
-                borderColor: server.icon,
+                borderColor: isImageUrl(server.icon) ? "rgba(255,255,255,.35)" : server.icon,
               }}
             >
-              {server.name.slice(0, 2).toUpperCase()}
+              {(!isImageUrl(server.icon) || serverIconFailed) && server.name.slice(0, 2).toUpperCase()}
+              {isImageUrl(server.icon) && !serverIconFailed && (
+                <img
+                  src={server.icon}
+                  alt={`${server.name} icon`}
+                  className="h-full w-full object-cover"
+                  onError={() => setServerIconFailed(true)}
+                />
+              )}
             </div>
             <span className="text-sm font-semibold text-foreground truncate max-w-[180px]">
               {server.name}
@@ -224,6 +233,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             className="h-7 w-7 border-2"
             style={{ borderColor: effectiveUser.avatar }}
           >
+            {isImageUrl(effectiveUser.avatar) && <AvatarImage src={effectiveUser.avatar} alt={effectiveUser.globalName} />}
             <AvatarFallback
               className="text-[10px] font-semibold"
               style={{ background: effectiveUser.avatar, color: "#0b0f14" }}
@@ -342,6 +352,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </Dialog>
     </div>
   );
+}
+
+function isImageUrl(value?: string | null): value is string {
+  return Boolean(value && /^https?:\/\//i.test(value));
 }
 
 // === Sidebar content (shared between desktop and mobile) ===
