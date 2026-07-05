@@ -53,7 +53,6 @@ function mapGuild(discordGuild: any, botGuild: any) {
       : "#65b8da"),
     ownerId: botGuild?.ownerId || "",
     memberCount: botGuild?.memberCount || 0,
-    onlineCount: 0,
     botInServer,
     userPermissions,
     userCanManage: true,

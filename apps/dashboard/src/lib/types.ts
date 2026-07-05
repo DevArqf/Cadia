@@ -42,7 +42,6 @@ export interface DiscordServer {
   icon: string; // color hex for placeholder
   ownerId: string;
   memberCount: number;
-  onlineCount: number;
   botInServer: boolean;
   userPermissions: string[]; // raw perms the user has in this server
   userCanManage: boolean; // ADMINISTRATOR or MANAGE_GUILD

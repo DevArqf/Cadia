@@ -38,8 +38,112 @@ import {
   Calendar,
   Globe,
 } from "lucide-react";
-import { MOCK_SERVERS } from "@/lib/mock-data";
 import { toast } from "sonner";
+import type { DiscordServer } from "@/lib/types";
+
+interface AdminGuild {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  bannerUrl?: string | null;
+  ownerId: string;
+  memberCount: number;
+  premiumTier: number;
+  premiumSubscriptionCount: number;
+  createdAt: number;
+  joinedAt: number;
+  nickname: string;
+  prefix: string;
+  verificationLevel: string;
+  explicitContentFilter: string;
+  defaultMessageNotifications: string;
+  mfaLevel: number;
+  vanityURLCode: string | null;
+  description: string | null;
+  maxBitrate: number;
+  maxFileSize: number;
+  afkChannel: string | null;
+  afkTimeout: number;
+  systemChannel: string | null;
+  rulesChannel: string | null;
+  publicUpdatesChannel: string | null;
+  channelCount: number;
+  textChannelCount: number;
+  voiceChannelCount: number;
+  categoryCount: number;
+  emojiCount: number;
+  stickerCount: number;
+  roleCount: number;
+  channels: DiscordServer["channels"];
+  roles: DiscordServer["roles"];
+  features?: string[];
+}
+
+function formatUptime(uptimeMs: number) {
+  const hours = Math.floor(uptimeMs / 3_600_000);
+  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h`;
+  return `${Math.floor(uptimeMs / 60_000)}m`;
+}
+
+function toDashboardServer(guild: AdminGuild): DiscordServer {
+  return {
+    id: guild.id,
+    name: guild.name,
+    icon: guild.iconUrl || "#65b8da",
+    ownerId: guild.ownerId,
+    memberCount: guild.memberCount,
+    botInServer: true,
+    userPermissions: ["ADMINISTRATOR"],
+    userCanManage: true,
+    roles: (guild.roles || []).map((role) => ({ ...role, canManageCadia: role.canManageCadia || false })),
+    features: guild.features || [],
+    premium: guild.premiumTier > 0,
+    region: "Discord",
+    createdAt: guild.createdAt,
+    boostLevel: guild.premiumTier,
+    boostCount: guild.premiumSubscriptionCount,
+    channelCount: guild.channelCount,
+    textChannelCount: guild.textChannelCount,
+    voiceChannelCount: guild.voiceChannelCount,
+    categoryCount: guild.categoryCount,
+    emojiCount: guild.emojiCount,
+    stickerCount: guild.stickerCount,
+    roleCount: guild.roleCount,
+    bannedCount: 0,
+    invitesCount: 0,
+    integrationsCount: 0,
+    webhooksCount: 0,
+    botJoinedAt: guild.joinedAt,
+    botNickname: guild.nickname,
+    verificationLevel: guild.verificationLevel,
+    explicitContentFilter: guild.explicitContentFilter,
+    defaultNotifications: guild.defaultMessageNotifications,
+    twoFactorRequired: Boolean(guild.mfaLevel),
+    vanityUrl: guild.vanityURLCode,
+    banner: guild.bannerUrl || null,
+    description: guild.description,
+    maxBitrate: Math.round((guild.maxBitrate || 96_000) / 1000),
+    maxFileSize: guild.maxFileSize || 25,
+    afkChannel: guild.afkChannel,
+    afkTimeout: guild.afkTimeout,
+    systemChannel: guild.systemChannel,
+    rulesChannel: guild.rulesChannel,
+    updatesChannel: guild.publicUpdatesChannel,
+    botPrefix: guild.prefix || "cd ",
+    channels: guild.channels || [],
+    botStatus: "online",
+  };
+}
+
+interface AdminOverview {
+  guilds: AdminGuild[];
+  blacklisted: Array<{ guildId: string; guildName: string; reason: string; blacklistedAt: number; expiresAt: number | null }>;
+  audit: Array<{ id: string; action: string; details: string; actorId: string; actorName: string; createdAt: number }>;
+  status: "online" | "maintenance" | "offline";
+  activity: string;
+  system: { version: string; latencyMs: number; memoryMb: number; cpuPercent: number; uptimeMs: number };
+}
 
 const DURATION_OPTIONS = [
   { label: "Permanent", value: null },
@@ -53,13 +157,7 @@ const DURATION_OPTIONS = [
 export function AdminView() {
   const adminUnlocked = useCadia((s) => s.adminUnlocked);
   const lockAdmin = useCadia((s) => s.lockAdmin);
-  const blacklistServer = useCadia((s) => s.blacklistServer);
-  const unblacklistServer = useCadia((s) => s.unblacklistServer);
-  const blacklistedIds = useCadia((s) => s.blacklistedServerIds);
-  const blacklistInfo = useCadia((s) => s.blacklistInfo);
   const user = useCadia((s) => s.user);
-  const allLogs = useCadia((s) => s.logs);
-  const addLog = useCadia((s) => s.addLog);
   const selectServerAsAdmin = useCadia((s) => s.selectServerAsAdmin);
 
   const [search, setSearch] = useState("");
@@ -69,8 +167,7 @@ export function AdminView() {
   const [activeTab, setActiveTab] = useState<"servers" | "bot" | "audit">("servers");
   const [botActivity, setBotActivity] = useState("/help | cadia.bot");
   const [serverAuthorized, setServerAuthorized] = useState(false);
-  const globalBotStatus = useCadia((s) => s.globalBotStatus);
-  const setGlobalBotStatus = useCadia((s) => s.setGlobalBotStatus);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
 
   useEffect(() => {
     if (!adminUnlocked) {
@@ -78,9 +175,12 @@ export function AdminView() {
       return;
     }
     const controller = new AbortController();
-    fetch("/api/admin/session", { cache: "no-store", signal: controller.signal })
-      .then((response) => {
+    fetch("/api/admin/overview", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
         if (!response.ok) throw new Error("Admin session expired");
+        const payload = await response.json();
+        setOverview(payload);
+        setBotActivity(payload.activity || "");
         setServerAuthorized(true);
       })
       .catch((error) => {
@@ -115,7 +215,7 @@ export function AdminView() {
   }
 
   // Only show servers where the bot is actually in (dev doesn't need mutual servers)
-  const botServers = MOCK_SERVERS.filter((s) => s.botInServer);
+  const botServers = overview?.guilds || [];
   const filtered = botServers.filter(
     (s) =>
       !search ||
@@ -125,24 +225,27 @@ export function AdminView() {
 
   const totalServers = botServers.length;
   const totalMembers = botServers.reduce((sum, s) => sum + s.memberCount, 0);
-  const totalBlacklisted = blacklistedIds.length;
+  const totalBlacklisted = overview?.blacklisted.length || 0;
+  const blacklistById = new Map((overview?.blacklisted || []).map((entry) => [entry.guildId, entry]));
 
-  const handleBotStatusChange = (status: "online" | "maintenance" | "offline") => {
-    setGlobalBotStatus(status);
-    toast.success(`Bot status changed to ${status}`);
+  const handleBotStatusChange = async (status: "online" | "maintenance" | "offline") => {
+    try {
+      await runAdminAction("status", { status });
+      setOverview((current) => current ? { ...current, status } : current);
+      toast.success(`Bot status changed to ${status}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update bot status");
+    }
   };
 
-  const handleActivityUpdate = () => {
-    addLog({
-      type: "audit",
-      serverId: "-",
-      serverName: "-",
-      actor: user?.username || "owner",
-      actorId: user?.id || "0",
-      action: "Updated bot activity",
-      details: `Activity: ${botActivity}`,
-    });
-    toast.success("Bot activity updated");
+  const handleActivityUpdate = async () => {
+    try {
+      await runAdminAction("activity", { activity: botActivity });
+      setOverview((current) => current ? { ...current, activity: botActivity } : current);
+      toast.success("Bot activity updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update bot activity");
+    }
   };
 
   const handleOpenBlacklist = (serverId: string) => {
@@ -151,40 +254,59 @@ export function AdminView() {
     setBlacklistDuration(null);
   };
 
-  const handleConfirmBlacklist = () => {
+  const handleConfirmBlacklist = async () => {
     if (!blacklistTarget) return;
-    blacklistServer(blacklistTarget, blacklistReason.trim(), blacklistDuration);
-    const server = MOCK_SERVERS.find((s) => s.id === blacklistTarget);
-    toast.success(`"${server?.name}" blacklisted`, {
-      description: blacklistReason.trim() || "No reason provided",
-    });
-    setBlacklistTarget(null);
-    setBlacklistReason("");
-    setBlacklistDuration(null);
+    try {
+      await runAdminAction("blacklist", {
+        guildId: blacklistTarget,
+        reason: blacklistReason.trim(),
+        durationMs: blacklistDuration,
+      });
+      const server = botServers.find((s) => s.id === blacklistTarget);
+      await refreshOverview();
+      toast.success(`"${server?.name}" blacklisted`, {
+        description: blacklistReason.trim() || "No reason provided",
+      });
+      setBlacklistTarget(null);
+      setBlacklistReason("");
+      setBlacklistDuration(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not blacklist server");
+    }
   };
 
   const handleOpenServer = (serverId: string) => {
+    const guild = botServers.find((entry) => entry.id === serverId);
+    if (!guild) return;
+    const server = toDashboardServer(guild);
+    useCadia.setState((state) => ({
+      servers: [...state.servers.filter((entry) => entry.id !== server.id), server],
+    }));
     selectServerAsAdmin(serverId);
   };
 
-  const adminLogs = allLogs
-    .filter(
-      (l) =>
-        l.type === "audit" &&
-        (l.action.includes("admin") ||
-          l.action.includes("Blacklist") ||
-          l.action.includes("admin login") ||
-          l.action.includes("Owner") ||
-          l.action.includes("Failed") ||
-          l.action.includes("Bot status") ||
-          l.action.includes("bot activity") ||
-          l.action.includes("Unblacklist")),
-    )
-    .slice(0, 12);
+  const adminLogs = overview?.audit.slice(0, 50) || [];
 
   const blacklistTargetServer = blacklistTarget
-    ? MOCK_SERVERS.find((s) => s.id === blacklistTarget)
+    ? botServers.find((s) => s.id === blacklistTarget)
     : null;
+
+  async function runAdminAction(action: string, payload: object) {
+    const response = await fetch("/api/admin/overview", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action, payload }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Admin action failed");
+    return result;
+  }
+
+  async function refreshOverview() {
+    const response = await fetch("/api/admin/overview", { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not refresh admin data");
+    setOverview(await response.json());
+  }
 
   return (
     <div className="min-h-screen flex flex-col cadia-bg scanlines">
@@ -256,9 +378,9 @@ export function AdminView() {
               { label: "Servers", value: totalServers, icon: ServerIcon, color: "#65b8da" },
               { label: "Members", value: totalMembers.toLocaleString(), icon: Users, color: "#3bb143" },
               { label: "Blacklisted", value: totalBlacklisted, icon: Ban, color: "#e94041" },
-              { label: "Log Events", value: allLogs.length, icon: Activity, color: "#e9d502" },
-              { label: "Status", value: globalBotStatus === "online" ? "Online" : globalBotStatus === "maintenance" ? "Maint" : "Offline", icon: Cpu, color: globalBotStatus === "online" ? "#3bb143" : globalBotStatus === "maintenance" ? "#e9d502" : "#e94041" },
-              { label: "Uptime", value: "99.9%", icon: Clock, color: "#65b8da" },
+              { label: "Audit Events", value: overview?.audit.length || 0, icon: Activity, color: "#e9d502" },
+              { label: "Status", value: overview?.status === "online" ? "Online" : overview?.status === "maintenance" ? "Maint" : "Offline", icon: Cpu, color: overview?.status === "online" ? "#3bb143" : overview?.status === "maintenance" ? "#e9d502" : "#e94041" },
+              { label: "Uptime", value: formatUptime(overview?.system.uptimeMs || 0), icon: Clock, color: "#65b8da" },
             ].map((stat) => (
               <div key={stat.label} className="cadia-card cadia-card-hover p-3">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -307,8 +429,8 @@ export function AdminView() {
                   style={{ maxHeight: "60vh" }}
                 >
                   {filtered.map((s) => {
-                    const isBlacklisted = blacklistedIds.includes(s.id);
-                    const info = blacklistInfo[s.id];
+                    const info = blacklistById.get(s.id);
+                    const isBlacklisted = Boolean(info);
                     return (
                       <div
                         key={s.id}
@@ -325,9 +447,9 @@ export function AdminView() {
                             <div
                               className="h-11 w-11 shrink-0 flex items-center justify-center text-xs font-bold rounded-xl border-2"
                               style={{
-                                background: s.icon,
+                                background: s.iconUrl ? `url(${s.iconUrl}) center/cover` : "#65b8da",
                                 color: "#0b0f14",
-                                borderColor: s.icon,
+                                borderColor: "#65b8da",
                                 opacity: isBlacklisted ? 0.5 : 1,
                               }}
                             >
@@ -341,7 +463,7 @@ export function AdminView() {
                                 {s.ownerId === user?.id && (
                                   <Crown className="h-3.5 w-3.5 text-warning shrink-0" />
                                 )}
-                                {s.premium && (
+                                {s.premiumTier > 0 && (
                                   <Badge className="text-[9px] font-medium bg-warning/20 text-warning border border-warning/40 px-1.5 py-0">
                                     PREMIUM
                                   </Badge>
@@ -360,7 +482,7 @@ export function AdminView() {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Globe className="h-2.5 w-2.5" />
-                                  {s.region}
+                                  Boost tier {s.premiumTier}
                                 </span>
                                 <span>owner: {s.ownerId}</span>
                               </div>
@@ -371,8 +493,8 @@ export function AdminView() {
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
                                     Blacklisted {new Date(info.blacklistedAt).toLocaleString()}
-                                    {info.durationMs
-                                      ? ` · expires in ${Math.max(0, Math.round((info.blacklistedAt + info.durationMs - Date.now()) / 3600000))}h`
+                                    {info.expiresAt
+                                      ? ` · expires in ${Math.max(0, Math.round((info.expiresAt - Date.now()) / 3600000))}h`
                                       : " · permanent"}
                                   </p>
                                 </div>
@@ -408,8 +530,10 @@ export function AdminView() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                unblacklistServer(s.id);
-                                toast.success(`"${s.name}" removed from blacklist`);
+                                void runAdminAction("unblacklist", { guildId: s.id })
+                                  .then(refreshOverview)
+                                  .then(() => toast.success(`"${s.name}" removed from blacklist`))
+                                  .catch((error) => toast.error(error instanceof Error ? error.message : "Could not remove blacklist"));
                               }}
                               className="cadia-btn text-[10px] font-medium h-7 border-success/50 text-success hover:bg-success/10 shrink-0"
                             >
@@ -448,9 +572,9 @@ export function AdminView() {
                       key={s.id}
                       onClick={() => handleBotStatusChange(s.id)}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${
-                        globalBotStatus === s.id ? "border-current" : "border-border hover:border-cadia/30"
+                        overview?.status === s.id ? "border-current" : "border-border hover:border-cadia/30"
                       }`}
-                      style={globalBotStatus === s.id ? { color: s.color, background: `${s.color}10` } : {}}
+                      style={overview?.status === s.id ? { color: s.color, background: `${s.color}10` } : {}}
                     >
                       <div className="flex items-center gap-1.5 mb-1">
                         <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
@@ -494,10 +618,10 @@ export function AdminView() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   {[
-                    { label: "Version", value: "v2.4.1", icon: Bot },
-                    { label: "Latency", value: "62ms", icon: Wifi },
-                    { label: "Memory", value: "248 MB", icon: HardDrive },
-                    { label: "CPU", value: "12%", icon: Cpu },
+                    { label: "Version", value: `v${overview?.system.version || "unknown"}`, icon: Bot },
+                    { label: "Latency", value: `${overview?.system.latencyMs ?? 0}ms`, icon: Wifi },
+                    { label: "Memory", value: `${overview?.system.memoryMb ?? 0} MB`, icon: HardDrive },
+                    { label: "CPU", value: `${overview?.system.cpuPercent ?? 0}%`, icon: Cpu },
                   ].map((m) => (
                     <div key={m.label} className="p-2 rounded-lg border border-border/60 bg-card/40">
                       <div className="flex items-center gap-1 mb-1">
@@ -547,12 +671,12 @@ export function AdminView() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-xs font-semibold text-foreground">{l.action}</span>
                               <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                                {new Date(l.timestamp).toLocaleString()}
+                                {new Date(l.createdAt).toLocaleString()}
                               </span>
                             </div>
                             <p className="text-[11px] text-foreground/80 mt-1">{l.details}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">
-                              by <span className="text-rpg">{l.actor}</span> ({l.actorId})
+                              by <span className="text-rpg">{l.actorName}</span> ({l.actorId})
                             </p>
                           </div>
                         </div>
@@ -593,9 +717,9 @@ export function AdminView() {
                 <div
                   className="h-10 w-10 shrink-0 flex items-center justify-center text-xs font-bold rounded-xl border-2"
                   style={{
-                    background: blacklistTargetServer.icon,
+                    background: blacklistTargetServer.iconUrl ? `url(${blacklistTargetServer.iconUrl}) center/cover` : "#65b8da",
                     color: "#0b0f14",
-                    borderColor: blacklistTargetServer.icon,
+                    borderColor: "#65b8da",
                   }}
                 >
                   {blacklistTargetServer.name.slice(0, 2).toUpperCase()}

@@ -1,5 +1,7 @@
 const { DEFAULT_IPC_ENDPOINT, createIpcServer } = require('@cadia/ipc');
-const { PermissionFlagsBits } = require('discord.js');
+const os = require('node:os');
+const { ActivityType, PermissionFlagsBits } = require('discord.js');
+const { version } = require('../../../package.json');
 const { createInviteUrl } = require('../../config/invite');
 const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
@@ -7,6 +9,10 @@ const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
 const { buildCommandCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
 const { getAutoModConfig, saveAutoModConfig, serializeAutoModConfig, setAutoModModuleEnabled } = require('../automod/autoModService');
 const { getGuildSettings, normalizeGuildPrefix, saveGuildPrefix } = require('../runtime/guildSettings');
+const runtimeConfig = require('../runtime/runtimeConfig');
+const Blacklist = require('../schemas/blacklistSchema');
+const AdminAudit = require('../schemas/adminAuditSchema');
+const { cacheGuildBlacklist, removeGuildBlacklistFromCache } = require('../policies/blacklist');
 
 function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT || DEFAULT_IPC_ENDPOINT } = {}) {
 	const server = createIpcServer({
@@ -16,6 +22,11 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'bot.status') return botStatus(client);
 			if (request.type === 'bot.inviteUrl') return { url: createInviteUrl(client) };
 			if (request.type === 'bot.guilds') return botGuilds(client);
+			if (request.type === 'admin.overview') return adminOverview(client);
+			if (request.type === 'admin.status.update') return updateAdminStatus(client, request.payload);
+			if (request.type === 'admin.activity.update') return updateAdminActivity(client, request.payload);
+			if (request.type === 'admin.blacklist.add') return addAdminBlacklist(client, request.payload);
+			if (request.type === 'admin.blacklist.remove') return removeAdminBlacklist(client, request.payload);
 			if (request.type === 'guild.settings.get') return getGuildDashboardSettings(client, request.payload);
 			if (request.type === 'guild.settings.update') return updateGuildDashboardSettings(client, request.payload);
 			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
@@ -33,6 +44,119 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 
 	client.logger.info(`Cadia IPC server listening on ${server.endpoint}`);
 	return server;
+}
+
+async function adminOverview(client) {
+	const [guilds, blacklisted, audit, maintenance, configuredStatus] = await Promise.all([
+		botGuilds(client),
+		Blacklist.find(),
+		AdminAudit.find().sort({ createdAt: -1 }).limit(50),
+		runtimeConfig.getRuntimeConfig('maintenance.enabled', false),
+		runtimeConfig.getRuntimeConfig('admin.status', null)
+	]);
+	const memoryMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+	const uptimeSeconds = Math.floor(process.uptime());
+	const cpuMicros = Object.values(process.cpuUsage()).reduce((total, value) => total + value, 0);
+	const cpuPercent = uptimeSeconds > 0 ? Math.min(100, cpuMicros / (uptimeSeconds * 1_000_000 * Math.max(1, os.cpus().length)) * 100) : 0;
+	const activeBlacklisted = [];
+	for (const entry of blacklisted) {
+		if (entry.expiresAt && entry.expiresAt <= Date.now()) {
+			await Blacklist.findOneAndDelete({ guildId: entry.guildId });
+			removeGuildBlacklistFromCache(entry.guildId);
+		} else {
+			activeBlacklisted.push(entry);
+		}
+	}
+	return {
+		guilds,
+		blacklisted: activeBlacklisted.map(serializeBlacklist),
+		audit: audit.map((entry) => ({
+			id: String(entry.__db_id || `${entry.createdAt}-${entry.actorId}`),
+			action: entry.action,
+			details: entry.details,
+			actorId: entry.actorId,
+			actorName: entry.actorName,
+			createdAt: entry.createdAt
+		})),
+		status: configuredStatus || (maintenance ? 'maintenance' : 'online'),
+		activity: client.user?.presence?.activities?.[0]?.name || '',
+		system: {
+			version,
+			latencyMs: Math.max(0, Math.round(client.ws.ping || 0)),
+			memoryMb,
+			cpuPercent: Number(cpuPercent.toFixed(1)),
+			uptimeMs: process.uptime() * 1000
+		}
+	};
+}
+
+async function updateAdminStatus(client, payload = {}) {
+	const status = ['online', 'maintenance', 'offline'].includes(payload.status) ? payload.status : null;
+	if (!status) throw new RangeError('Invalid bot status.');
+	await runtimeConfig.setRuntimeConfig('maintenance.enabled', status !== 'online', payload.actorId || null);
+	await runtimeConfig.setRuntimeConfig('admin.status', status, payload.actorId || null);
+	client.user.setPresence({ status: status === 'offline' ? 'invisible' : status === 'maintenance' ? 'idle' : 'online' });
+	await writeAdminAudit('Updated bot status', `Status changed to ${status}`, payload);
+	return { status };
+}
+
+async function updateAdminActivity(client, payload = {}) {
+	const activity = String(payload.activity || '').trim().slice(0, 128);
+	if (!activity) throw new RangeError('Activity is required.');
+	client.disableActivityRotation = true;
+	if (client.activityRotationTimer) clearInterval(client.activityRotationTimer);
+	client.user.setActivity(activity, { type: ActivityType.Playing });
+	await writeAdminAudit('Updated bot activity', `Activity changed to ${activity}`, payload);
+	return { activity };
+}
+
+async function addAdminBlacklist(client, payload = {}) {
+	const guildId = String(payload.guildId || '');
+	if (!/^\d{17,20}$/.test(guildId)) throw new RangeError('Invalid Discord server ID.');
+	if (await Blacklist.findOne({ guildId })) throw new Error('This server is already blacklisted.');
+	const guild = client.guilds.cache.get(guildId);
+	const durationMs = Number(payload.durationMs) > 0 ? Number(payload.durationMs) : null;
+	const entry = await Blacklist.create({
+		guildId,
+		guildName: guild?.name || 'Unknown server',
+		reason: String(payload.reason || 'No reason provided').slice(0, 500),
+		blacklistedAt: Date.now(),
+		expiresAt: durationMs ? Date.now() + durationMs : null,
+		blacklistedBy: payload.actorId || null
+	});
+	cacheGuildBlacklist(entry);
+	await writeAdminAudit('Blacklisted server', `${entry.guildName} (${guildId}): ${entry.reason}`, payload);
+	return serializeBlacklist(entry);
+}
+
+async function removeAdminBlacklist(client, payload = {}) {
+	const guildId = String(payload.guildId || '');
+	const entry = await Blacklist.findOneAndDelete({ guildId });
+	if (!entry) throw new Error('This server is not blacklisted.');
+	removeGuildBlacklistFromCache(guildId);
+	await writeAdminAudit('Removed server blacklist', `${entry.guildName || guildId} (${guildId})`, payload);
+	return { guildId };
+}
+
+function serializeBlacklist(entry) {
+	return {
+		guildId: entry.guildId,
+		guildName: entry.guildName || 'Unknown server',
+		reason: entry.reason || 'No reason provided',
+		blacklistedAt: Number(entry.blacklistedAt || 0),
+		expiresAt: entry.expiresAt ? Number(entry.expiresAt) : null,
+		blacklistedBy: entry.blacklistedBy || null
+	};
+}
+
+async function writeAdminAudit(action, details, payload) {
+	return AdminAudit.create({
+		action,
+		details,
+		actorId: String(payload.actorId || 'unknown'),
+		actorName: String(payload.actorName || 'unknown'),
+		createdAt: Date.now()
+	});
 }
 
 async function getGuildDashboardSettings(client, payload = {}) {
@@ -289,6 +413,7 @@ async function botGuilds(client) {
 			name: guild.name,
 			iconUrl: guild.iconURL?.({ size: 128 }) || null,
 			bannerUrl: guild.bannerURL?.({ size: 512 }) || null,
+			createdAt: guild.createdTimestamp,
 			ownerId: guild.ownerId,
 			memberCount: guild.memberCount || 0,
 			premiumTier: guild.premiumTier || 0,

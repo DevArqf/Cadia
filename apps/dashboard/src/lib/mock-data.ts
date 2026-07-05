@@ -34,7 +34,6 @@ export const MOCK_SERVERS: DiscordServer[] = [
 		icon: '#65b8da',
 		ownerId: '899385550585364481',
 		memberCount: 1248,
-		onlineCount: 423,
 		botInServer: true,
 		userPermissions: ['ADMINISTRATOR'],
 		userCanManage: true,
@@ -98,7 +97,6 @@ export const MOCK_SERVERS: DiscordServer[] = [
 		icon: '#5e3a6d',
 		ownerId: '899385550585364481',
 		memberCount: 532,
-		onlineCount: 187,
 		botInServer: true,
 		userPermissions: ['ADMINISTRATOR'],
 		userCanManage: true,
@@ -158,7 +156,6 @@ export const MOCK_SERVERS: DiscordServer[] = [
 		icon: '#e9d502',
 		ownerId: '899385550585364481',
 		memberCount: 12,
-		onlineCount: 5,
 		botInServer: false, // not yet added — should show invite redirect
 		userPermissions: ['ADMINISTRATOR'],
 		userCanManage: true,
@@ -211,7 +208,6 @@ export const MOCK_SERVERS: DiscordServer[] = [
 		icon: '#8a99ab',
 		ownerId: '999999999999999999',
 		memberCount: 8000,
-		onlineCount: 2100,
 		botInServer: true,
 		userPermissions: [],
 		userCanManage: false, // hidden

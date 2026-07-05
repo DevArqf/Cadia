@@ -83,6 +83,7 @@ export function DashboardTab() {
     server?.channels.find((c) => c.name === server.updatesChannel)?.id ?? null,
   );
   const [channelPickerOpen, setChannelPickerOpen] = useState(false);
+  const [serverIconFailed, setServerIconFailed] = useState(false);
 
   const isAdminUnlocked = useCadia((s) => s.adminUnlocked);
   if (!server || (!user && !isAdminUnlocked)) return null;
@@ -177,10 +178,23 @@ export function DashboardTab() {
       <div className="cadia-card cadia-card-hover p-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div
-            className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 flex items-center justify-center text-base sm:text-lg font-bold rounded-2xl border-2"
-            style={{ background: server.icon, color: "#0b0f14", borderColor: server.icon }}
+            className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 flex items-center justify-center text-base sm:text-lg font-bold rounded-2xl border-2 overflow-hidden"
+            style={{
+              background: isImageUrl(server.icon) ? "#65b8da" : server.icon,
+              color: "#0b0f14",
+              borderColor: isImageUrl(server.icon) ? "rgba(101,184,218,.7)" : server.icon,
+            }}
           >
-            {server.name.slice(0, 2).toUpperCase()}
+            {(!isImageUrl(server.icon) || serverIconFailed) && server.name.slice(0, 2).toUpperCase()}
+            {isImageUrl(server.icon) && !serverIconFailed && (
+              <img
+                src={server.icon}
+                alt={`${server.name} icon`}
+                className="h-full w-full object-cover"
+                decoding="async"
+                onError={() => setServerIconFailed(true)}
+              />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -197,10 +211,6 @@ export function DashboardTab() {
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
                 {server.memberCount.toLocaleString()} total
-              </span>
-              <span className="flex items-center gap-1 text-success">
-                <span className="h-2 w-2 rounded-full bg-success inline-block" />
-                {server.onlineCount.toLocaleString()} online
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
@@ -539,4 +549,8 @@ export function DashboardTab() {
       </div>
     </div>
   );
+}
+
+function isImageUrl(value?: string | null): value is string {
+  return Boolean(value && /^https?:\/\//i.test(value));
 }

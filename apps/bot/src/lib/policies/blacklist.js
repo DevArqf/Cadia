@@ -26,11 +26,18 @@ async function initializeBlacklistCache() {
 
 async function getGuildBlacklist(guildId, userId) {
 	if (!guildId || PrivilegedUsers.includes(userId)) return null;
-	if (cacheReady) return blacklistCache.get(guildId) ?? null;
+	if (cacheReady) return removeIfExpired(blacklistCache.get(guildId) ?? null);
 
 	const entry = await Guild.findOne({ guildId });
 	if (entry) blacklistCache.set(guildId, entry);
-	return entry;
+	return removeIfExpired(entry);
+}
+
+async function removeIfExpired(entry) {
+	if (!entry?.expiresAt || entry.expiresAt > Date.now()) return entry;
+	blacklistCache.delete(entry.guildId);
+	await Guild.findOneAndDelete({ guildId: entry.guildId });
+	return null;
 }
 
 function cacheGuildBlacklist(entry) {
