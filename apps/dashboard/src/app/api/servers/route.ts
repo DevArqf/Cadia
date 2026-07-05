@@ -14,7 +14,7 @@ export async function GET() {
     requestBot<any[]>("bot.guilds").catch(() => []),
   ]);
 
-  const botGuildById = new Map(botGuilds.map((guild) => [guild.id, guild]));
+  const botGuildById = new Map<string, any>(botGuilds.map((guild) => [String(guild.id), guild] as const));
   const servers = discordGuilds
     .filter((guild) => canManageGuild(guild))
     .map((guild) => mapGuild(guild, botGuildById.get(guild.id)));

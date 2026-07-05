@@ -83,7 +83,7 @@ export function AdminConsoleListener() {
           serverId: "-",
           serverName: "-",
           actor: "owner",
-          actorId: userId || "899385550585364481",
+          actorId: "899385550585364481",
           action: "Owner entered admin panel",
           details: "Refresh-redirect after successful credential verification",
         });
@@ -91,7 +91,7 @@ export function AdminConsoleListener() {
     } catch {
       // ignore
     }
-  }, [setView, addLog, userId]);
+  }, [setView, addLog]);
 
   // === 3) Lockout countdown ticker ===
   useEffect(() => {

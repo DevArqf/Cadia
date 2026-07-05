@@ -92,8 +92,12 @@ interface CadiaState {
 }
 
 function clone<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v));
+  return structuredClone(v);
 }
+
+let commandSaveInFlight: Promise<void> | null = null;
+let commandSaveQueued = false;
+const MAX_CLIENT_LOGS = 500;
 
 async function readApiPayload(response: Response) {
   const body = await response.text();
@@ -168,10 +172,12 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
   loadDashboardSession: async () => {
     try {
-      const meResponse = await fetch("/api/me", { cache: "no-store" });
+      const [meResponse, serversResponse] = await Promise.all([
+        fetch("/api/me", { cache: "no-store" }),
+        fetch("/api/servers", { cache: "no-store" }),
+      ]);
       if (!meResponse.ok) return;
       const me = await meResponse.json();
-      const serversResponse = await fetch("/api/servers", { cache: "no-store" });
       const serversPayload = serversResponse.ok ? await serversResponse.json() : { servers: [] };
       set({
         user: me.user,
@@ -327,17 +333,33 @@ export const useCadia = create<CadiaState>((set, get) => ({
   markChanged: () => set({ hasUnsavedChanges: true }),
 
   saveConfig: async () => {
-    const server = get().selectedServer;
-		if (!server) return;
-		try {
-			const response = await fetch(`/api/servers/${server.id}/command-config`, {
-				method: "PUT",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ modules: get().modules }),
-			});
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.message || "Could not save command configuration");
-			set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
+    if (commandSaveInFlight) {
+      commandSaveQueued = true;
+      return commandSaveInFlight;
+    }
+
+    commandSaveInFlight = (async () => {
+      const initialServer = get().selectedServer;
+      if (!initialServer) return;
+
+      do {
+        commandSaveQueued = false;
+        const server = get().selectedServer;
+        if (!server || server.id !== initialServer.id) return;
+        const response = await fetch(`/api/servers/${server.id}/command-config`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ modules: get().modules }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.message || "Could not save command configuration");
+        if (!commandSaveQueued && get().selectedServer?.id === server.id) {
+          set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
+        }
+      } while (commandSaveQueued);
+
+      const server = get().selectedServer;
+      if (!server || server.id !== initialServer.id) return;
       get().addLog({
         type: "config",
         serverId: server.id,
@@ -347,11 +369,17 @@ export const useCadia = create<CadiaState>((set, get) => ({
         action: "Saved configuration",
         details: `${server.name} configuration saved by ${get().user?.username || "unknown"}`,
       });
-			toast.success("Command and module configuration saved");
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Could not save command configuration");
-			throw error;
-		}
+      toast.success("Command and module configuration saved");
+    })();
+
+    try {
+      await commandSaveInFlight;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save command configuration");
+      throw error;
+    } finally {
+      commandSaveInFlight = null;
+    }
   },
   setPendingTab: (t) => set({ pendingTab: t }),
   setLegalPage: (p) => set({ legalPage: p, view: p ? "legal" : "landing" }),
@@ -531,7 +559,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
     };
-    set({ logs: [log, ...get().logs] });
+    set({ logs: [log, ...get().logs].slice(0, MAX_CLIENT_LOGS) });
   },
 
   openAdminConsole: () => set({ adminConsoleOpen: true }),

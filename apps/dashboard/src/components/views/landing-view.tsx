@@ -73,6 +73,8 @@ export function LandingView() {
   useEffect(() => {
     const el = statsRef.current;
     if (!el) return;
+    let counterInterval: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -83,6 +85,7 @@ export function LandingView() {
               .then((res) => res.json())
               .catch(() => ({ guildCount: 0, userCount: 0, responseTimeMs: 0 }))
               .then((status) => {
+                if (disposed) return;
                 const targets = {
                   servers: Number(status.guildCount || 0),
                   users: Number(status.userCount || 0),
@@ -90,14 +93,14 @@ export function LandingView() {
                 };
                 const duration = 2000;
                 const start = Date.now();
-                const interval = setInterval(() => {
+                counterInterval = setInterval(() => {
                   const elapsed = Date.now() - start;
                   const progress = Math.min(elapsed / duration, 1);
                   const eased = 1 - Math.pow(1 - progress, 3);
                   setServers(Math.floor(targets.servers * eased));
                   setUsers(Math.floor(targets.users * eased));
                   setResponseTime(Math.floor(targets.responseTime * eased));
-                  if (progress >= 1) clearInterval(interval);
+                  if (progress >= 1 && counterInterval) clearInterval(counterInterval);
                 }, 30);
               });
           }
@@ -107,7 +110,11 @@ export function LandingView() {
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      if (counterInterval) clearInterval(counterInterval);
+    };
   }, []);
 
   const handleAddBot = () => {

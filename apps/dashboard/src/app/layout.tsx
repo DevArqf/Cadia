@@ -1,40 +1,39 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Press_Start_2P } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono, Press_Start_2P } from 'next/font/google';
+import './globals.css';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+	variable: '--font-geist-sans',
+	subsets: ['latin']
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+	variable: '--font-geist-mono',
+	subsets: ['latin']
 });
 
 const pixelFont = Press_Start_2P({
-  variable: "--font-pixel",
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
+	variable: '--font-pixel',
+	weight: '400',
+	subsets: ['latin'],
+	display: 'swap'
 });
 
 export const metadata: Metadata = {
-  title: "Cadia — Discord Bot & Dashboard",
-  description: "Cadia — a modular Discord bot with a secure, fast dashboard. Moderation, RPG, logging, and more.",
-  keywords: ["Cadia", "Discord Bot", "Dashboard", "Moderation", "RPG"],
-  authors: [{ name: "Cadia" }],
-  icons: {
-    icon: "/cadia-logo.png",
-    shortcut: "/cadia-logo.png",
-    apple: "/cadia-logo.png",
-  },
-  openGraph: {
-    title: "Cadia — Discord Bot & Dashboard",
-    description: "A modular Discord bot with a pixel-perfect dashboard.",
-    images: ["/cadia-logo.png"],
-  },
+	title: 'Cadia - Manage your server',
+	description: 'Manage your Discord server with Cadia - a modular bot with a secure, fast dashboard.',
+	keywords: ['Cadia', 'Discord Bot', 'Dashboard', 'Moderation', 'RPG'],
+	authors: [{ name: 'Cadia' }],
+	icons: {
+		icon: '/cadia-logo.png',
+		shortcut: '/cadia-logo.png',
+		apple: '/cadia-logo.png'
+	},
+	openGraph: {
+		title: 'Cadia - Manage your server',
+		description: 'Manage your Discord server with Cadia - a modular bot with a secure, fast dashboard.',
+		images: ['/cadia-logo.png']
+	}
 };
 
 // This inline script runs BEFORE React hydrates, guaranteeing window.cadia
@@ -56,24 +55,20 @@ const CADIA_BOOT_SCRIPT = `
 `;
 
 export default function RootLayout({
-  children,
+	children
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en" suppressHydrationWarning className="dark">
-      <head>
-        <script
-          dangerouslySetInnerHTML={{ __html: CADIA_BOOT_SCRIPT }}
-          suppressHydrationWarning
-        />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${pixelFont.variable} antialiased bg-background text-foreground min-h-screen`}
-      >
-        {children}
-        <Toaster />
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en" suppressHydrationWarning className="dark">
+			<head>
+				<script dangerouslySetInnerHTML={{ __html: CADIA_BOOT_SCRIPT }} suppressHydrationWarning />
+			</head>
+			<body
+				className={`${geistSans.variable} ${geistMono.variable} ${pixelFont.variable} antialiased bg-background text-foreground min-h-screen`}
+			>
+				{children}
+			</body>
+		</html>
+	);
 }

@@ -36,16 +36,24 @@ export function LegalPageView({ page }: LegalPageViewProps) {
 
   // Listen for the "Learn more" highlight event (only relevant on terms/privacy)
   useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    let highlightTimer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
       setHighlight(true);
       const target = page === "terms" ? termsRef.current : page === "privacy" ? privacyRef.current : null;
-      setTimeout(() => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      if (highlightTimer) clearTimeout(highlightTimer);
+      scrollTimer = setTimeout(() => {
         target?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
-      setTimeout(() => setHighlight(false), 6500);
+      highlightTimer = setTimeout(() => setHighlight(false), 6500);
     };
     window.addEventListener("cadia:highlight-legal", handler);
-    return () => window.removeEventListener("cadia:highlight-legal", handler);
+    return () => {
+      window.removeEventListener("cadia:highlight-legal", handler);
+      if (scrollTimer) clearTimeout(scrollTimer);
+      if (highlightTimer) clearTimeout(highlightTimer);
+    };
   }, [page]);
 
   return (

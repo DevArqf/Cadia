@@ -22,14 +22,15 @@ export function ServerSelectView() {
   const user = useCadia((s) => s.user);
   const logout = useCadia((s) => s.logout);
   const setView = useCadia((s) => s.setView);
+  const servers = useCadia((s) => s.servers);
   const blacklistedIds = useCadia((s) => s.blacklistedServerIds);
   const selectServer = useCadia((s) => s.selectServer);
 
   const visibleServers = useMemo(() => {
     // Show ALL servers the user can manage — including blacklisted ones
     // (blacklisted servers show a fallback page when selected)
-    return useCadia.getState().visibleServers();
-  }, [blacklistedIds]);
+    return servers.filter((server) => server.userCanManage && !blacklistedIds.includes(server.id));
+  }, [servers, blacklistedIds]);
 
   return (
     <div className="min-h-screen flex flex-col cadia-bg scanlines">
@@ -140,7 +141,7 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: Math.min(index, 8) * 0.03 }}
       className={`cadia-card cadia-card-hover p-5 relative overflow-hidden ${!s.botInServer ? "opacity-95" : ""}`}
     >
       {backgroundUrl && (
@@ -148,6 +149,8 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
           src={backgroundUrl}
           alt=""
           aria-hidden="true"
+          loading="lazy"
+          decoding="async"
           onLoad={() => setBackgroundLoaded(true)}
           onError={() => setBackgroundLoaded(false)}
           className={`absolute inset-[-8px] h-[calc(100%+16px)] w-[calc(100%+16px)] object-cover blur-md scale-105 transition-opacity duration-300 ${backgroundLoaded ? "opacity-55" : "opacity-0"}`}
@@ -207,6 +210,8 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                       <img
                         src={s.icon}
                         alt={`${s.name} icon`}
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover"
                         onError={() => setIconFailed(true)}
                       />

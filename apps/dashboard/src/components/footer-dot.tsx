@@ -16,23 +16,14 @@ import { useCadia } from "@/lib/store";
 export function FooterDot() {
   const openAdminConsole = useCadia((s) => s.openAdminConsole);
   const clicksRef = useRef<number[]>([]);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [progress, setProgress] = useState(0);
   const [armed, setArmed] = useState(false);
 
   useEffect(() => {
-    // Prune old clicks
-    const i = setInterval(() => {
-      const now = Date.now();
-      clicksRef.current = clicksRef.current.filter((t) => now - t < 2500);
-      if (clicksRef.current.length === 0) {
-        setProgress(0);
-        setArmed(false);
-      } else {
-        setProgress(clicksRef.current.length / 5);
-        setArmed(clicksRef.current.length >= 2);
-      }
-    }, 300);
-    return () => clearInterval(i);
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
   }, []);
 
   const handleClick = () => {
@@ -41,8 +32,16 @@ export function FooterDot() {
     const count = clicksRef.current.length;
     setProgress(count / 5);
     setArmed(count >= 2);
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
+      clicksRef.current = [];
+      setProgress(0);
+      setArmed(false);
+    }, 2500);
 
     if (count >= 5) {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
       clicksRef.current = [];
       setProgress(0);
       setArmed(false);

@@ -1,28 +1,32 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useCadia } from "@/lib/store";
 import { LandingView } from "@/components/views/landing-view";
-import { ServerSelectView } from "@/components/views/server-select-view";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { DashboardTab } from "@/components/views/dashboard-tab";
-import { ModulesTab } from "@/components/views/modules-tab";
-import { CommandsTab } from "@/components/views/commands-tab";
-import { LoggingTab } from "@/components/views/logging-tab";
-import { PremiumTab } from "@/components/views/premium-tab";
-import { PremiumView } from "@/components/views/premium-view";
-import { AdminView } from "@/components/views/admin-view";
-import { LegalPageView } from "@/components/views/legal-page-view";
-import { AboutView } from "@/components/views/about-view";
-import { BlacklistFallback } from "@/components/views/blacklist-fallback";
-import { AdminConsoleListener } from "@/components/admin-console-listener";
 import { Toaster } from "@/components/ui/sonner";
+
+const ServerSelectView = dynamic(() => import("@/components/views/server-select-view").then((module) => module.ServerSelectView));
+const DashboardShell = dynamic(() => import("@/components/dashboard-shell").then((module) => module.DashboardShell));
+const DashboardTab = dynamic(() => import("@/components/views/dashboard-tab").then((module) => module.DashboardTab));
+const ModulesTab = dynamic(() => import("@/components/views/modules-tab").then((module) => module.ModulesTab));
+const CommandsTab = dynamic(() => import("@/components/views/commands-tab").then((module) => module.CommandsTab));
+const LoggingTab = dynamic(() => import("@/components/views/logging-tab").then((module) => module.LoggingTab));
+const PremiumTab = dynamic(() => import("@/components/views/premium-tab").then((module) => module.PremiumTab));
+const PremiumView = dynamic(() => import("@/components/views/premium-view").then((module) => module.PremiumView));
+const AdminView = dynamic(() => import("@/components/views/admin-view").then((module) => module.AdminView));
+const LegalPageView = dynamic(() => import("@/components/views/legal-page-view").then((module) => module.LegalPageView));
+const AboutView = dynamic(() => import("@/components/views/about-view").then((module) => module.AboutView));
+const BlacklistFallback = dynamic(() => import("@/components/views/blacklist-fallback").then((module) => module.BlacklistFallback));
+const AdminConsoleListener = dynamic(() => import("@/components/admin-console-listener").then((module) => module.AdminConsoleListener), { ssr: false });
 
 export default function Home() {
   const view = useCadia((s) => s.view);
   const activeTab = useCadia((s) => s.activeTab);
   const user = useCadia((s) => s.user);
   const selectedServer = useCadia((s) => s.selectedServer);
+  const adminUnlocked = useCadia((s) => s.adminUnlocked);
+  const blacklistedServerIds = useCadia((s) => s.blacklistedServerIds);
   const loadDashboardSession = useCadia((s) => s.loadDashboardSession);
   const loadBotStatus = useCadia((s) => s.loadBotStatus);
 
@@ -65,10 +69,6 @@ export default function Home() {
     // Reset any internal scroll containers (dashboard <main>)
     const main = document.querySelector("main");
     if (main) main.scrollTop = 0;
-    // Reset any other scrollable elements
-    document.querySelectorAll(".cadia-scroll, [class*='overflow-y-auto']").forEach((el) => {
-      (el as HTMLElement).scrollTop = 0;
-    });
   }, [view, activeTab]);
 
   return (
@@ -97,8 +97,8 @@ export default function Home() {
 
       {view === "server-select" && user && <ServerSelectView />}
 
-      {view === "dashboard" && selectedServer && (user || useCadia.getState().adminUnlocked) && (
-        useCadia.getState().blacklistedServerIds.includes(selectedServer.id) ? (
+      {view === "dashboard" && selectedServer && (user || adminUnlocked) && (
+        blacklistedServerIds.includes(selectedServer.id) ? (
           <BlacklistFallback />
         ) : (
           <DashboardShell>

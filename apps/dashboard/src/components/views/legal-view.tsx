@@ -31,17 +31,25 @@ export function LegalView() {
 
   // Listen for the "Learn more" highlight event from the landing page
   useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+    let highlightTimer: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
       setHighlight(true);
       // Scroll to the tab bar so the user sees the highlighted links
-      setTimeout(() => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      if (highlightTimer) clearTimeout(highlightTimer);
+      scrollTimer = setTimeout(() => {
         tosRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
       // Remove highlight class after animations complete (3 iterations × 2s = 6s)
-      setTimeout(() => setHighlight(false), 6500);
+      highlightTimer = setTimeout(() => setHighlight(false), 6500);
     };
     window.addEventListener("cadia:highlight-legal", handler);
-    return () => window.removeEventListener("cadia:highlight-legal", handler);
+    return () => {
+      window.removeEventListener("cadia:highlight-legal", handler);
+      if (scrollTimer) clearTimeout(scrollTimer);
+      if (highlightTimer) clearTimeout(highlightTimer);
+    };
   }, []);
 
   if (!doc) return null;

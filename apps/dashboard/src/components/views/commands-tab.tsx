@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCadia } from "@/lib/store";
 import { Switch } from "@/components/ui/switch";
@@ -71,12 +71,11 @@ export function CommandsTab() {
   const user = useCadia((s) => s.user);
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const [filterModule, setFilterModule] = useState<string>("All");
   const [expandedCmd, setExpandedCmd] = useState<string | null>(null);
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [variablesCategory, setVariablesCategory] = useState<ModuleCategory | "all">("all");
-
-  if (!server) return null;
 
   const effectiveUser = user || {
     id: "899385550585364481",
@@ -86,25 +85,27 @@ export function CommandsTab() {
     avatar: "#5e3a6d",
   };
 
-  const allCommands = modules.flatMap((m) =>
+  const allCommands = useMemo(() => modules.flatMap((m) =>
     m.commands.map((c) => ({ ...c, moduleId: m.id, moduleName: m.name, moduleCategory: m.category })),
-  );
+  ), [modules]);
 
-  const filteredCommands = allCommands.filter((c) => {
+  const filteredCommands = useMemo(() => allCommands.filter((c) => {
     if (filterModule !== "All" && c.moduleId !== filterModule) return false;
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.description.toLowerCase().includes(search.toLowerCase())) return false;
+    if (deferredSearch && !c.name.toLowerCase().includes(deferredSearch) && !c.description.toLowerCase().includes(deferredSearch)) return false;
     return true;
-  });
+  }), [allCommands, filterModule, deferredSearch]);
 
-  const moduleOptions = ["All", ...modules.map((m) => m.id)];
-  const visibleVariables = variablesCategory === "all"
+  const moduleOptions = useMemo(() => ["All", ...modules.map((m) => m.id)], [modules]);
+  const visibleVariables = useMemo(() => variablesCategory === "all"
     ? ALL_VARIABLES
-    : ALL_VARIABLES.filter((v) => v.categories.includes(variablesCategory));
+    : ALL_VARIABLES.filter((v) => v.categories.includes(variablesCategory)), [variablesCategory]);
 
-  const textChannels = server.channels.filter((c) => c.type === "text");
-  const selectableRoles = server.roles.filter(
+  const textChannels = useMemo(() => (server?.channels || []).filter((c) => c.type === "text"), [server?.channels]);
+  const selectableRoles = useMemo(() => (server?.roles || []).filter(
     (r) => r.name !== "@everyone" && r.name.toLowerCase() !== "bot",
-  );
+  ), [server?.roles]);
+
+  if (!server) return null;
 
   const handleSaveCommand = async (moduleId: string, cmd: BotCommand) => {
 		await useCadia.getState().saveConfig();

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCadia } from "@/lib/store";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Boxes, Settings, Search, Filter } from "lucide-react";
-import { ModuleDetailPage } from "./module-detail-page";
-import { SuggestionEditor } from "./suggestion-editor";
-import { AutoModEditor } from "./automod-editor";
 import type { ModuleCategory } from "@/lib/types";
+
+const ModuleDetailPage = dynamic(() => import("./module-detail-page").then((module) => module.ModuleDetailPage));
+const SuggestionEditor = dynamic(() => import("./suggestion-editor").then((module) => module.SuggestionEditor));
+const AutoModEditor = dynamic(() => import("./automod-editor").then((module) => module.AutoModEditor));
 
 // Unified palette — all categories use the same gold accent
 const CATEGORY_COLOR = "#e9d502";
@@ -23,7 +25,14 @@ export function ModulesTab() {
   const toggleModule = useCadia((s) => s.toggleModule);
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const [filterCat, setFilterCat] = useState<ModuleCategory | "All">("All");
+
+  const filtered = useMemo(() => modules.filter((m) => {
+    if (filterCat !== "All" && m.category !== filterCat) return false;
+    if (deferredSearch && !m.name.toLowerCase().includes(deferredSearch) && !m.description.toLowerCase().includes(deferredSearch)) return false;
+    return true;
+  }), [modules, filterCat, deferredSearch]);
 
   if (!server) return null;
 
@@ -36,12 +45,6 @@ export function ModulesTab() {
       return <ModuleDetailPage module={mod} onBack={() => setActiveModule(null)} />;
     }
   }
-
-  const filtered = modules.filter((m) => {
-    if (filterCat !== "All" && m.category !== filterCat) return false;
-    if (search && !m.name.toLowerCase().includes(search.toLowerCase()) && !m.description.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
 
   const categories: (ModuleCategory | "All")[] = ["All", "Moderation", "Community", "RPG", "Utility", "Fun", "Logging"];
 
@@ -102,7 +105,7 @@ export function ModulesTab() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: idx * 0.04 }}
+                transition={{ delay: Math.min(idx, 8) * 0.03 }}
                 className="cadia-card cadia-card-hover p-4 flex flex-col"
               >
                 {/* Header: title + toggle */}
