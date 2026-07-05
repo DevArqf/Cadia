@@ -1,7 +1,7 @@
 import { readDashboardSession } from "@/lib/server/auth-session";
 
 export async function requireManagedGuild(guildId: string) {
-  const session = await readDashboardSession();
+  const session = await readDashboardSession({ refreshAccessToken: true });
   if (!session?.accessToken) return { ok: false as const, status: 401, message: "Authentication required" };
 
   const response = await fetch("https://discord.com/api/v10/users/@me/guilds", {

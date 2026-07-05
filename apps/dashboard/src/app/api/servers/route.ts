@@ -3,7 +3,7 @@ import { readDashboardSession } from "@/lib/server/auth-session";
 import { requestBot } from "@/lib/server/bot-ipc";
 
 export async function GET() {
-  const session = await readDashboardSession();
+  const session = await readDashboardSession({ refreshAccessToken: true });
   const accessToken = session?.accessToken;
   if (!accessToken) {
     return NextResponse.json({ servers: [], message: "Authentication required" }, { status: 401 });

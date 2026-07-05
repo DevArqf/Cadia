@@ -48,7 +48,7 @@ interface CadiaState {
 
   // actions
   setView: (v: View) => void;
-  startLogin: () => void;
+  startLogin: () => Promise<void>;
   loadDashboardSession: () => Promise<void>;
   loadBotStatus: () => Promise<void>;
   loadCommandConfig: (guildId: string) => Promise<void>;
@@ -97,7 +97,25 @@ function clone<T>(v: T): T {
 
 let commandSaveInFlight: Promise<void> | null = null;
 let commandSaveQueued = false;
+let dashboardSessionRequest: Promise<{ user: DiscordUser; servers: DiscordServer[] } | null> | null = null;
 const MAX_CLIENT_LOGS = 500;
+
+function fetchDashboardSession() {
+  if (dashboardSessionRequest) return dashboardSessionRequest;
+  dashboardSessionRequest = (async () => {
+    const [meResponse, serversResponse] = await Promise.all([
+      fetch("/api/me", { cache: "no-store" }),
+      fetch("/api/servers", { cache: "no-store" }),
+    ]);
+    if (!meResponse.ok) return null;
+    const me = await meResponse.json();
+    const serversPayload = serversResponse.ok ? await serversResponse.json() : { servers: [] };
+    return { user: me.user, servers: serversPayload.servers || [] };
+  })().finally(() => {
+    dashboardSessionRequest = null;
+  });
+  return dashboardSessionRequest;
+}
 
 async function readApiPayload(response: Response) {
   const body = await response.text();
@@ -163,25 +181,35 @@ export const useCadia = create<CadiaState>((set, get) => ({
 
   setView: (v) => set({ view: v }),
 
-  startLogin: () => {
+  startLogin: async () => {
+    if (get().user) {
+      set({ view: "server-select", isAuthenticating: false });
+      return;
+    }
     set({ isAuthenticating: true });
+    try {
+      const session = await fetchDashboardSession();
+      if (session) {
+        set({ ...session, isAuthenticating: false, view: "server-select" });
+        return;
+      }
+    } catch {
+      // OAuth remains the fallback when session validation is unavailable.
+    }
     if (typeof window !== "undefined") {
-      window.location.href = "/api/auth/signin/discord?callbackUrl=/";
+      window.location.assign("/api/auth/signin/discord?callbackUrl=/");
     }
   },
 
   loadDashboardSession: async () => {
     try {
-      const [meResponse, serversResponse] = await Promise.all([
-        fetch("/api/me", { cache: "no-store" }),
-        fetch("/api/servers", { cache: "no-store" }),
-      ]);
-      if (!meResponse.ok) return;
-      const me = await meResponse.json();
-      const serversPayload = serversResponse.ok ? await serversResponse.json() : { servers: [] };
+      const session = await fetchDashboardSession();
+      if (!session) {
+        set({ isAuthenticating: false });
+        return;
+      }
       set({
-        user: me.user,
-        servers: serversPayload.servers || [],
+        ...session,
         isAuthenticating: false,
         view: "server-select",
       });
@@ -233,7 +261,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     });
   },
 
-  logout: () =>
+  logout: () => {
     set({
       user: null,
       view: "landing",
@@ -242,7 +270,9 @@ export const useCadia = create<CadiaState>((set, get) => ({
       modules: [],
       activeTab: "dashboard",
       adminUnlocked: false,
-    }),
+    });
+    if (typeof window !== "undefined") window.location.assign("/api/auth/signout");
+  },
 
   selectServer: (id) => {
     const all = get().servers.length ? get().servers : MOCK_SERVERS;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearSessionCookie,
+  createDashboardSession,
   createOAuthState,
   createSessionCookie,
   getDashboardBaseUrl,
@@ -48,17 +49,7 @@ async function handleDiscordCallback(request: NextRequest) {
   const token = await exchangeDiscordCode(code, request.url);
   const user = await fetchDiscordUser(token.access_token);
   const response = NextResponse.redirect(new URL(state.callbackUrl, dashboardBaseUrl));
-  const sessionCookie = createSessionCookie({
-    accessToken: token.access_token,
-    user: {
-      id: user.id,
-      username: user.username,
-      globalName: user.global_name || user.username,
-      discriminator: user.discriminator || "0",
-      avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128` : "#65b8da",
-    },
-    expiresAt: Date.now() + Number(token.expires_in || 604800) * 1000,
-  });
+  const sessionCookie = createSessionCookie(createDashboardSession(token, user));
   response.cookies.set(sessionCookie.name, sessionCookie.value, sessionCookie.options);
   return response;
 }
