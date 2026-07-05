@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearSessionCookie,
+  clearAdminSessionCookie,
   createDashboardSession,
   createOAuthState,
   createSessionCookie,
@@ -58,6 +59,8 @@ function signOut(request: NextRequest) {
   const response = NextResponse.redirect(new URL("/", getDashboardBaseUrl(request.url)));
   const cookie = clearSessionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options);
+  const adminCookie = clearAdminSessionCookie();
+  response.cookies.set(adminCookie.name, adminCookie.value, adminCookie.options);
   return response;
 }
 

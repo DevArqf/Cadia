@@ -3,9 +3,6 @@ import type { DiscordServer, DiscordUser, LogEntry, PremiumPlan, Role } from './
 // === Bot Owner IDs  ===
 export const BOT_OWNER_IDS = ['899385550585364481', '833997532040134656'];
 
-// Mock admin credential
-export const ADMIN_PANEL_PASSWORD = 'cadia.dev.psa';
-
 // === Mock logged-in user  ===
 export const MOCK_USER: DiscordUser = {
 	id: '899385550585364481', // matches owner — for demo, user IS the owner

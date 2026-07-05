@@ -19,8 +19,6 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  RefreshCw,
-  Fingerprint,
   Check,
 } from "lucide-react";
 
@@ -47,11 +45,10 @@ interface AttemptRecord {
 export function AdminConsoleListener() {
   const open = useCadia((s) => s.adminConsoleOpen);
   const close = useCadia((s) => s.closeAdminConsole);
-  const attempt = useCadia((s) => s.attemptAdminLogin);
   const setView = useCadia((s) => s.setView);
   const addLog = useCadia((s) => s.addLog);
+  const user = useCadia((s) => s.user);
 
-  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,35 +60,17 @@ export function AdminConsoleListener() {
 
   // === 1) Listen for the secret console command ===
   useEffect(() => {
-    const handler = () => {
+    const handler = async () => {
+      const response = await fetch("/api/admin/session", { cache: "no-store" }).catch(() => null);
+      if (response?.ok) {
+        useCadia.setState({ adminUnlocked: true, view: "admin" });
+        return;
+      }
       useCadia.getState().openAdminConsole();
     };
     window.addEventListener("cadia:admin", handler);
     return () => window.removeEventListener("cadia:admin", handler);
   }, []);
-
-  // === 2) On mount, check sessionStorage for owner unlock (refresh-redirect) ===
-  useEffect(() => {
-    try {
-      const unlocked = sessionStorage.getItem("cadia.admin.unlocked");
-      if (unlocked === "1") {
-        sessionStorage.removeItem("cadia.admin.unlocked");
-        useCadia.setState({ adminUnlocked: true });
-        setView("admin");
-        addLog({
-          type: "audit",
-          serverId: "-",
-          serverName: "-",
-          actor: "owner",
-          actorId: "899385550585364481",
-          action: "Owner entered admin panel",
-          details: "Refresh-redirect after successful credential verification",
-        });
-      }
-    } catch {
-      // ignore
-    }
-  }, [setView, addLog]);
 
   // === 3) Lockout countdown ticker ===
   useEffect(() => {
@@ -104,7 +83,6 @@ export function AdminConsoleListener() {
   useEffect(() => {
     if (!open) {
       const t = setTimeout(() => {
-        setUserId("");
         setPassword("");
         setError(null);
         setShowHint(false);
@@ -126,7 +104,7 @@ export function AdminConsoleListener() {
     : 0;
   void tick; // referenced to re-render on countdown
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -142,21 +120,20 @@ export function AdminConsoleListener() {
     const nextAttempts = [...activeAttempts, newAttempt];
     setAttempts(nextAttempts);
 
-    const ok = attempt(userId.trim(), password);
+    const response = await fetch("/api/admin/session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password }),
+    }).catch(() => null);
+    const result = await response?.json().catch(() => ({}));
+    const ok = response?.ok && result?.authorized === true;
 
     if (ok) {
-      try {
-        sessionStorage.setItem("cadia.admin.unlocked", "1");
-      } catch {
-        // ignore
-      }
       setShowHint(true);
       hintRef.current = true;
       setAttempts([]);
     } else {
-      const reason = !userId.trim()
-        ? "missing user ID"
-        : !password
+      const reason = !password
           ? "missing password"
           : "invalid credentials";
       setError(
@@ -170,8 +147,8 @@ export function AdminConsoleListener() {
         type: "audit",
         serverId: "-",
         serverName: "-",
-        actor: userId.trim() || "unknown",
-        actorId: userId.trim() || "0",
+        actor: user?.username || "unknown",
+        actorId: user?.id || "0",
         action: "Failed admin login attempt",
         details: `Reason: ${reason} · attempt ${nextAttempts.length}/${MAX_ATTEMPTS}`,
       });
@@ -232,19 +209,20 @@ export function AdminConsoleListener() {
                   </p>
                 </div>
                 <p className="text-xs text-foreground/80 leading-relaxed">
-                  Refresh the page to enter the admin control panel.
+                  Your secure administrator session is active for 30 minutes.
                 </p>
               </div>
               <Button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  useCadia.setState({ adminUnlocked: true });
+                  setView("admin");
+                  close();
+                }}
                 className="cadia-btn w-full bg-success text-background hover:bg-success/90 text-sm font-semibold h-10"
               >
-                <RefreshCw className="h-4 w-4 mr-1.5" />
-                Refresh &amp; Enter Panel
+                <Shield className="h-4 w-4 mr-1.5" />
+                Enter Panel
               </Button>
-              <p className="text-[10px] text-muted-foreground text-center">
-                Or press <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[9px] font-mono">F5</kbd>
-              </p>
             </motion.div>
           ) : (
             <motion.form
@@ -255,25 +233,6 @@ export function AdminConsoleListener() {
               onSubmit={handleSubmit}
               className="px-5 pb-5 space-y-3"
             >
-              {/* Owner ID field */}
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-uid" className="text-xs font-semibold flex items-center gap-1.5">
-                  <Fingerprint className="h-3 w-3 text-rpg" />
-                  Discord User ID
-                </Label>
-                <Input
-                  id="admin-uid"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="123456789012345678"
-                  className="font-mono text-sm h-10"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={isLocked}
-                  required
-                />
-              </div>
-
               {/* Password field */}
               <div className="space-y-1.5">
                 <Label htmlFor="admin-pw" className="text-xs font-semibold flex items-center gap-1.5">
@@ -327,7 +286,7 @@ export function AdminConsoleListener() {
                   </span>
                 )}
                 <span className="text-muted-foreground/60 font-mono">
-                  session-only
+                  secure 30-minute session
                 </span>
               </div>
 

@@ -9,7 +9,9 @@ import {
 } from "node:crypto";
 
 export const CADIA_SESSION_COOKIE = "cadia_dashboard_session";
+export const CADIA_ADMIN_COOKIE = "cadia_dashboard_admin";
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+const ADMIN_SESSION_LIFETIME_MS = 30 * 60 * 1000;
 const ACCESS_TOKEN_REFRESH_WINDOW_MS = 60 * 1000;
 const refreshesInFlight = new Map<string, Promise<DashboardSession | null>>();
 
@@ -91,6 +93,46 @@ export function getDashboardBaseUrl(requestUrl?: string) {
 
 export function getDiscordRedirectUri(requestUrl?: string) {
   return `${getDashboardBaseUrl(requestUrl)}/api/auth/callback/discord`;
+}
+
+export async function readAdminSession() {
+  const session = await readDashboardSession();
+  if (!session) return null;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(CADIA_ADMIN_COOKIE)?.value;
+  const payload = token ? verifySignedPayload<{ type: string; userId: string; expiresAt: number }>(token) : null;
+  if (!payload || payload.type !== "admin" || payload.userId !== session.user.id || payload.expiresAt <= Date.now()) return null;
+  return { userId: payload.userId, expiresAt: payload.expiresAt };
+}
+
+export function createAdminSessionCookie(userId: string) {
+  const expiresAt = Date.now() + ADMIN_SESSION_LIFETIME_MS;
+  return {
+    name: CADIA_ADMIN_COOKIE,
+    value: signPayload({ type: "admin", userId, expiresAt }),
+    options: {
+      httpOnly: true,
+      sameSite: "strict" as const,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      expires: new Date(expiresAt),
+      priority: "high" as const,
+    },
+  };
+}
+
+export function clearAdminSessionCookie() {
+  return {
+    name: CADIA_ADMIN_COOKIE,
+    value: "",
+    options: {
+      httpOnly: true,
+      sameSite: "strict" as const,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      expires: new Date(0),
+    },
+  };
 }
 
 export function createDashboardSession(token: any, user: any): DashboardSession {

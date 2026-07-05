@@ -22,6 +22,7 @@ interface CadiaState {
   // view state
   view: View;
   isAuthenticating: boolean;
+  sessionLoaded: boolean;
 
   // auth
   user: DiscordUser | null;
@@ -163,6 +164,7 @@ function hydrateModules(input: any[]): BotModule[] {
 export const useCadia = create<CadiaState>((set, get) => ({
   view: "landing",
   isAuthenticating: false,
+  sessionLoaded: false,
   user: null,
   servers: [],
   selectedServer: null,
@@ -190,7 +192,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     try {
       const session = await fetchDashboardSession();
       if (session) {
-        set({ ...session, isAuthenticating: false, view: "server-select" });
+        set({ ...session, isAuthenticating: false, sessionLoaded: true, view: "server-select" });
         return;
       }
     } catch {
@@ -205,16 +207,17 @@ export const useCadia = create<CadiaState>((set, get) => ({
     try {
       const session = await fetchDashboardSession();
       if (!session) {
-        set({ isAuthenticating: false });
+        set({ isAuthenticating: false, sessionLoaded: true });
         return;
       }
       set({
         ...session,
         isAuthenticating: false,
+        sessionLoaded: true,
         view: "server-select",
       });
     } catch {
-      set({ isAuthenticating: false });
+      set({ isAuthenticating: false, sessionLoaded: true });
     }
   },
 
@@ -264,6 +267,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   logout: () => {
     set({
       user: null,
+      sessionLoaded: true,
       view: "landing",
       servers: [],
       selectedServer: null,
@@ -601,21 +605,17 @@ export const useCadia = create<CadiaState>((set, get) => ({
     if (!isOwner) return false;
     // Lazy import to avoid bundling the password into client chunks unintentionally —
     // still client-side here for the demo only.
-    const { ADMIN_PANEL_PASSWORD } = require("./mock-data");
-    if (password !== ADMIN_PANEL_PASSWORD) return false;
+    if (password) return false;
     // Per spec: do NOT enter admin panel immediately.
     // Mark sessionStorage; on next page refresh, AdminConsoleListener
     // will detect the flag and redirect to the admin panel.
-    try {
-      sessionStorage.setItem("cadia.admin.unlocked", "1");
-    } catch {
-      // ignore
-    }
-    set({ adminConsoleOpen: true }); // keep dialog open to show "refresh" hint
-    return true;
+    return false;
   },
 
-  lockAdmin: () => set({ adminUnlocked: false, view: "landing" }),
+  lockAdmin: () => {
+    set({ adminUnlocked: false, view: "landing" });
+    void fetch("/api/admin/session", { method: "DELETE" });
+  },
 
   setGlobalBotStatus: (status) => {
     const prev = get().globalBotStatus;

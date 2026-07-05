@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCadia } from "@/lib/store";
 import { CadiaLogo } from "@/components/cadia-logo";
@@ -68,10 +68,29 @@ export function AdminView() {
   const [blacklistDuration, setBlacklistDuration] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"servers" | "bot" | "audit">("servers");
   const [botActivity, setBotActivity] = useState("/help | cadia.bot");
+  const [serverAuthorized, setServerAuthorized] = useState(false);
   const globalBotStatus = useCadia((s) => s.globalBotStatus);
   const setGlobalBotStatus = useCadia((s) => s.setGlobalBotStatus);
 
-  if (!adminUnlocked) {
+  useEffect(() => {
+    if (!adminUnlocked) {
+      setServerAuthorized(false);
+      return;
+    }
+    const controller = new AbortController();
+    fetch("/api/admin/session", { cache: "no-store", signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Admin session expired");
+        setServerAuthorized(true);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        useCadia.setState({ adminUnlocked: false, view: "landing" });
+      });
+    return () => controller.abort();
+  }, [adminUnlocked]);
+
+  if (!adminUnlocked || !serverAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center cadia-bg p-4">
         <div className="cadia-card p-8 max-w-md text-center">
