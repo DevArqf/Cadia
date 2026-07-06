@@ -94,20 +94,24 @@ export function ModulesTab() {
       </div>
 
       {/* Module grid — like the reference image */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence>
-          {filtered.map((m, idx) => {
+      <div className="min-h-[180px] overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${filterCat}:${deferredSearch}`}
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+          {filtered.length === 0 ? (
+            <div className="cadia-card p-6 text-center sm:col-span-2 lg:col-span-3">
+              <p className="text-sm text-muted-foreground">No modules match your filters</p>
+            </div>
+          ) : filtered.map((m) => {
             const catColor = CATEGORY_COLOR;
             return (
-              <motion.div
-                key={m.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: Math.min(idx, 8) * 0.03 }}
-                className="cadia-card cadia-card-hover p-4 flex flex-col"
-              >
+              <div key={m.id} className="cadia-card cadia-card-hover p-4 flex flex-col">
                 {/* Header: title + toggle */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2 min-w-0">
@@ -148,19 +152,13 @@ export function ModulesTab() {
                     Settings
                   </Button>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
+          </motion.div>
         </AnimatePresence>
       </div>
 
-      {filtered.length === 0 && (
-        <div className="cadia-card p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            No modules match your filters
-          </p>
-        </div>
-      )}
     </div>
   );
 }
