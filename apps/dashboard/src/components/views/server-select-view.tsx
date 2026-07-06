@@ -242,11 +242,10 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                     href={`/api/invite?guild_id=${encodeURIComponent(s.id)}`}
                     className="block"
                   >
-                    <Button className="cadia-add-bot-btn w-full text-white text-sm font-semibold h-11 group relative overflow-hidden">
+                    <Button className="cadia-add-bot-btn cadia-btn w-full text-background text-sm font-semibold group relative overflow-hidden">
                       <span className="relative z-10 flex items-center justify-center">
                         <ExternalLink className="h-4 w-4 mr-2 transition-transform group-hover:translate-x-0.5" />
                         Add Cadia Now
-                        <span className="ml-2 text-[10px] opacity-80 font-normal">· Free · 2-min setup</span>
                       </span>
                     </Button>
                   </a>
