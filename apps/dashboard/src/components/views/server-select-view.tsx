@@ -240,8 +240,6 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                 ) : (
                   <a
                     href={`/api/invite?guild_id=${encodeURIComponent(s.id)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="block"
                   >
                     <Button className="cadia-add-bot-btn w-full text-white text-sm font-semibold h-11 group relative overflow-hidden">
