@@ -30,7 +30,8 @@ class UserCommand extends CadiaCommand {
 				.addUserOption((option) => option.setName('user').setDescription('The user to ban'))
 				.addStringOption((option) => option.setName('userid').setDescription('The ID of the user to ban'))
 				.addStringOption((option) => option.setName('reason').setDescription('The reason for banning the user'))
-				.addAttachmentOption((option) => option.setName('evidence').setDescription('Attach evidence related to the ban'))
+				.addStringOption((option) => option.setName('evidence-link').setDescription('Discord message link containing evidence'))
+				.addAttachmentOption((option) => option.setName('evidence').setDescription('Attach image evidence related to the ban'))
 		);
 	}
 
@@ -40,12 +41,17 @@ class UserCommand extends CadiaCommand {
 		const targetId = selectedUser?.id || enteredUserId;
 		const reason = interaction.options.getString('reason') || DEFAULT_REASON;
 		const evidence = interaction.options.getAttachment('evidence');
+		const evidenceLinkInput = interaction.options.getString('evidence-link');
+		const evidenceLink = evidenceLinkInput ? normalizeEvidenceMessageLink(evidenceLinkInput, interaction.guildId) : null;
 
 		if (!targetId) return reject(interaction, `${emojis.custom.fail} Select a user or provide a user ID.`);
 		if (selectedUser && enteredUserId && selectedUser.id !== enteredUserId) {
 			return reject(interaction, `${emojis.custom.fail} Select a user or provide one matching user ID.`);
 		}
 		if (!/^\d{17,20}$/.test(targetId)) return reject(interaction, `${emojis.custom.fail} Enter a valid Discord user ID.`);
+		if (evidenceLinkInput && !evidenceLink) {
+			return reject(interaction, `${emojis.custom.fail} Evidence must be a message link from this server.`);
+		}
 
 		const targetMember = await fetchTargetMember(interaction, targetId);
 		const valid = await validateModerationTarget({
@@ -70,7 +76,8 @@ class UserCommand extends CadiaCommand {
 						.setDescription(`${emojis.custom.info} You have been **banned** from **${interaction.guild.name}**.`)
 						.addFields(
 							{ name: `${emojis.custom.mail} Reason`, value: reason },
-							{ name: `${emojis.custom.person} Moderator`, value: interaction.user.toString() }
+							{ name: `${emojis.custom.person} Moderator`, value: interaction.user.toString() },
+							...(evidenceLink ? [{ name: `${emojis.custom.link} Evidence`, value: `[View message](${evidenceLink})` }] : [])
 						)
 						.setTimestamp();
 					if (evidence) notice.setImage(evidence.url);
@@ -93,10 +100,17 @@ class UserCommand extends CadiaCommand {
 					footer: `User Banned: ${targetId}`
 				});
 				if (evidence) embed.setImage(evidence.url);
+				if (evidenceLink) embed.addFields({ name: `${emojis.custom.link} Evidence`, value: `[View message](${evidenceLink})` });
 				return { embeds: [embed] };
 			}
 		});
 	}
 }
 
-module.exports = { UserCommand };
+function normalizeEvidenceMessageLink(value, guildId) {
+	const match = String(value || '').trim().match(/^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/channels\/(\d{17,20})\/(\d{17,20})\/(\d{17,20})$/i);
+	if (!match || match[1] !== guildId) return null;
+	return `https://discord.com/channels/${match[1]}/${match[2]}/${match[3]}`;
+}
+
+module.exports = { UserCommand, normalizeEvidenceMessageLink };

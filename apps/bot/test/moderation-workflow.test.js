@@ -4,6 +4,7 @@ const { Collection, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const { runModerationAction, sendDmNotice, validateModerationTarget } = require('../src/lib/moderation/workflow');
 const { isMentionDeleteInteraction } = require('../src/listeners/botMention');
 const { UserCommand: PurgeCommand } = require('../src/commands/Moderation/purge');
+const { normalizeEvidenceMessageLink } = require('../src/commands/Moderation/ban');
 const { UserCommand: UnbanCommand } = require('../src/commands/Moderation/unban');
 const { UserCommand: KickCommand } = require('../src/commands/Moderation/kick');
 
@@ -132,17 +133,23 @@ test('unban validates Discord IDs and acknowledges before removing a ban', async
 	assert.deepEqual(calls, ['defer', 'unban:123456789012345678', 'edit']);
 });
 
-test('purge fetches once, filters messages, and edits its private acknowledgement', async () => {
+test('purge deletes the requested channel messages before its delayed confirmation', async () => {
 	const calls = [];
 	const messages = new Collection([
 		['one', { content: 'https://example.com', author: { bot: false }, attachments: new Collection() }],
 		['two', { content: 'plain text', author: { bot: false }, attachments: new Collection() }]
 	]);
 	const interaction = createModerationCommandInteraction({ amount: 20, filter: 'links', calls });
+	interaction.message = { id: 'prefix-command' };
+	interaction.deleteReply = async () => calls.push('delete-reply');
+	interaction.followUp = async () => {
+		calls.push('follow-up');
+		return { delete: async () => calls.push('delete-confirmation') };
+	};
 	interaction.channel = {
 		messages: {
-			fetch: async ({ limit }) => {
-				calls.push(`fetch:${limit}`);
+			fetch: async ({ limit, before }) => {
+				calls.push(`fetch:${limit}:${before || 'latest'}`);
 				return messages;
 			}
 		},
@@ -153,8 +160,14 @@ test('purge fetches once, filters messages, and edits its private acknowledgemen
 
 	await PurgeCommand.prototype.chatInputRun.call(commandContext(), interaction);
 
-	assert.deepEqual(calls, ['defer-private', 'fetch:20', 'delete:1:true', 'edit']);
-	assert.match(interaction.replies.at(-1).embeds[0].data.description, /purged \*\*1\*\*/i);
+	assert.deepEqual(calls, ['defer-private', 'fetch:20:prefix-command', 'delete:2:true', 'delete-reply', 'follow-up']);
+});
+
+test('ban evidence accepts canonical Discord message links from the current server', () => {
+	const link = 'https://discord.com/channels/12345678901234567/22345678901234567/32345678901234567';
+	assert.equal(normalizeEvidenceMessageLink(link, '12345678901234567'), link);
+	assert.equal(normalizeEvidenceMessageLink(link, '99999999999999999'), null);
+	assert.equal(normalizeEvidenceMessageLink('https://example.com/evidence', '12345678901234567'), null);
 });
 
 test('kick sends one notice, performs one moderation action, and edits the deferred response', async () => {

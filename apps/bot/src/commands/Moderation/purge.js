@@ -1,8 +1,8 @@
-const { EmbedBuilder, MessageFlags } = require('discord.js');
+const { Collection, EmbedBuilder, MessageFlags } = require('discord.js');
 const CadiaCommand = require('../../lib/structures/commands/CadiaCommand');
 const { color } = require('../../config/colors');
 const { emojis } = require('../../config/emojis');
-const { reject, runModerationAction } = require('../../lib/moderation/workflow');
+const { reject } = require('../../lib/moderation/workflow');
 
 const PURGE_FILTERS = {
 	all: () => true,
@@ -61,28 +61,52 @@ class UserCommand extends CadiaCommand {
 		}
 
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-		return runModerationAction({
-			interaction,
-			defer: false,
-			logger: this.container.logger,
-			errorMessage: 'Cadia could not purge those messages. Check channel access and message age, then try again.',
-			action: async () => {
-				const fetched = await interaction.channel.messages.fetch({ limit: amount });
-				const messages = fetched.filter(predicate);
-				if (!messages.size) throw new Error('NO_MATCHING_MESSAGES');
-				await interaction.channel.bulkDelete(messages, true);
-				return messages.size;
-			},
-			success: (deletedCount) => ({
+		try {
+			const channelMessageLimit = amount;
+			let deletedCount = 0;
+			if (channelMessageLimit > 0) {
+				const fetchOptions = { limit: channelMessageLimit };
+				if (interaction.message?.id) fetchOptions.before = interaction.message.id;
+				const fetched = await interaction.channel.messages.fetch(fetchOptions);
+				const messages = selectPurgeMessages({ fetched, limit: channelMessageLimit, predicate });
+				if (interaction.message?.id) messages.set(interaction.message.id, interaction.message);
+				if (messages.size) {
+					await interaction.channel.bulkDelete(messages, true);
+					deletedCount = messages.size;
+				}
+			}
+			await interaction.deleteReply().catch(() => null);
+			const confirmation = await interaction.followUp({
 				embeds: [
 					new EmbedBuilder()
 						.setColor(color.success)
 						.setDescription(`${emojis.custom.success} Successfully purged **${deletedCount}** message(s).`)
 						.setTimestamp()
 				]
-			})
-		});
+			});
+			const deleteTimer = setTimeout(() => confirmation.delete().catch(() => null), 10_000);
+			deleteTimer.unref?.();
+			return null;
+		} catch (error) {
+			this.container.logger.error(error);
+			return interaction.editReply({
+				embeds: [
+					new EmbedBuilder()
+						.setColor(color.fail)
+						.setDescription(`${emojis.custom.fail} Cadia could not purge those messages. Check channel access and message age, then try again.`)
+				]
+			}).catch(() => null);
+		}
 	}
 }
 
-module.exports = { UserCommand };
+function selectPurgeMessages({ fetched, limit, predicate }) {
+	const selected = new Collection();
+	for (const [id, message] of fetched) {
+		if (selected.size >= limit) break;
+		if (predicate(message)) selected.set(id, message);
+	}
+	return selected;
+}
+
+module.exports = { UserCommand, selectPurgeMessages };
