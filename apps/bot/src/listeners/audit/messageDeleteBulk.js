@@ -8,7 +8,8 @@ class UserEvent extends Listener {
 	}
 
 	async run(messages) {
-		const first = messages.first();
+		const userMessages = messages.filter((message) => !message.author?.bot);
+		const first = userMessages.first();
 		if (!first?.guild) return;
 		await sendAuditLog(
 			first.guild,
@@ -16,7 +17,7 @@ class UserEvent extends Listener {
 			'Messages Bulk Deleted',
 			[
 				{ label: 'Channel', value: `${first.channel}`, icon: emojis.custom.openfolder },
-				{ label: 'Amount', value: messages.size, icon: emojis.custom.info }
+				{ label: 'Amount', value: userMessages.size, icon: emojis.custom.info }
 			],
 			{ color: color.fail, emoji: emojis.custom.trash }
 		);

@@ -11,7 +11,10 @@ const { color, emojis } = require('../../config');
 const { AuditLogConfigSchema } = require('../schemas/auditLogConfigSchema');
 const { getGuildCommandConfig, isModuleEnabled } = require('../runtime/guildCommandConfig');
 const AUDIT_CONFIG_CACHE_MS = 60_000;
+const AUDIT_EVENT_DEDUP_MS = 5_000;
+const AUDIT_EVENT_CACHE_LIMIT = 2_000;
 const auditConfigCache = new Map();
+const recentAuditEvents = new Map();
 
 const auditCategories = {
 	messages: { label: 'Messages', description: 'Message edits, deletes, and bulk deletes.' },
@@ -110,6 +113,7 @@ async function toggleAuditEvent(guildId, eventKey) {
 async function sendAuditLog(guild, eventKey, title, details = [], options = {}) {
 	const action = auditActions[eventKey];
 	if (!guild || !action) return;
+	if (!claimAuditEvent(guild.id, eventKey, title, details)) return;
 
 	const [config, commandConfig] = await Promise.all([
 		getAuditConfig(guild.id).catch(() => null),
@@ -146,6 +150,32 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 	}
 
 	await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }).catch(() => null);
+}
+
+function claimAuditEvent(guildId, eventKey, title, details, now = Date.now()) {
+	const fingerprint = JSON.stringify([
+		guildId,
+		eventKey,
+		title,
+		details.map((detail) => [detail?.label || '', String(detail?.value ?? '')])
+	]);
+	const expiresAt = recentAuditEvents.get(fingerprint);
+	if (expiresAt && expiresAt > now) return false;
+	recentAuditEvents.set(fingerprint, now + AUDIT_EVENT_DEDUP_MS);
+	pruneAuditEventCache(now);
+	return true;
+}
+
+function pruneAuditEventCache(now) {
+	if (recentAuditEvents.size <= AUDIT_EVENT_CACHE_LIMIT) return;
+	for (const [fingerprint, expiresAt] of recentAuditEvents) {
+		if (expiresAt <= now || recentAuditEvents.size > AUDIT_EVENT_CACHE_LIMIT) recentAuditEvents.delete(fingerprint);
+		if (recentAuditEvents.size <= AUDIT_EVENT_CACHE_LIMIT) break;
+	}
+}
+
+function clearAuditEventCache() {
+	recentAuditEvents.clear();
 }
 
 function defaultEvents() {
@@ -186,6 +216,8 @@ function resolveAuditThumbnail(guild, options) {
 module.exports = {
 	auditActions,
 	auditCategories,
+	claimAuditEvent,
+	clearAuditEventCache,
 	defaultEvents,
 	getAuditConfig,
 	resolveAuditChannelId,
