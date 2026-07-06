@@ -158,11 +158,12 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
             <span className="text-xs text-muted-foreground">Enabled</span>
             <Switch
               checked={m.enabled}
+              disabled={m.configurable === false}
               onCheckedChange={() => {
                 toggleModule(m.id);
                 toast.success(`${m.name} ${m.enabled ? "disabled" : "enabled"}`);
               }}
-              aria-label={`Enable ${m.name}`}
+              aria-label={m.configurable === false ? `${m.name} is always enabled` : `Enable ${m.name}`}
             />
           </div>
         </div>

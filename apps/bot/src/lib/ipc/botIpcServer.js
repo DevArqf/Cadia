@@ -8,7 +8,8 @@ const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
 const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
 const { buildCommandCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
 const { getAutoModConfig, saveAutoModConfig, serializeAutoModConfig, setAutoModModuleEnabled } = require('../automod/autoModService');
-const { getGuildSettings, normalizeGuildPrefix, saveGuildPrefix } = require('../runtime/guildSettings');
+const { getGuildSettings, normalizeGuildPrefix, normalizeUpdateChannelId, saveGuildSettings } = require('../runtime/guildSettings');
+const { sendAdminUpdate } = require('../admin/updateBroadcast');
 const runtimeConfig = require('../runtime/runtimeConfig');
 const Blacklist = require('../schemas/blacklistSchema');
 const AdminAudit = require('../schemas/adminAuditSchema');
@@ -27,6 +28,7 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'admin.activity.update') return updateAdminActivity(client, request.payload);
 			if (request.type === 'admin.blacklist.add') return addAdminBlacklist(client, request.payload);
 			if (request.type === 'admin.blacklist.remove') return removeAdminBlacklist(client, request.payload);
+			if (request.type === 'admin.update.send') return sendAdminGuildUpdate(client, request.payload);
 			if (request.type === 'guild.settings.get') return getGuildDashboardSettings(client, request.payload);
 			if (request.type === 'guild.settings.update') return updateGuildDashboardSettings(client, request.payload);
 			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
@@ -138,6 +140,16 @@ async function removeAdminBlacklist(client, payload = {}) {
 	return { guildId };
 }
 
+async function sendAdminGuildUpdate(client, payload = {}) {
+	const report = await sendAdminUpdate(client, payload, getGuildSettings);
+	await writeAdminAudit(
+		'Sent server update',
+		`${report.target === 'global' ? 'Global broadcast' : `Server ${payload.guildId}`}: ${report.sent} sent, ${report.skipped} skipped, ${report.failed} failed`,
+		payload
+	);
+	return report;
+}
+
 function serializeBlacklist(entry) {
 	return {
 		guildId: entry.guildId,
@@ -169,6 +181,11 @@ async function updateGuildDashboardSettings(client, payload = {}) {
 	const guild = requireGuild(client, payload.guildId);
 	const prefix = normalizeGuildPrefix(payload.prefix);
 	const nickname = normalizeBotNickname(payload.nickname);
+	const updateChannelId = normalizeUpdateChannelId(payload.updateChannelId);
+	if (updateChannelId) {
+		const channel = guild.channels.cache.get(updateChannelId) || (await guild.channels.fetch(updateChannelId).catch(() => null));
+		if (!channel?.isTextBased?.() || channel.isThread?.()) throw new RangeError('The update channel must be a server text channel.');
+	}
 	const member = guild.members.me || (await guild.members.fetchMe());
 	const targetNickname = nickname === client.user?.username ? null : nickname;
 
@@ -182,7 +199,7 @@ async function updateGuildDashboardSettings(client, payload = {}) {
 		}
 	}
 
-	const settings = await saveGuildPrefix(guild.id, prefix, payload.actorId || null);
+	const settings = await saveGuildSettings(guild.id, { prefix, updateChannelId }, payload.actorId || null);
 	return serializeGuildDashboardSettings(client, guild, settings);
 }
 
@@ -198,6 +215,7 @@ function serializeGuildDashboardSettings(client, guild, settings) {
 	return {
 		guildId: guild.id,
 		prefix: settings.prefix,
+		updateChannelId: settings.updateChannelId,
 		nickname: guild.members.me?.nickname || client.user?.username || 'Cadia'
 	};
 }
@@ -422,6 +440,7 @@ async function botGuilds(client) {
 			joinedAt: guild.members.me?.joinedTimestamp || Date.now(),
 			nickname: guild.members.me?.nickname || client.user?.username || 'Cadia',
 			prefix: settings.prefix,
+			updateChannelId: settings.updateChannelId,
 			verificationLevel: String(guild.verificationLevel ?? 'None'),
 			explicitContentFilter: String(guild.explicitContentFilter ?? 'Disabled'),
 			defaultMessageNotifications: String(guild.defaultMessageNotifications ?? 'OnlyMentions'),

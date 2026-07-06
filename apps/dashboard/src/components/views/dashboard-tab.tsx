@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCadia } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,8 +49,11 @@ function formatDuration(ts: number): string {
   return `${years}y`;
 }
 
-function timeAgo(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000);
+function timeAgo(ts: number, now: number): string {
+  if (!Number.isFinite(ts)) return "Unknown";
+  const timestamp = ts > 0 && ts < 1_000_000_000_000 ? ts * 1000 : ts;
+  const s = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (s < 5) return "Just now";
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
@@ -80,10 +83,16 @@ export function DashboardTab() {
   const [nicknameInput, setNicknameInput] = useState(server?.botNickname ?? "Cadia");
   const [isSavingBotConfig, setIsSavingBotConfig] = useState(false);
   const [updateChannelId, setUpdateChannelId] = useState<string | null>(
-    server?.channels.find((c) => c.name === server.updatesChannel)?.id ?? null,
+    server?.updateChannelId ?? server?.channels.find((c) => c.name === server.updatesChannel)?.id ?? null,
   );
   const [channelPickerOpen, setChannelPickerOpen] = useState(false);
   const [serverIconFailed, setServerIconFailed] = useState(false);
+	const [activityClock, setActivityClock] = useState(() => Date.now());
+
+	useEffect(() => {
+		const timer = window.setInterval(() => setActivityClock(Date.now()), 1_000);
+		return () => window.clearInterval(timer);
+	}, []);
 
   const isAdminUnlocked = useCadia((s) => s.adminUnlocked);
   if (!server || (!user && !isAdminUnlocked)) return null;
@@ -137,8 +146,8 @@ export function DashboardTab() {
   const handleSaveBotConfig = async () => {
     setIsSavingBotConfig(true);
     try {
-      if (prefixInput !== server.botPrefix || nicknameInput !== server.botNickname) {
-        await saveBotSettings(prefixInput, nicknameInput);
+      if (hasBotConfigChanges) {
+        await saveBotSettings(prefixInput, nicknameInput, updateChannelId);
         const savedServer = useCadia.getState().selectedServer;
         if (savedServer) {
           setPrefixInput(savedServer.botPrefix);
@@ -148,7 +157,7 @@ export function DashboardTab() {
 
       const newChannelName = selectedChannel?.name ?? null;
       const currentServer = useCadia.getState().selectedServer;
-      if (currentServer && newChannelName !== currentServer.updatesChannel) {
+      if (currentServer && newChannelName !== server.updatesChannel) {
         addLog({
           type: "audit",
           serverId: currentServer.id,
@@ -158,7 +167,6 @@ export function DashboardTab() {
           action: "Updated update channel",
           details: `Update channel set to '${newChannelName || "(none)"}'`,
         });
-        useCadia.setState({ selectedServer: { ...currentServer, updatesChannel: newChannelName } });
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update bot configuration");
@@ -170,7 +178,7 @@ export function DashboardTab() {
   const hasBotConfigChanges =
     prefixInput !== server.botPrefix ||
     nicknameInput !== server.botNickname ||
-    (selectedChannel?.name ?? null) !== server.updatesChannel;
+    updateChannelId !== (server.updateChannelId ?? server.channels.find((c) => c.name === server.updatesChannel)?.id ?? null);
 
   return (
     <div className="space-y-5">
@@ -529,7 +537,7 @@ export function DashboardTab() {
                         className="text-[10px] text-muted-foreground/60 ml-auto shrink-0"
                         title={new Date(l.timestamp).toLocaleString()}
                       >
-                        {timeAgo(l.timestamp)}
+						{timeAgo(Number(l.timestamp), activityClock)}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-relaxed pl-7 break-words">

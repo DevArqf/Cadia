@@ -314,10 +314,11 @@ export function CommandsTab() {
                 </button>
                 <Switch
                   checked={c.enabled}
+                  disabled={c.configurable === false}
                   onCheckedChange={() => {
                     toggleCommand(c.moduleId, c.id);
                   }}
-                  aria-label={`Enable /${c.name}`}
+                  aria-label={c.configurable === false ? `/${c.name} is always enabled` : `Enable /${c.name}`}
                 />
               </div>
 

@@ -121,8 +121,9 @@ export function ModulesTab() {
                   </div>
                   <Switch
                     checked={m.enabled}
+                    disabled={m.configurable === false}
                     onCheckedChange={() => toggleModule(m.id)}
-                    aria-label={`Enable ${m.name}`}
+                    aria-label={m.configurable === false ? `${m.name} is always enabled` : `Enable ${m.name}`}
                   />
                 </div>
 

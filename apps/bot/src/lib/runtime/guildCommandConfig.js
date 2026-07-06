@@ -5,6 +5,8 @@ const MAX_COOLDOWN_SECONDS = 3_600;
 const MAX_POLICY_IDS = 100;
 const MAX_RESPONSE_LENGTH = 500;
 const cache = new Map();
+const IMMUTABLE_COMMANDS = new Set(['vote', 'top-gg']);
+const IMMUTABLE_MODULES = new Set(['topgg']);
 
 const MODULES = Object.freeze({
 	automod: { name: 'Automod', description: 'Native Discord content, spam, and mention protection.', category: 'Moderation' },
@@ -16,7 +18,7 @@ const MODULES = Object.freeze({
 	rpg: { name: 'RPG System', description: 'Cadia progression, combat, quests, and inventory.', category: 'RPG' },
 	suggestions: { name: 'Suggestions', description: 'Community suggestions and persistent voting.', category: 'Community' },
 	tickets: { name: 'Tickets', description: 'Support ticket panels and staff workflows.', category: 'Utility' },
-	topgg: { name: 'Top.gg', description: 'Voting and bot-list integrations.', category: 'Utility' },
+	topgg: { name: 'Top.gg', description: 'Voting and bot-list integrations.', category: 'Utility', configurable: false },
 	welcome: { name: 'Welcoming', description: 'New-member greetings and welcome configuration.', category: 'Community' }
 });
 
@@ -60,6 +62,8 @@ function buildCommandCatalog(client, config = null) {
 				description: definition.description,
 				category: definition.category,
 				...policy,
+				configurable: definition.configurable !== false,
+				enabled: IMMUTABLE_MODULES.has(moduleId) ? true : policy.enabled,
 				commands: []
 			});
 		}
@@ -69,7 +73,9 @@ function buildCommandCatalog(client, config = null) {
 			name: command.name,
 			description: command.description || 'Cadia command',
 			type: command.supportsChatInputCommands?.() ? 'Slash' : command.supportsContextMenuCommands?.() ? 'Context' : 'Command',
-			...policy
+			...policy,
+			configurable: !IMMUTABLE_COMMANDS.has(command.name),
+			enabled: IMMUTABLE_COMMANDS.has(command.name) ? true : policy.enabled
 		});
 	}
 
@@ -85,11 +91,15 @@ function normalizeStoredConfig(input = {}, catalog = null) {
 	const commands = {};
 
 	for (const [moduleId, value] of Object.entries(input.modules || {})) {
-		if (!moduleIds.size || moduleIds.has(moduleId)) modules[moduleId] = normalizeModulePolicy(value);
+		if (!moduleIds.size || moduleIds.has(moduleId)) {
+			modules[moduleId] = normalizeModulePolicy(value);
+			if (IMMUTABLE_MODULES.has(moduleId)) modules[moduleId].enabled = true;
+		}
 	}
 	for (const [commandName, value] of Object.entries(input.commands || {})) {
 		if (commandIds.size && !commandIds.has(commandName)) continue;
 		commands[commandName] = normalizeCommandPolicy(value);
+		if (IMMUTABLE_COMMANDS.has(commandName)) commands[commandName].enabled = true;
 	}
 	return { modules, commands };
 }
@@ -113,6 +123,7 @@ function resolveModuleId(command) {
 }
 
 function isCommandEnabled(config, command) {
+	if (IMMUTABLE_COMMANDS.has(command.name)) return true;
 	if (!config) return true;
 	const moduleId = resolveModuleId(command);
 	if (!moduleId) return true;
@@ -121,6 +132,7 @@ function isCommandEnabled(config, command) {
 }
 
 function isModuleEnabled(config, moduleId) {
+	if (IMMUTABLE_MODULES.has(moduleId)) return true;
 	return getModulePolicy(config, moduleId).enabled;
 }
 
@@ -183,6 +195,8 @@ function clearGuildCommandConfigCache() {
 
 module.exports = {
 	MODULES,
+	IMMUTABLE_COMMANDS,
+	IMMUTABLE_MODULES,
 	buildCommandCatalog,
 	clearGuildCommandConfigCache,
 	getGuildCommandConfig,

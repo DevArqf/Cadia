@@ -81,6 +81,7 @@ export interface DiscordServer {
   systemChannel: string | null;
   rulesChannel: string | null;
   updatesChannel: string | null;
+	updateChannelId?: string | null;
   botPrefix: string; // configurable prefix for prefix commands
   channels: { id: string; name: string; type: "text" | "voice" | "category" }[];
   botStatus: "online" | "maintenance" | "offline";
@@ -98,6 +99,7 @@ export interface BotCommand {
   category: ModuleCategory;
   type: ModuleType;
   enabled: boolean;
+  configurable?: boolean;
   cooldown: number; // seconds
   restrictedRoleIds: string[];
   allowedRoleIds: string[]; // roles that CAN use this command (empty = everyone)
@@ -115,6 +117,7 @@ export interface BotModule {
   description: string;
   category: ModuleCategory;
   enabled: boolean;
+  configurable?: boolean;
   response: string; // message shown when the module is disabled
   cooldown: number; // seconds
   restrictedRoleIds: string[];

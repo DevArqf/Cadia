@@ -1,6 +1,8 @@
 const { Precondition } = require('@sapphire/framework');
 const {
 	MODULES,
+	IMMUTABLE_COMMANDS,
+	IMMUTABLE_MODULES,
 	getCommandPolicy,
 	getGuildCommandConfig,
 	getModulePolicy,
@@ -68,14 +70,14 @@ function evaluateCommandPolicy(config, command, context = {}) {
 	const commandPolicy = getCommandPolicy(config, command.name);
 	const moduleName = MODULES[moduleId].name;
 
-	if (!modulePolicy.enabled) {
+	if (!IMMUTABLE_MODULES.has(moduleId) && !modulePolicy.enabled) {
 		return denied(
 			'ModuleDisabled',
 			renderPolicyMessage(modulePolicy.response, command.name, moduleName) ||
 				`The **${moduleName}** module is disabled in this server.`
 		);
 	}
-	if (!commandPolicy.enabled) {
+	if (!IMMUTABLE_COMMANDS.has(command.name) && !commandPolicy.enabled) {
 		return denied(
 			'CommandDisabled',
 			renderPolicyMessage(commandPolicy.response, command.name, moduleName) ||

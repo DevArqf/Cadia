@@ -7,6 +7,7 @@ const ACTIONS: Record<string, string> = {
   activity: "admin.activity.update",
   blacklist: "admin.blacklist.add",
   unblacklist: "admin.blacklist.remove",
+	"send-update": "admin.update.send",
 };
 
 export async function GET() {

@@ -37,6 +37,10 @@ import {
   Bot,
   Calendar,
   Globe,
+	Megaphone,
+	Send,
+	Plus,
+	Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { DiscordServer } from "@/lib/types";
@@ -67,6 +71,7 @@ interface AdminGuild {
   systemChannel: string | null;
   rulesChannel: string | null;
   publicUpdatesChannel: string | null;
+	updateChannelId: string | null;
   channelCount: number;
   textChannelCount: number;
   voiceChannelCount: number;
@@ -130,6 +135,7 @@ function toDashboardServer(guild: AdminGuild): DiscordServer {
     systemChannel: guild.systemChannel,
     rulesChannel: guild.rulesChannel,
     updatesChannel: guild.publicUpdatesChannel,
+	updateChannelId: guild.updateChannelId,
     botPrefix: guild.prefix || "cd ",
     channels: guild.channels || [],
     botStatus: "online",
@@ -164,10 +170,27 @@ export function AdminView() {
   const [blacklistTarget, setBlacklistTarget] = useState<string | null>(null);
   const [blacklistReason, setBlacklistReason] = useState("");
   const [blacklistDuration, setBlacklistDuration] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"servers" | "bot" | "audit">("servers");
+  const [activeTab, setActiveTab] = useState<"servers" | "bot" | "updates" | "audit">("servers");
   const [botActivity, setBotActivity] = useState("/help | cadia.bot");
   const [serverAuthorized, setServerAuthorized] = useState(false);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
+	const [updateTarget, setUpdateTarget] = useState<"guild" | "global">("guild");
+	const [updateGuildId, setUpdateGuildId] = useState("");
+	const [sendingUpdate, setSendingUpdate] = useState(false);
+	const [updateEmbed, setUpdateEmbed] = useState({
+		title: "Cadia Update",
+		description: "",
+		color: "#65b8da",
+		url: "",
+		authorName: "Cadia",
+		authorIconUrl: "",
+		footer: "Cadia Updates",
+		footerIconUrl: "",
+		thumbnailUrl: "",
+		imageUrl: "",
+		fields: [] as Array<{ name: string; value: string; inline: boolean }>,
+		timestamp: true,
+	});
 
   useEffect(() => {
     if (!adminUnlocked) {
@@ -285,6 +308,26 @@ export function AdminView() {
     selectServerAsAdmin(serverId);
   };
 
+	const handleSendUpdate = async () => {
+		if (updateTarget === "guild" && !updateGuildId) return toast.error("Select a server first");
+		setSendingUpdate(true);
+		try {
+			const report = await runAdminAction("send-update", {
+				target: updateTarget,
+				guildId: updateTarget === "guild" ? updateGuildId : undefined,
+				embed: updateEmbed,
+			});
+			toast.success(`Update sent to ${report.sent} server${report.sent === 1 ? "" : "s"}`, {
+				description: `${report.skipped} skipped, ${report.failed} failed`,
+			});
+			await refreshOverview();
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Could not send update");
+		} finally {
+			setSendingUpdate(false);
+		}
+	};
+
   const adminLogs = overview?.audit.slice(0, 50) || [];
 
   const blacklistTargetServer = blacklistTarget
@@ -349,6 +392,7 @@ export function AdminView() {
         {([
           { id: "servers", label: "Servers", icon: ServerIcon },
           { id: "bot", label: "Bot Control", icon: Bot },
+		  { id: "updates", label: "Send Update", icon: Megaphone },
           { id: "audit", label: "Admin Audit", icon: Terminal },
         ] as const).map((t) => (
           <button
@@ -635,6 +679,84 @@ export function AdminView() {
               </div>
             </motion.div>
           )}
+
+		  {activeTab === "updates" && (
+			<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+			  <div className="flex items-center justify-between gap-3">
+				<div>
+				  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+					<Megaphone className="h-4 w-4 text-rpg" /> Update Broadcast
+				  </h2>
+				  <p className="text-xs text-muted-foreground mt-1">Messages are delivered only to each server&apos;s configured update channel.</p>
+				</div>
+				<Button onClick={handleSendUpdate} disabled={sendingUpdate || (!updateEmbed.title.trim() && !updateEmbed.description.trim() && !updateEmbed.fields.some((field) => field.name.trim() && field.value.trim()))} className="cadia-btn bg-rpg text-background text-xs font-semibold">
+				  <Send className="h-3.5 w-3.5 mr-1.5" /> {sendingUpdate ? "Sending..." : "Send Embed"}
+				</Button>
+			  </div>
+
+			  <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4 items-start">
+				<div className="cadia-card p-5 space-y-4">
+				  <div className="grid sm:grid-cols-2 gap-3">
+					<div className="space-y-1.5">
+					  <Label className="text-xs">Destination</Label>
+					  <select value={updateTarget} onChange={(event) => setUpdateTarget(event.target.value as "guild" | "global")} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+						<option value="guild">One server</option>
+						<option value="global">All configured servers</option>
+					  </select>
+					</div>
+					<div className="space-y-1.5">
+					  <Label className="text-xs">Server</Label>
+					  <select value={updateGuildId} disabled={updateTarget === "global"} onChange={(event) => setUpdateGuildId(event.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50">
+						<option value="">Select a configured server...</option>
+						{botServers.filter((guild) => guild.updateChannelId).map((guild) => <option key={guild.id} value={guild.id}>{guild.name}</option>)}
+					  </select>
+					</div>
+				  </div>
+				  <div className="grid sm:grid-cols-[1fr_110px] gap-3">
+					<div className="space-y-1.5"><Label className="text-xs">Title</Label><Input maxLength={256} value={updateEmbed.title} onChange={(e) => setUpdateEmbed({ ...updateEmbed, title: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Color</Label><div className="flex gap-2"><Input type="color" value={updateEmbed.color} onChange={(e) => setUpdateEmbed({ ...updateEmbed, color: e.target.value })} className="w-11 px-1" /><Input value={updateEmbed.color} maxLength={7} onChange={(e) => setUpdateEmbed({ ...updateEmbed, color: e.target.value })} /></div></div>
+				  </div>
+				  <div className="space-y-1.5"><Label className="text-xs">Description</Label><Textarea rows={7} maxLength={4096} value={updateEmbed.description} onChange={(e) => setUpdateEmbed({ ...updateEmbed, description: e.target.value })} placeholder="Write the update message..." /><p className="text-[10px] text-muted-foreground text-right">{updateEmbed.description.length}/4096</p></div>
+				  <div className="grid sm:grid-cols-2 gap-3">
+					<div className="space-y-1.5"><Label className="text-xs">Author name</Label><Input maxLength={256} value={updateEmbed.authorName} onChange={(e) => setUpdateEmbed({ ...updateEmbed, authorName: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Author icon URL</Label><Input type="url" value={updateEmbed.authorIconUrl} onChange={(e) => setUpdateEmbed({ ...updateEmbed, authorIconUrl: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Footer</Label><Input maxLength={2048} value={updateEmbed.footer} onChange={(e) => setUpdateEmbed({ ...updateEmbed, footer: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Footer icon URL</Label><Input type="url" value={updateEmbed.footerIconUrl} onChange={(e) => setUpdateEmbed({ ...updateEmbed, footerIconUrl: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Thumbnail URL</Label><Input type="url" value={updateEmbed.thumbnailUrl} onChange={(e) => setUpdateEmbed({ ...updateEmbed, thumbnailUrl: e.target.value })} /></div>
+					<div className="space-y-1.5"><Label className="text-xs">Large image URL</Label><Input type="url" value={updateEmbed.imageUrl} onChange={(e) => setUpdateEmbed({ ...updateEmbed, imageUrl: e.target.value })} /></div>
+					<div className="space-y-1.5 sm:col-span-2"><Label className="text-xs">Title link URL</Label><Input type="url" value={updateEmbed.url} onChange={(e) => setUpdateEmbed({ ...updateEmbed, url: e.target.value })} /></div>
+				  </div>
+				  <div className="space-y-2">
+					<div className="flex items-center justify-between"><Label className="text-xs">Fields ({updateEmbed.fields.length}/25)</Label><Button type="button" variant="outline" size="sm" disabled={updateEmbed.fields.length >= 25} onClick={() => setUpdateEmbed({ ...updateEmbed, fields: [...updateEmbed.fields, { name: "", value: "", inline: false }] })} className="h-7 text-[10px]"><Plus className="h-3 w-3 mr-1" /> Add field</Button></div>
+					{updateEmbed.fields.map((field, index) => <div key={index} className="grid sm:grid-cols-[1fr_1.5fr_auto] gap-2 items-end border-t border-border/50 pt-2">
+					  <div className="space-y-1"><Label className="text-[10px]">Name</Label><Input maxLength={256} value={field.name} onChange={(e) => setUpdateEmbed({ ...updateEmbed, fields: updateEmbed.fields.map((item, itemIndex) => itemIndex === index ? { ...item, name: e.target.value } : item) })} /></div>
+					  <div className="space-y-1"><Label className="text-[10px]">Value</Label><Input maxLength={1024} value={field.value} onChange={(e) => setUpdateEmbed({ ...updateEmbed, fields: updateEmbed.fields.map((item, itemIndex) => itemIndex === index ? { ...item, value: e.target.value } : item) })} /></div>
+					  <div className="flex items-center gap-2 h-10"><label className="flex items-center gap-1 text-[10px]"><input type="checkbox" checked={field.inline} onChange={(e) => setUpdateEmbed({ ...updateEmbed, fields: updateEmbed.fields.map((item, itemIndex) => itemIndex === index ? { ...item, inline: e.target.checked } : item) })} /> Inline</label><button type="button" title="Remove field" onClick={() => setUpdateEmbed({ ...updateEmbed, fields: updateEmbed.fields.filter((_, itemIndex) => itemIndex !== index) })} className="text-fail hover:bg-fail/10 rounded p-1"><Trash2 className="h-3.5 w-3.5" /></button></div>
+					</div>)}
+				  </div>
+				  <label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={updateEmbed.timestamp} onChange={(e) => setUpdateEmbed({ ...updateEmbed, timestamp: e.target.checked })} /> Include current timestamp</label>
+				</div>
+
+				<div className="lg:sticky lg:top-4 space-y-2">
+				  <Label className="text-xs text-muted-foreground">Live Discord Preview</Label>
+				  <div className="rounded-md bg-[#313338] p-4 text-[#dbdee1] shadow-xl">
+					<div className="flex gap-3"><CadiaLogo size={40} animated={false} /><div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">Cadia <span className="rounded bg-[#5865f2] px-1 py-0.5 text-[9px]">APP</span> <span className="text-xs font-normal text-[#949ba4]">Today at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
+					  <div className="mt-1.5 max-w-[520px] rounded-sm bg-[#2b2d31] p-3 relative overflow-hidden" style={{ borderLeft: `4px solid ${/^#[0-9a-f]{6}$/i.test(updateEmbed.color) ? updateEmbed.color : "#65b8da"}` }}>
+						{updateEmbed.thumbnailUrl && <img src={updateEmbed.thumbnailUrl} alt="" className="float-right ml-3 h-20 w-20 rounded object-cover" />}
+						{updateEmbed.authorName && <div className="flex items-center gap-1.5 text-xs font-semibold text-white mb-2">{updateEmbed.authorIconUrl && <img src={updateEmbed.authorIconUrl} alt="" className="h-5 w-5 rounded-full object-cover" />}{updateEmbed.authorName}</div>}
+						{updateEmbed.title && <div className="text-sm font-semibold text-white mb-1 break-words">{updateEmbed.title}</div>}
+						<div className="text-sm whitespace-pre-wrap break-words">{updateEmbed.description || "Your embed description will appear here."}</div>
+						{updateEmbed.fields.length > 0 && <div className="clear-both grid grid-cols-3 gap-x-3 gap-y-2 mt-3">{updateEmbed.fields.filter((field) => field.name || field.value).map((field, index) => <div key={index} className={field.inline ? "col-span-1" : "col-span-3"}><div className="text-xs font-semibold text-white break-words">{field.name || "Field name"}</div><div className="text-xs whitespace-pre-wrap break-words">{field.value || "Field value"}</div></div>)}</div>}
+						{updateEmbed.imageUrl && <img src={updateEmbed.imageUrl} alt="Embed preview" className="mt-3 max-h-72 w-full rounded object-cover" />}
+						{(updateEmbed.footer || updateEmbed.timestamp) && <div className="clear-both flex items-center gap-1.5 mt-3 text-[10px] text-[#b5bac1]">{updateEmbed.footerIconUrl && <img src={updateEmbed.footerIconUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}{updateEmbed.footer}{updateEmbed.footer && updateEmbed.timestamp ? " • " : ""}{updateEmbed.timestamp ? "Today" : ""}</div>}
+					  </div>
+					</div></div>
+				  </div>
+				  <p className="text-[10px] text-muted-foreground">{botServers.filter((guild) => guild.updateChannelId).length} of {botServers.length} servers have an update channel configured.</p>
+				</div>
+			  </div>
+			</motion.div>
+		  )}
 
           {/* === Audit tab === */}
           {activeTab === "audit" && (

@@ -40,6 +40,7 @@ export async function PUT(request: Request, context: RouteContext) {
         actorId: access.session.user.id,
         prefix: body?.prefix,
         nickname: body?.nickname,
+		updateChannelId: body?.updateChannelId,
       }),
     );
   } catch (error: any) {

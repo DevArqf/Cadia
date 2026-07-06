@@ -14,7 +14,6 @@ import type {
 import {
   MOCK_USER,
   MOCK_SERVERS,
-  INITIAL_LOGS,
   BOT_OWNER_IDS,
 } from "./mock-data";
 
@@ -75,7 +74,7 @@ interface CadiaState {
   updateCommand: (moduleId: string, commandId: string, patch: Partial<BotModule["commands"][number]>) => void;
 
   toggleRoleManageCadia: (roleId: string) => void;
-  saveBotSettings: (prefix: string, nickname: string) => Promise<void>;
+    saveBotSettings: (prefix: string, nickname: string, updateChannelId: string | null) => Promise<void>;
 
   addLog: (entry: Omit<LogEntry, "id" | "timestamp">) => void;
 
@@ -100,6 +99,42 @@ let commandSaveInFlight: Promise<void> | null = null;
 let commandSaveQueued = false;
 let dashboardSessionRequest: Promise<{ user: DiscordUser; servers: DiscordServer[] } | null> | null = null;
 const MAX_CLIENT_LOGS = 500;
+const ACTIVITY_STORAGE_VERSION = 1;
+
+function activityStorageKey(userId: string) {
+  return `cadia:activity:v${ACTIVITY_STORAGE_VERSION}:${userId}`;
+}
+
+function readStoredActivity(userId: string): LogEntry[] {
+  if (typeof window === "undefined" || !userId) return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(activityStorageKey(userId)) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is LogEntry =>
+        entry &&
+        typeof entry.id === "string" &&
+        typeof entry.serverId === "string" &&
+        typeof entry.action === "string" &&
+        typeof entry.details === "string" &&
+        Number.isFinite(Number(entry.timestamp)),
+      )
+      .map((entry) => ({ ...entry, timestamp: Number(entry.timestamp) }))
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, MAX_CLIENT_LOGS);
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredActivity(userId: string, logs: LogEntry[]) {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    window.localStorage.setItem(activityStorageKey(userId), JSON.stringify(logs.slice(0, MAX_CLIENT_LOGS)));
+  } catch {
+    // Activity history should not block dashboard actions if browser storage is unavailable.
+  }
+}
 
 function fetchDashboardSession() {
   if (dashboardSessionRequest) return dashboardSessionRequest;
@@ -138,6 +173,7 @@ function hydrateModules(input: any[]): BotModule[] {
     description: String(module.description || "Cadia module"),
     category: module.category as BotModule["category"],
     enabled: module.enabled !== false,
+    configurable: module.configurable !== false,
     response: String(module.response || ""),
     cooldown: Number(module.cooldown || 0),
     restrictedRoleIds: Array.isArray(module.restrictedRoleIds) ? module.restrictedRoleIds.map(String) : [],
@@ -150,6 +186,7 @@ function hydrateModules(input: any[]): BotModule[] {
       category: module.category as BotModule["category"],
       type: command.type || "Slash",
       enabled: command.enabled !== false,
+      configurable: command.configurable !== false,
       response: String(command.response || ""),
       cooldown: Number(command.cooldown || 0),
       restrictedRoleIds: [],
@@ -169,7 +206,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   servers: [],
   selectedServer: null,
   modules: [],
-  logs: INITIAL_LOGS,
+  logs: [],
   activeTab: "dashboard",
   activeModuleId: null,
   pendingTab: null,
@@ -192,7 +229,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     try {
       const session = await fetchDashboardSession();
       if (session) {
-        set({ ...session, isAuthenticating: false, sessionLoaded: true, view: "server-select" });
+        set({ ...session, logs: readStoredActivity(session.user.id), isAuthenticating: false, sessionLoaded: true, view: "server-select" });
         return;
       }
     } catch {
@@ -212,6 +249,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       }
       set({
         ...session,
+        logs: readStoredActivity(session.user.id),
         isAuthenticating: false,
         sessionLoaded: true,
         view: "server-select",
@@ -272,6 +310,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       servers: [],
       selectedServer: null,
       modules: [],
+      logs: [],
       activeTab: "dashboard",
       adminUnlocked: false,
     });
@@ -419,6 +458,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   setLegalPage: (p) => set({ legalPage: p, view: p ? "legal" : "landing" }),
 
   toggleModule: (moduleId) => {
+		if (get().modules.find((module) => module.id === moduleId)?.configurable === false) return;
     const modules = get().modules.map((m) =>
       m.id === moduleId ? { ...m, enabled: !m.enabled } : m,
     );
@@ -481,6 +521,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   },
 
   toggleCommand: (moduleId, commandId) => {
+		if (get().modules.find((module) => module.id === moduleId)?.commands.find((command) => command.id === commandId)?.configurable === false) return;
     const modules = get().modules.map((m) =>
       m.id === moduleId
         ? {
@@ -551,13 +592,13 @@ export const useCadia = create<CadiaState>((set, get) => ({
     }
   },
 
-  saveBotSettings: async (prefix, nickname) => {
+  saveBotSettings: async (prefix, nickname, updateChannelId) => {
     const server = get().selectedServer;
     if (!server) return;
     const response = await fetch(`/api/servers/${server.id}/settings`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prefix, nickname }),
+      body: JSON.stringify({ prefix, nickname, updateChannelId }),
     });
     const payload = await readApiPayload(response);
     if (!response.ok) {
@@ -573,6 +614,8 @@ export const useCadia = create<CadiaState>((set, get) => ({
         ...get().selectedServer!,
         botPrefix: String(payload.prefix),
         botNickname: String(payload.nickname),
+		updateChannelId: payload.updateChannelId || null,
+		updatesChannel: server.channels.find((channel) => channel.id === payload.updateChannelId)?.name || null,
       },
     });
     toast.success("Bot configuration updated");
@@ -593,7 +636,9 @@ export const useCadia = create<CadiaState>((set, get) => ({
       id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
     };
-    set({ logs: [log, ...get().logs].slice(0, MAX_CLIENT_LOGS) });
+    const logs = [log, ...get().logs].slice(0, MAX_CLIENT_LOGS);
+    set({ logs });
+    writeStoredActivity(get().user?.id || entry.actorId, logs);
   },
 
   openAdminConsole: () => set({ adminConsoleOpen: true }),
