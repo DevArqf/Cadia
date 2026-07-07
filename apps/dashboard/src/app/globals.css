@@ -542,15 +542,14 @@
 .cadia-gold-particles .cadia-gold-particle:nth-child(5) { left: 75%; animation-duration: 2.9s; animation-delay: 1.8s;  --dx: -2px; }
 .cadia-gold-particles .cadia-gold-particle:nth-child(6) { left: 90%; animation-duration: 3.2s; animation-delay: 0.9s;  --dx:  2px; }
 
-/* ===== "Add Cadia Now" button — appealing gradient + shine ===== */
+/* ===== "Add Cadia Now" button — restrained gold-green glow ===== */
 .cadia-add-bot-btn {
-  background: linear-gradient(135deg, #5e3a6d 0%, #65b8da 100%) !important;
-  border: 1px solid rgba(101, 184, 218, 0.4) !important;
-  box-shadow: 0 4px 16px -4px rgba(94, 58, 109, 0.5),
-              0 0 0 1px rgba(101, 184, 218, 0.1) !important;
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-              box-shadow 0.3s ease,
-              filter 0.3s ease !important;
+  background: linear-gradient(135deg, #e9d502 0%, #3bb143 100%) !important;
+  border: 1px solid rgba(235, 221, 74, 0.58) !important;
+  box-shadow: 0 3px 12px -5px rgba(59, 177, 67, 0.72),
+              0 0 0 1px rgba(233, 213, 2, 0.14);
+  animation: cadia-add-bot-glow 3.2s ease-in-out infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
   position: relative;
   overflow: hidden !important;
 }
@@ -568,19 +567,34 @@
     rgba(255, 255, 255, 0.0) 80%,
     transparent 100%);
   pointer-events: none;
-  transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: cadia-add-bot-shine 4.2s ease-in-out infinite;
   z-index: 0;
 }
 .cadia-add-bot-btn:hover {
-  transform: translateY(-2px) !important;
-  filter: brightness(1.1) saturate(1.15);
-  box-shadow: 0 8px 24px -6px rgba(94, 58, 109, 0.6),
-              0 0 20px -2px rgba(101, 184, 218, 0.4) !important;
+  animation: none;
+  transform: translateY(-1px) !important;
+  filter: brightness(1.07) saturate(1.08);
+  box-shadow: 0 6px 18px -6px rgba(59, 177, 67, 0.82),
+              0 0 14px -4px rgba(233, 213, 2, 0.62) !important;
 }
-.cadia-add-bot-btn:hover::before { left: 150%; }
 .cadia-add-bot-btn:active {
   transform: translateY(0) !important;
   filter: brightness(1.05);
+}
+
+@keyframes cadia-add-bot-glow {
+  0%, 100% { box-shadow: 0 3px 12px -5px rgba(59, 177, 67, 0.62), 0 0 0 1px rgba(233, 213, 2, 0.12); }
+  50% { box-shadow: 0 4px 16px -5px rgba(59, 177, 67, 0.86), 0 0 10px -5px rgba(233, 213, 2, 0.68); }
+}
+
+@keyframes cadia-add-bot-shine {
+  0%, 60% { left: -150%; }
+  82%, 100% { left: 150%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cadia-add-bot-btn,
+  .cadia-add-bot-btn::before { animation: none; }
 }
 
 /* ===== Sidebar Premium CTA button — golden shine + glow on hover ===== */

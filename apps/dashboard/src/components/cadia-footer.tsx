@@ -35,11 +35,11 @@ export function CadiaFooter() {
   // Get Premium: prompt login if needed, then go directly to the standalone premium page
   const handleGetPremium = () => {
     if (user) {
-      // Already logged in — go straight to premium page
+      // Already logged in : go straight to premium page
       setView("premium");
       return;
     }
-    // Not logged in — use real Discord OAuth first.
+    // Not logged in : use real Discord OAuth first.
     startLogin();
   };
 
@@ -47,7 +47,7 @@ export function CadiaFooter() {
     <>
       <footer className="relative z-10 border-t border-cadia/15 bg-card/30 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 grid grid-cols-1 sm:grid-cols-3 gap-8 items-start">
-          {/* Column 1 (left) — Cadia icon + title, copyright underneath */}
+          {/* Column 1 (left) : Cadia icon + title, copyright underneath */}
           <div className="space-y-3 flex flex-col items-start">
             <div className="flex items-center gap-2.5">
               <CadiaLogo size={40} animated={false} />
@@ -60,7 +60,7 @@ export function CadiaFooter() {
             </p>
           </div>
 
-          {/* Column 2 (middle) — Cadia bar */}
+          {/* Column 2 (middle) : Cadia bar */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Cadia
@@ -104,7 +104,7 @@ export function CadiaFooter() {
             </ul>
           </div>
 
-          {/* Column 3 (right) — Legal bar, with Get in touch underneath */}
+          {/* Column 3 (right) : Legal bar, with Get in touch underneath */}
           <div className="space-y-6">
             {/* Legal */}
             <div className="space-y-3">
@@ -131,7 +131,7 @@ export function CadiaFooter() {
               </ul>
             </div>
 
-            {/* Get in touch — under Legal */}
+            {/* Get in touch : under Legal */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-cadia">
                 Get in touch
@@ -177,7 +177,7 @@ export function CadiaFooter() {
       <Dialog open={comingSoonOpen} onOpenChange={setComingSoonOpen}>
         <DialogContent className="max-w-md border-cadia/30 p-0 overflow-hidden bg-card backdrop-blur-xl shadow-2xl">
           <div className="h-1 bg-gradient-to-r from-cadia via-warning to-cadia" />
-          <DialogTitle className="sr-only">{comingSoonLabel} — Coming Soon</DialogTitle>
+          <DialogTitle className="sr-only">{comingSoonLabel} : Coming Soon</DialogTitle>
           <div className="px-5 pb-8 pt-8 text-center">
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}

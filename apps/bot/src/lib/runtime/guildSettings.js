@@ -27,17 +27,29 @@ async function getGuildPrefix(message) {
 }
 
 async function saveGuildPrefix(guildId, prefix, updatedBy = null) {
+	return saveGuildSettings(guildId, { prefix }, updatedBy);
+}
+
+async function saveGuildSettings(guildId, input = {}, updatedBy = null) {
 	const id = String(guildId || '');
 	if (!id) throw new TypeError('A guild ID is required.');
-	const normalized = normalizeGuildPrefix(prefix);
 	let record = await GuildSettings.findOne({ guildId: id });
 	if (!record) record = new GuildSettings({ guildId: id });
-	Object.assign(record, { prefix: normalized, updatedAt: Date.now(), updatedBy });
+	if (Object.hasOwn(input, 'prefix')) record.prefix = normalizeGuildPrefix(input.prefix);
+	if (Object.hasOwn(input, 'updateChannelId')) record.updateChannelId = normalizeUpdateChannelId(input.updateChannelId);
+	Object.assign(record, { updatedAt: Date.now(), updatedBy });
 	await record.save();
 
 	const settings = serializeGuildSettings(record, id);
 	cache.set(id, { settings, expiresAt: Date.now() + CACHE_MS });
 	return settings;
+}
+
+function normalizeUpdateChannelId(value) {
+	if (value === null || value === undefined || value === '') return null;
+	const id = String(value).trim();
+	if (!/^\d{17,20}$/.test(id)) throw new RangeError('Update channel must be a valid Discord channel ID.');
+	return id;
 }
 
 function normalizeGuildPrefix(value) {
@@ -51,7 +63,8 @@ function normalizeGuildPrefix(value) {
 function serializeGuildSettings(record, guildId) {
 	return {
 		guildId: String(guildId || record?.guildId || ''),
-		prefix: typeof record?.prefix === 'string' && record.prefix.length ? record.prefix : DEFAULT_PREFIX
+		prefix: typeof record?.prefix === 'string' && record.prefix.length ? record.prefix : DEFAULT_PREFIX,
+		updateChannelId: normalizeUpdateChannelId(record?.updateChannelId)
 	};
 }
 
@@ -65,6 +78,8 @@ module.exports = {
 	getGuildPrefix,
 	getGuildSettings,
 	normalizeGuildPrefix,
+	normalizeUpdateChannelId,
+	saveGuildSettings,
 	saveGuildPrefix,
 	serializeGuildSettings
 };

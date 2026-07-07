@@ -62,7 +62,7 @@ async function setupSuggestions(interaction) {
 
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 	const oldConfig = await SuggestionConfig.findOne({ guildId: interaction.guildId });
-	const panel = await channel.send(buildSuggestionPanel({ ...(oldConfig || {}), style }));
+	const panel = await channel.send(buildSuggestionPanel({ ...(oldConfig || {}), style }, interaction.guild));
 
 	try {
 		await SuggestionConfig.findOneAndUpdate(
@@ -101,7 +101,7 @@ async function resendSuggestionPanel(interaction) {
 
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 	const oldPanelMessageId = config.panelMessageId;
-	const panel = await channel.send(buildSuggestionPanel(config));
+	const panel = await channel.send(buildSuggestionPanel(config, interaction.guild));
 	config.panelMessageId = panel.id;
 	config.updatedAt = Date.now();
 	try {

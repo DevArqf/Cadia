@@ -90,6 +90,7 @@ function mapGuild(discordGuild: any, botGuild: any) {
     systemChannel: botGuild?.systemChannel || null,
     rulesChannel: botGuild?.rulesChannel || null,
     updatesChannel: botGuild?.publicUpdatesChannel || null,
+	updateChannelId: botGuild?.updateChannelId || null,
     botPrefix: botGuild?.prefix || "cd ",
     channels: botGuild?.channels || [],
     botStatus: botInServer ? "online" : "offline",

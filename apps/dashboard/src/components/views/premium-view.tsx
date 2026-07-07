@@ -29,8 +29,8 @@ export function PremiumView() {
     setSelected(planId);
     const plan = PREMIUM_PLANS.find((p) => p.id === planId);
     if (plan) {
-      toast.success(`${plan.name} plan selected!`, {
-        description: "Redirecting to secure checkout…",
+      toast.success(`${plan.name} selected`, {
+        description: "Opening secure checkout...",
       });
       addLog({
         type: "audit",
@@ -90,12 +90,11 @@ export function PremiumView() {
             CADIA PREMIUM
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Power up your server with all modules, custom branding, and priority
-            support. Cancel anytime.
+            Give your team more flexibility with advanced customization and priority support. Change or cancel your plan at any time.
           </p>
         </motion.div>
 
-        {/* Plans grid — 3 plans */}
+        {/* Plans grid : 3 plans */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
           {PREMIUM_PLANS.map((plan, i) => (
             <motion.div
@@ -166,7 +165,7 @@ export function PremiumView() {
                 ))}
               </ul>
 
-              {/* Button — luxurious golden shine on paid plans */}
+              {/* Button : luxurious golden shine on paid plans */}
               <Button
                 onClick={() => handleChoose(plan.id)}
                 disabled={plan.id === "plan-free"}

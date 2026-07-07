@@ -1,4 +1,4 @@
-// Cadia bot — shared types
+// Cadia bot : shared types
 export type View =
   | "landing"
   | "login"
@@ -81,6 +81,7 @@ export interface DiscordServer {
   systemChannel: string | null;
   rulesChannel: string | null;
   updatesChannel: string | null;
+	updateChannelId?: string | null;
   botPrefix: string; // configurable prefix for prefix commands
   channels: { id: string; name: string; type: "text" | "voice" | "category" }[];
   botStatus: "online" | "maintenance" | "offline";
@@ -98,6 +99,7 @@ export interface BotCommand {
   category: ModuleCategory;
   type: ModuleType;
   enabled: boolean;
+  configurable?: boolean;
   cooldown: number; // seconds
   restrictedRoleIds: string[];
   allowedRoleIds: string[]; // roles that CAN use this command (empty = everyone)
@@ -115,6 +117,7 @@ export interface BotModule {
   description: string;
   category: ModuleCategory;
   enabled: boolean;
+  configurable?: boolean;
   response: string; // message shown when the module is disabled
   cooldown: number; // seconds
   restrictedRoleIds: string[];
@@ -177,6 +180,32 @@ export interface AutoModConfig {
   };
   exemptRoleIds: string[];
   exemptChannelIds: string[];
+}
+
+export interface TicketEmbedAppearance {
+  title: string;
+  description: string;
+  footer: string;
+  authorName: string;
+  authorIconUrl: string;
+  footerIconUrl: string;
+  color: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  showTimestamp: boolean;
+}
+
+export interface TicketAppearanceConfig {
+  guildId: string;
+  panelChannelId: string | null;
+  panelMessageId: string | null;
+  enabled: boolean;
+  panel: TicketEmbedAppearance & {
+    buttonLabel: string;
+    buttonEmoji: string;
+    controlType: "button" | "select";
+  };
+  openedTicket: TicketEmbedAppearance;
 }
 
 export type LogType =

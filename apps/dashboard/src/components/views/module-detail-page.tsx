@@ -39,9 +39,11 @@ import {
   Save,
   Shield,
   Hash,
+	Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { BotModule, ModuleCategory } from "@/lib/types";
+import { CommandsTab } from "./commands-tab";
 
 const ALL_VARIABLES = [
   { name: "{user}", desc: "The username of the person running the command", categories: ["Moderation", "RPG", "Utility", "Fun", "Logging"] },
@@ -72,6 +74,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
   const addLog = useCadia((s) => s.addLog);
 
   const [allowedPickerOpen, setAllowedPickerOpen] = useState(false);
+	const [restrictedPickerOpen, setRestrictedPickerOpen] = useState(false);
   const [variablesOpen, setVariablesOpen] = useState(false);
 
   const isAdminUnlocked = useCadia((s) => s.adminUnlocked);
@@ -88,6 +91,8 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
   const allowedRoles = server.roles.filter((r) =>
     moduleAllowedRoleIds.includes(r.id),
   );
+	const moduleRestrictedRoleIds = m.restrictedRoleIds || [];
+	const restrictedRoles = server.roles.filter((role) => moduleRestrictedRoleIds.includes(role.id));
 
   const handleToggleAllowed = (roleId: string) => {
     const next = moduleAllowedRoleIds.includes(roleId)
@@ -95,6 +100,13 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
       : [...moduleAllowedRoleIds, roleId];
     updateModule(m.id, { allowedRoleIds: next } as Partial<BotModule>);
   };
+
+	const handleToggleRestricted = (roleId: string) => {
+		const next = moduleRestrictedRoleIds.includes(roleId)
+			? moduleRestrictedRoleIds.filter((id) => id !== roleId)
+			: [...moduleRestrictedRoleIds, roleId];
+		updateModule(m.id, { restrictedRoleIds: next });
+	};
 
   const handleSave = async () => {
 		await useCadia.getState().saveConfig();
@@ -158,11 +170,12 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
             <span className="text-xs text-muted-foreground">Enabled</span>
             <Switch
               checked={m.enabled}
+              disabled={m.configurable === false}
               onCheckedChange={() => {
                 toggleModule(m.id);
                 toast.success(`${m.name} ${m.enabled ? "disabled" : "enabled"}`);
               }}
-              aria-label={`Enable ${m.name}`}
+              aria-label={m.configurable === false ? `${m.name} is always enabled` : `Enable ${m.name}`}
             />
           </div>
         </div>
@@ -256,7 +269,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
         </div>
       </div>
 
-      {/* Allowed Roles — roles that CAN use this module */}
+      {/* Allowed Roles : roles that CAN use this module */}
       <div className="cadia-card p-5">
         <div className="flex items-center gap-2 mb-1.5">
           <Shield className="h-4 w-4 text-success" />
@@ -325,7 +338,7 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
           </PopoverTrigger>
           <PopoverContent className="p-0 max-w-[400px]" align="start">
             <Command>
-              <CommandInput placeholder="Search roles…" />
+              <CommandInput placeholder="Search roles..." />
               <CommandList>
                 <CommandEmpty>No roles found.</CommandEmpty>
                 <CommandGroup>
@@ -360,6 +373,27 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
         </Popover>
       </div>
 
+	  <div className="cadia-card p-5">
+		<div className="flex items-center gap-2 mb-1.5">
+		  <Ban className="h-4 w-4 text-fail" />
+		  <h3 className="text-sm font-semibold text-foreground">Blocked Roles</h3>
+		</div>
+		<p className="text-xs text-muted-foreground mb-4 leading-relaxed">Members with any selected role cannot use this module. Blocked roles take precedence over allowed roles.</p>
+		<Popover open={restrictedPickerOpen} onOpenChange={setRestrictedPickerOpen}>
+		  <PopoverTrigger asChild>
+			<div role="button" aria-expanded={restrictedPickerOpen} tabIndex={0} className="w-full justify-between font-normal min-h-[44px] bg-card/50 border border-input rounded-md px-3 py-2 flex items-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring">
+			  {restrictedRoles.length === 0 ? <span className="text-muted-foreground text-xs">No roles are blocked</span> : <div className="flex items-center gap-1.5 flex-wrap">{restrictedRoles.map((role) => <span key={role.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border" style={{ background: `${role.color}20`, color: role.color, borderColor: `${role.color}40` }}>{role.name}<button type="button" onClick={(event) => { event.stopPropagation(); handleToggleRestricted(role.id); }} aria-label={`Remove ${role.name}`}><X className="h-3 w-3" /></button></span>)}</div>}
+			  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+			</div>
+		  </PopoverTrigger>
+		  <PopoverContent className="p-0 max-w-[400px]" align="start">
+			<Command><CommandInput placeholder="Search roles..." /><CommandList><CommandEmpty>No roles found.</CommandEmpty><CommandGroup>{selectableRoles.map((role) => { const selected = moduleRestrictedRoleIds.includes(role.id); return <CommandItem key={role.id} value={role.name} onSelect={() => handleToggleRestricted(role.id)} className="gap-2"><div className={`h-4 w-4 rounded border flex items-center justify-center ${selected ? "bg-fail border-fail" : "border-border"}`}>{selected && <Check className="h-3 w-3 text-background" />}</div><span className="h-2.5 w-2.5 rounded-full" style={{ background: role.color }} /><span className="text-sm flex-1">{role.name}</span></CommandItem>; })}</CommandGroup></CommandList></Command>
+		  </PopoverContent>
+		</Popover>
+	  </div>
+
+      <CommandsTab moduleId={m.id} embedded />
+
       {/* Save button */}
       <div className="flex justify-end">
         <Button
@@ -367,11 +401,11 @@ export function ModuleDetailPage({ module: initialModule, onBack }: ModuleDetail
           className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
         >
           <Save className="h-3.5 w-3.5 mr-1.5" />
-          Save Configuration
+          Save Changes
         </Button>
       </div>
 
-      {/* Variables Modal — filtered by module category */}
+      {/* Variables Modal : filtered by module category */}
       <Dialog open={variablesOpen} onOpenChange={setVariablesOpen}>
         <DialogContent className="max-w-md border-cadia/30 p-0 overflow-hidden bg-card backdrop-blur-xl shadow-2xl">
           <div className="h-1 bg-gradient-to-r from-cadia via-warning to-cadia" />

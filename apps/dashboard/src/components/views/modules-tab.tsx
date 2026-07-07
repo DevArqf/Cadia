@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Boxes, Settings, Search, Filter } from "lucide-react";
 import type { ModuleCategory } from "@/lib/types";
+import { CommandsTab } from "./commands-tab";
 
 const ModuleDetailPage = dynamic(() => import("./module-detail-page").then((module) => module.ModuleDetailPage));
 const SuggestionEditor = dynamic(() => import("./suggestion-editor").then((module) => module.SuggestionEditor));
 const AutoModEditor = dynamic(() => import("./automod-editor").then((module) => module.AutoModEditor));
+const TicketEditor = dynamic(() => import("./ticket-editor").then((module) => module.TicketEditor));
 
-// Unified palette — all categories use the same gold accent
+// Unified palette : all categories use the same gold accent
 const CATEGORY_COLOR = "#e9d502";
 
 export function ModulesTab() {
@@ -40,8 +42,9 @@ export function ModulesTab() {
   if (activeModuleId) {
     const mod = modules.find((m) => m.id === activeModuleId);
     if (mod) {
-      if (mod.id === "automod") return <AutoModEditor onBack={() => setActiveModule(null)} />;
-      if (mod.id === "suggestions" || mod.id === "mod-suggestions") return <SuggestionEditor onBack={() => setActiveModule(null)} />;
+      if (mod.id === "automod") return <div className="space-y-5"><AutoModEditor onBack={() => setActiveModule(null)} /><CommandsTab moduleId={mod.id} embedded /></div>;
+      if (mod.id === "suggestions" || mod.id === "mod-suggestions") return <div className="space-y-5"><SuggestionEditor onBack={() => setActiveModule(null)} /><CommandsTab moduleId={mod.id} embedded /></div>;
+	  if (mod.id === "tickets") return <div className="space-y-5"><TicketEditor onBack={() => setActiveModule(null)} /><CommandsTab moduleId={mod.id} embedded /></div>;
       return <ModuleDetailPage module={mod} onBack={() => setActiveModule(null)} />;
     }
   }
@@ -55,7 +58,7 @@ export function ModulesTab() {
         <div className="flex items-center gap-2">
           <Boxes className="h-5 w-5 text-cadia" />
           <h2 className="text-xl font-bold text-foreground">
-            <span className="text-cadia">Modules</span>
+            <span className="text-cadia">Server Modules</span>
           </h2>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -69,7 +72,7 @@ export function ModulesTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search modules…"
+            placeholder="Find a module..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-card/50 focus:outline-none focus:border-cadia/50 transition-colors"
@@ -93,7 +96,7 @@ export function ModulesTab() {
         </div>
       </div>
 
-      {/* Module grid — like the reference image */}
+      {/* Module grid : like the reference image */}
       <div className="min-h-[180px] overflow-hidden">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -106,7 +109,7 @@ export function ModulesTab() {
           >
           {filtered.length === 0 ? (
             <div className="cadia-card p-6 text-center sm:col-span-2 lg:col-span-3">
-              <p className="text-sm text-muted-foreground">No modules match your filters</p>
+              <p className="text-sm text-muted-foreground">No modules match this search.</p>
             </div>
           ) : filtered.map((m) => {
             const catColor = CATEGORY_COLOR;
@@ -121,8 +124,9 @@ export function ModulesTab() {
                   </div>
                   <Switch
                     checked={m.enabled}
+                    disabled={m.configurable === false}
                     onCheckedChange={() => toggleModule(m.id)}
-                    aria-label={`Enable ${m.name}`}
+                    aria-label={m.configurable === false ? `${m.name} is always enabled` : `Enable ${m.name}`}
                   />
                 </div>
 

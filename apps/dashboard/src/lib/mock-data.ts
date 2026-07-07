@@ -5,7 +5,7 @@ export const BOT_OWNER_IDS = ['899385550585364481', '833997532040134656'];
 
 // === Mock logged-in user  ===
 export const MOCK_USER: DiscordUser = {
-	id: '899385550585364481', // matches owner — for demo, user IS the owner
+	id: '899385550585364481', // matches owner : for demo, user IS the owner
 	username: 'nyx',
 	discriminator: '0',
 	globalName: 'Nyx',
@@ -156,7 +156,7 @@ export const MOCK_SERVERS: DiscordServer[] = [
 		icon: '#e9d502',
 		ownerId: '899385550585364481',
 		memberCount: 12,
-		botInServer: false, // not yet added — should show invite redirect
+		botInServer: false, // not yet added : should show invite redirect
 		userPermissions: ['ADMINISTRATOR'],
 		userCanManage: true,
 		features: [],
@@ -266,7 +266,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'nyx',
 		actorId: '899385550585364481',
 		action: 'Used /kick',
-		details: "Kicked user 'spammer123' — reason: spam",
+		details: "Kicked user 'spammer123' : reason: spam",
 		timestamp: Date.now() - 1000 * 60 * 5
 	},
 	{
@@ -277,7 +277,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Moderator Alex',
 		actorId: '222222222222222222',
 		action: 'Muted member',
-		details: "Muted 'noisy_user' for 10 minutes — reason: caps spam",
+		details: "Muted 'noisy_user' for 10 minutes : reason: caps spam",
 		timestamp: Date.now() - 1000 * 60 * 22
 	},
 	{
@@ -288,7 +288,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Cadia AutoMod',
 		actorId: '0',
 		action: 'Auto-banned member',
-		details: "Auto-banned 'raider_99' — triggered anti-raid protection",
+		details: "Auto-banned 'raider_99' : triggered anti-raid protection",
 		timestamp: Date.now() - 1000 * 60 * 60 * 2
 	},
 	{
@@ -299,7 +299,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'nyx',
 		actorId: '899385550585364481',
 		action: 'Updated module config',
-		details: 'Set cooldown to 5s — RPG System',
+		details: 'Set cooldown to 5s : RPG System',
 		timestamp: Date.now() - 1000 * 60 * 60 * 6
 	},
 	{
@@ -321,7 +321,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'system',
 		actorId: '0',
 		action: 'Bot status: Online',
-		details: 'Cadia is now online — v2.4.1, 5 modules loaded',
+		details: 'Cadia is now online : v2.4.1, 5 modules loaded',
 		timestamp: Date.now() - 1000 * 60 * 60 * 24
 	},
 	{
@@ -332,7 +332,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Moderator Alex',
 		actorId: '222222222222222222',
 		action: 'Warned member',
-		details: "Warned 'troublemaker' — reason: inappropriate language",
+		details: "Warned 'troublemaker' : reason: inappropriate language",
 		timestamp: Date.now() - 1000 * 60 * 30
 	},
 	{
@@ -354,7 +354,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Cadia AutoMod',
 		actorId: '0',
 		action: 'Auto-muted member',
-		details: "Auto-muted 'spammer_x' for 5 minutes — reason: link spam",
+		details: "Auto-muted 'spammer_x' for 5 minutes : reason: link spam",
 		timestamp: Date.now() - 1000 * 60 * 90
 	},
 	{
@@ -387,7 +387,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Moderator Alex',
 		actorId: '222222222222222222',
 		action: 'Banned member',
-		details: "Banned 'raider_42' — reason: mass mention spam",
+		details: "Banned 'raider_42' : reason: mass mention spam",
 		timestamp: Date.now() - 1000 * 60 * 210
 	},
 	{
@@ -398,7 +398,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'nyx',
 		actorId: '899385550585364481',
 		action: 'Used /ban',
-		details: "Banned user 'toxic_player' — reason: toxicity",
+		details: "Banned user 'toxic_player' : reason: toxicity",
 		timestamp: Date.now() - 1000 * 60 * 240
 	},
 	{
@@ -409,7 +409,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Cadia AutoMod',
 		actorId: '0',
 		action: 'Auto-deleted messages',
-		details: "Auto-deleted 3 messages from 'caps_user' — reason: excessive caps",
+		details: "Auto-deleted 3 messages from 'caps_user' : reason: excessive caps",
 		timestamp: Date.now() - 1000 * 60 * 300
 	},
 	{
@@ -431,7 +431,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'nyx',
 		actorId: '899385550585364481',
 		action: 'Updated module config',
-		details: 'Set cooldown to 3s — RPG System',
+		details: 'Set cooldown to 3s : RPG System',
 		timestamp: Date.now() - 1000 * 60 * 420
 	},
 	{
@@ -442,7 +442,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'Moderator Alex',
 		actorId: '222222222222222222',
 		action: 'Kicked member',
-		details: "Kicked 'rule_breaker' — reason: repeated rule violations",
+		details: "Kicked 'rule_breaker' : reason: repeated rule violations",
 		timestamp: Date.now() - 1000 * 60 * 480
 	},
 	{
@@ -453,7 +453,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'nyx',
 		actorId: '899385550585364481',
 		action: 'Used /warn',
-		details: "Warned user 'newbie' — reason: spamming emojis",
+		details: "Warned user 'newbie' : reason: spamming emojis",
 		timestamp: Date.now() - 1000 * 60 * 540
 	},
 	{
@@ -464,7 +464,7 @@ export const INITIAL_LOGS: LogEntry[] = [
 		actor: 'system',
 		actorId: '0',
 		action: 'Bot status: Maintenance',
-		details: 'Bot status changed from online to maintenance — commands will be read-only',
+		details: 'Bot status changed from online to maintenance : commands will be read-only',
 		timestamp: Date.now() - 1000 * 60 * 600
 	},
 	{
@@ -488,7 +488,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
 		price: 0,
 		period: 'forever',
 		color: '#8a99ab',
-		features: ['3 modules enabled', 'Basic moderation', '7-day log retention', 'Community support']
+		features: ['Core server modules', 'Essential moderation tools', '7-day activity history', 'Community support']
 	},
 	{
 		id: 'plan-pro',
@@ -496,7 +496,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
 		price: 4,
 		period: 'month',
 		color: '#65b8da',
-		features: ['All modules enabled', 'Advanced moderation + auto-mod', '90-day log retention', 'Custom welcome cards', 'Priority email support'],
+		features: ['Complete module access', 'Advanced moderation and AutoMod', '90-day activity history', 'Custom welcome experiences', 'Priority support'],
 		highlight: true
 	},
 	{
@@ -507,10 +507,10 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
 		color: '#5e3a6d',
 		features: [
 			'Everything in Pro',
-			'Full RPG system with custom classes',
-			'Custom quests & PvP arenas',
-			'Unlimited log retention',
-			'Custom pixel-art branding',
+			'Complete RPG customization',
+			'Custom quests and PvP experiences',
+			'Extended activity history',
+			'Custom community branding',
 			'Dedicated support channel'
 		]
 	}

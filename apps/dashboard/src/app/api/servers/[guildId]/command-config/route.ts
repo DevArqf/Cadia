@@ -33,6 +33,7 @@ export async function PUT(request: Request, context: RouteContext) {
         guildId,
         actorId: access.session.user.id,
         modules: Array.isArray(body?.modules) ? body.modules : [],
+		commands: Array.isArray(body?.commands) ? body.commands : [],
       }),
     );
   } catch (error: any) {

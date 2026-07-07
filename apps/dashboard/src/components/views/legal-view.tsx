@@ -79,7 +79,7 @@ export function LegalView() {
         </Button>
       </header>
 
-      {/* Legal doc tab switcher — T&C and Privacy get breathing glow on highlight */}
+      {/* Legal doc tab switcher : T&C and Privacy get breathing glow on highlight */}
       <div className="relative z-10 px-4 py-3 flex items-center gap-2 border-b border-border/40 bg-card/30 backdrop-blur-sm sticky top-[49px]">
         <Shield className="h-3.5 w-3.5 text-cadia mr-1" />
         <button
@@ -139,7 +139,7 @@ export function LegalView() {
           )}
           {!doc.lastUpdated && <div className="mb-6" />}
 
-          {/* Sections — no boxes, just spacing + border separators */}
+          {/* Sections : no boxes, just spacing + border separators */}
           <div className="space-y-6">
             {doc.sections.map((section, i) => (
               <motion.div

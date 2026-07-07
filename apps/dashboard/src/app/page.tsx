@@ -38,7 +38,7 @@ export default function Home() {
   const loadDashboardSession = useCadia((s) => s.loadDashboardSession);
   const loadBotStatus = useCadia((s) => s.loadBotStatus);
 
-  // === 1) Disable browser scroll restoration — we manage it ourselves ===
+  // === 1) Disable browser scroll restoration : we manage it ourselves ===
   useEffect(() => {
     if ("scrollRestoration" in history) {
       history.scrollRestoration = "manual";
@@ -153,7 +153,7 @@ export default function Home() {
         }}
       />
 
-      {/* Hidden owner console listener — always mounted */}
+      {/* Hidden owner console listener : always mounted */}
       <AdminConsoleListener />
 
       {/* View router */}

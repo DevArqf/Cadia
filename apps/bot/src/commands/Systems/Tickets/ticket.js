@@ -169,7 +169,7 @@ async function setupTickets(interaction) {
 		maxOpenTickets
 	});
 
-	const panelMessage = await panelChannel.send(buildTicketPanel(config));
+	const panelMessage = await panelChannel.send(buildTicketPanel(config, interaction.guild));
 	config.panelMessageId = panelMessage.id;
 	config.updatedAt = Date.now();
 	await config.save();
@@ -230,7 +230,7 @@ async function sendPanel(interaction) {
 		return interaction.reply({ embeds: [failEmbed(`The ticket system is disabled. Use ${commandMention('ticket setup')} first.`)], flags: MessageFlags.Ephemeral });
 
 	const channel = interaction.options.getChannel('channel') || interaction.guild.channels.cache.get(config.panelChannelId) || interaction.channel;
-	const message = await channel.send(buildTicketPanel(config));
+	const message = await channel.send(buildTicketPanel(config, interaction.guild));
 	config.panelChannelId = channel.id;
 	config.panelMessageId = message.id;
 	config.updatedAt = Date.now();

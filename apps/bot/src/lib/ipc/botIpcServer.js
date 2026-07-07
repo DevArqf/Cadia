@@ -6,9 +6,12 @@ const { createInviteUrl } = require('../../config/invite');
 const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const { normalizeSuggestionAppearance } = require('../suggestions/appearance');
 const { buildSuggestionPanel } = require('../suggestions/suggestionSystem');
-const { buildCommandCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
+const { buildDashboardCatalog, getGuildCommandConfig, isModuleEnabled, saveGuildCommandConfig } = require('../runtime/guildCommandConfig');
 const { getAutoModConfig, saveAutoModConfig, serializeAutoModConfig, setAutoModModuleEnabled } = require('../automod/autoModService');
-const { getGuildSettings, normalizeGuildPrefix, saveGuildPrefix } = require('../runtime/guildSettings');
+const { getGuildSettings, normalizeGuildPrefix, normalizeUpdateChannelId, saveGuildSettings } = require('../runtime/guildSettings');
+const { sendAdminUpdate } = require('../admin/updateBroadcast');
+const { buildTicketPanel, getTicketConfig, updateTicketConfig } = require('../util/ticketSystem');
+const { normalizeTicketAppearance } = require('../tickets/appearance');
 const runtimeConfig = require('../runtime/runtimeConfig');
 const Blacklist = require('../schemas/blacklistSchema');
 const AdminAudit = require('../schemas/adminAuditSchema');
@@ -27,6 +30,7 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'admin.activity.update') return updateAdminActivity(client, request.payload);
 			if (request.type === 'admin.blacklist.add') return addAdminBlacklist(client, request.payload);
 			if (request.type === 'admin.blacklist.remove') return removeAdminBlacklist(client, request.payload);
+			if (request.type === 'admin.update.send') return sendAdminGuildUpdate(client, request.payload);
 			if (request.type === 'guild.settings.get') return getGuildDashboardSettings(client, request.payload);
 			if (request.type === 'guild.settings.update') return updateGuildDashboardSettings(client, request.payload);
 			if (request.type === 'suggestions.config.get') return getSuggestionConfig(client, request.payload);
@@ -35,6 +39,8 @@ function startBotIpcServer(client, { endpoint = process.env.CADIA_IPC_ENDPOINT |
 			if (request.type === 'commands.config.update') return updateCommandConfig(client, request.payload);
 			if (request.type === 'automod.config.get') return getAutoModDashboardConfig(client, request.payload);
 			if (request.type === 'automod.config.update') return updateAutoModDashboardConfig(client, request.payload);
+			if (request.type === 'tickets.config.get') return getTicketDashboardConfig(client, request.payload);
+			if (request.type === 'tickets.config.update') return updateTicketDashboardConfig(client, request.payload);
 
 			const error = new Error(`Unsupported IPC request: ${request.type}`);
 			error.code = 'IPC_UNSUPPORTED_REQUEST';
@@ -138,6 +144,16 @@ async function removeAdminBlacklist(client, payload = {}) {
 	return { guildId };
 }
 
+async function sendAdminGuildUpdate(client, payload = {}) {
+	const report = await sendAdminUpdate(client, payload, getGuildSettings);
+	await writeAdminAudit(
+		'Sent server update',
+		`${report.target === 'global' ? 'Global broadcast' : `Server ${payload.guildId}`}: ${report.sent} sent, ${report.skipped} skipped, ${report.failed} failed`,
+		payload
+	);
+	return report;
+}
+
 function serializeBlacklist(entry) {
 	return {
 		guildId: entry.guildId,
@@ -169,6 +185,11 @@ async function updateGuildDashboardSettings(client, payload = {}) {
 	const guild = requireGuild(client, payload.guildId);
 	const prefix = normalizeGuildPrefix(payload.prefix);
 	const nickname = normalizeBotNickname(payload.nickname);
+	const updateChannelId = normalizeUpdateChannelId(payload.updateChannelId);
+	if (updateChannelId) {
+		const channel = guild.channels.cache.get(updateChannelId) || (await guild.channels.fetch(updateChannelId).catch(() => null));
+		if (!channel?.isTextBased?.() || channel.isThread?.()) throw new RangeError('The update channel must be a server text channel.');
+	}
 	const member = guild.members.me || (await guild.members.fetchMe());
 	const targetNickname = nickname === client.user?.username ? null : nickname;
 
@@ -182,7 +203,7 @@ async function updateGuildDashboardSettings(client, payload = {}) {
 		}
 	}
 
-	const settings = await saveGuildPrefix(guild.id, prefix, payload.actorId || null);
+	const settings = await saveGuildSettings(guild.id, { prefix, updateChannelId }, payload.actorId || null);
 	return serializeGuildDashboardSettings(client, guild, settings);
 }
 
@@ -198,6 +219,7 @@ function serializeGuildDashboardSettings(client, guild, settings) {
 	return {
 		guildId: guild.id,
 		prefix: settings.prefix,
+		updateChannelId: settings.updateChannelId,
 		nickname: guild.members.me?.nickname || client.user?.username || 'Cadia'
 	};
 }
@@ -205,14 +227,15 @@ function serializeGuildDashboardSettings(client, guild, settings) {
 async function getCommandConfig(client, payload = {}) {
 	const guild = requireGuild(client, payload.guildId);
 	const config = await getGuildCommandConfig(guild.id);
-	return { guildId: guild.id, modules: buildCommandCatalog(client, config) };
+	return { guildId: guild.id, ...buildDashboardCatalog(client, config) };
 }
 
 async function updateCommandConfig(client, payload = {}) {
 	const guild = requireGuild(client, payload.guildId);
 	const current = await getGuildCommandConfig(guild.id);
-	const catalog = buildCommandCatalog(client, current);
+	const catalog = buildDashboardCatalog(client, current);
 	const inputModules = Array.isArray(payload.modules) ? payload.modules : [];
+	const inputCommands = Array.isArray(payload.commands) ? payload.commands : [];
 	const input = {
 		modules: Object.fromEntries(
 			inputModules.map((module) => [
@@ -240,19 +263,84 @@ async function updateCommandConfig(client, payload = {}) {
 						ignoredRoleIds: command.ignoredRoleIds
 					}
 				])
-			)
+			).concat(inputCommands.map((command) => [command.name, {
+				enabled: command.enabled !== false,
+				response: command.response,
+				cooldown: command.cooldown,
+				allowedRoleIds: command.allowedRoleIds,
+				allowedChannelIds: command.allowedChannelIds,
+				ignoredChannelIds: command.ignoredChannelIds,
+				ignoredRoleIds: command.ignoredRoleIds
+			}]))
 		)
 	};
 	const config = await saveGuildCommandConfig(guild.id, input, payload.actorId || null, catalog);
 	const wasAutoModEnabled = isModuleEnabled(current, 'automod');
 	const isAutoModEnabled = isModuleEnabled(config, 'automod');
 	if (wasAutoModEnabled !== isAutoModEnabled) await setAutoModModuleEnabled(guild, isAutoModEnabled);
-	return { guildId: guild.id, modules: buildCommandCatalog(client, config) };
+	return { guildId: guild.id, ...buildDashboardCatalog(client, config) };
 }
 
 async function getAutoModDashboardConfig(client, payload = {}) {
 	const guild = requireGuild(client, payload.guildId);
 	return serializeAutoModConfig(await getAutoModConfig(guild.id));
+}
+
+async function getTicketDashboardConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	return serializeTicketConfig(await getTicketConfig(guild.id), guild.id);
+}
+
+async function updateTicketDashboardConfig(client, payload = {}) {
+	const guild = requireGuild(client, payload.guildId);
+	const input = payload.config || {};
+	const appearance = normalizeTicketAppearance(input);
+	const current = await getTicketConfig(guild.id);
+	const previous = { channelId: current.panelChannelId, messageId: current.panelMessageId };
+	const panelChannelId = String(input.panelChannelId || '').trim() || null;
+	let channel = null;
+	if (panelChannelId) {
+		channel = guild.channels.cache.get(panelChannelId) || (await guild.channels.fetch(panelChannelId).catch(() => null));
+		if (!channel?.isTextBased?.() || channel.isThread?.()) throw new RangeError('The ticket panel channel must be a server text channel.');
+		const permissions = channel.permissionsFor(guild.members.me);
+		if (!permissions?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+			throw new Error('Cadia needs View Channel, Send Messages, and Embed Links permissions in the ticket panel channel.');
+		}
+	}
+	const config = await updateTicketConfig(guild.id, { ...appearance, panelChannelId, enabled: Boolean(panelChannelId) });
+	let message = null;
+	if (channel && previous.channelId === panelChannelId && previous.messageId) {
+		message = await channel.messages.fetch(previous.messageId).catch(() => null);
+	}
+	if (channel) {
+		const panelPayload = buildTicketPanel(config, guild);
+		if (message) {
+			try {
+				await message.edit(panelPayload);
+			} catch {
+				const replacement = await channel.send(panelPayload);
+				await message.delete().catch(() => null);
+				config.panelMessageId = replacement.id;
+			}
+		} else config.panelMessageId = (await channel.send(panelPayload)).id;
+		await config.save();
+	}
+	if (previous.channelId && previous.messageId && (previous.channelId !== panelChannelId || !panelChannelId)) {
+		const oldChannel = guild.channels.cache.get(previous.channelId) || (await guild.channels.fetch(previous.channelId).catch(() => null));
+		const oldMessage = oldChannel?.isTextBased?.() ? await oldChannel.messages.fetch(previous.messageId).catch(() => null) : null;
+		await oldMessage?.delete().catch(() => null);
+	}
+	return serializeTicketConfig(config, guild.id);
+}
+
+function serializeTicketConfig(config, guildId) {
+	return {
+		guildId,
+		panelChannelId: config.panelChannelId || null,
+		panelMessageId: config.panelMessageId || null,
+		enabled: Boolean(config.enabled && config.panelChannelId),
+		...normalizeTicketAppearance(config)
+	};
 }
 
 async function updateAutoModDashboardConfig(client, payload = {}) {
@@ -301,7 +389,7 @@ async function updateSuggestionConfig(client, payload = {}) {
 	if (panelMessage) {
 		await panelMessage.edit(buildPanelEditPayload(config));
 	} else {
-		panelMessage = await channel.send(buildSuggestionPanel(config));
+		panelMessage = await channel.send(buildSuggestionPanel(config, guild));
 		createdPanel = true;
 	}
 
@@ -370,7 +458,7 @@ async function deleteSuggestionPanel(guild, config) {
 }
 
 function buildPanelEditPayload(config) {
-	const payload = buildSuggestionPanel(config);
+	const payload = buildSuggestionPanel(config, guild);
 	return {
 		...payload,
 		content: payload.content ?? null,
@@ -422,6 +510,7 @@ async function botGuilds(client) {
 			joinedAt: guild.members.me?.joinedTimestamp || Date.now(),
 			nickname: guild.members.me?.nickname || client.user?.username || 'Cadia',
 			prefix: settings.prefix,
+			updateChannelId: settings.updateChannelId,
 			verificationLevel: String(guild.verificationLevel ?? 'None'),
 			explicitContentFilter: String(guild.explicitContentFilter ?? 'Disabled'),
 			defaultMessageNotifications: String(guild.defaultMessageNotifications ?? 'OnlyMentions'),
@@ -455,11 +544,13 @@ module.exports = {
 	getCommandConfig,
 	getGuildDashboardSettings,
 	getSuggestionConfig,
+	getTicketDashboardConfig,
 	normalizeBotNickname,
 	serializeSuggestionConfig,
 	startBotIpcServer,
 	updateCommandConfig,
 	updateGuildDashboardSettings,
 	updateAutoModDashboardConfig,
-	updateSuggestionConfig
+	updateSuggestionConfig,
+	updateTicketDashboardConfig
 };

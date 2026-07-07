@@ -1,9 +1,12 @@
 const { Precondition } = require('@sapphire/framework');
 const {
 	MODULES,
+	IMMUTABLE_COMMANDS,
+	IMMUTABLE_MODULES,
 	getCommandPolicy,
 	getGuildCommandConfig,
 	getModulePolicy,
+	isDeveloperCommand,
 	resolveModuleId
 } = require('../../lib/runtime/guildCommandConfig');
 
@@ -63,31 +66,31 @@ class GuildCommandConfigPrecondition extends Precondition {
 
 function evaluateCommandPolicy(config, command, context = {}) {
 	const moduleId = resolveModuleId(command);
-	if (!moduleId) return { allowed: true, cooldown: 0 };
+	if (isDeveloperCommand(command)) return { allowed: true, cooldown: 0 };
 	const modulePolicy = getModulePolicy(config, moduleId);
 	const commandPolicy = getCommandPolicy(config, command.name);
-	const moduleName = MODULES[moduleId].name;
+	const moduleName = moduleId ? MODULES[moduleId].name : null;
 
-	if (!modulePolicy.enabled) {
+	if (moduleId && !IMMUTABLE_MODULES.has(moduleId) && !modulePolicy.enabled) {
 		return denied(
 			'ModuleDisabled',
 			renderPolicyMessage(modulePolicy.response, command.name, moduleName) ||
 				`The **${moduleName}** module is disabled in this server.`
 		);
 	}
-	if (!commandPolicy.enabled) {
+	if (!IMMUTABLE_COMMANDS.has(command.name) && !commandPolicy.enabled) {
 		return denied(
 			'CommandDisabled',
-			renderPolicyMessage(commandPolicy.response, command.name, moduleName) ||
+				renderPolicyMessage(commandPolicy.response, command.name, moduleName || 'Commands') ||
 				`The \`/${command.name}\` command is disabled in this server.`
 		);
 	}
 
 	const roleIds = new Set((context.roleIds || []).map(String));
-	if (modulePolicy.allowedRoleIds.length && !modulePolicy.allowedRoleIds.some((id) => roleIds.has(id))) {
+	if (moduleId && modulePolicy.allowedRoleIds.length && !modulePolicy.allowedRoleIds.some((id) => roleIds.has(id))) {
 		return denied('ModuleRoleRestricted', `You do not have an allowed role for the **${moduleName}** module.`);
 	}
-	if (modulePolicy.restrictedRoleIds.some((id) => roleIds.has(id))) {
+	if (moduleId && modulePolicy.restrictedRoleIds.some((id) => roleIds.has(id))) {
 		return denied('ModuleRoleRestricted', `One of your roles is blocked from the **${moduleName}** module.`);
 	}
 	if (commandPolicy.allowedRoleIds.length && !commandPolicy.allowedRoleIds.some((id) => roleIds.has(id))) {

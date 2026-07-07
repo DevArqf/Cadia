@@ -7,7 +7,7 @@ interface CadiaLogoProps {
 }
 
 /**
- * Cadia logo — uses the official PNG asset in /public/cadia-logo.png.
+ * Cadia logo : uses the official PNG asset in /public/cadia-logo.png.
  * The float animation is enabled only on hero usage.
  */
 export function CadiaLogo({

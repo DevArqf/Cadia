@@ -39,7 +39,7 @@ interface AttemptRecord {
  *
  * No keyboard shortcut (too easy to discover).
  * No public-facing explanation of access methods.
- * All access attempts — successful and failed — are silently recorded
+ * All access attempts : successful and failed : are silently recorded
  * to the audit log; no warnings are displayed to non-owners.
  */
 export function AdminConsoleListener() {
@@ -272,7 +272,7 @@ export function AdminConsoleListener() {
                 {isLocked ? (
                   <span className="text-fail font-semibold flex items-center gap-1">
                     <Lock className="h-2.5 w-2.5" />
-                    Locked — {lockSecondsLeft}s
+                    Locked : {lockSecondsLeft}s
                   </span>
                 ) : (
                   <span

@@ -34,7 +34,7 @@ const TYPE_META: Record<
   system: { color: "#e9d502", label: "System", icon: Server },
 };
 
-// Filter options — config and audit merged into "Dashboard"
+// Filter options : config and audit merged into "Dashboard"
 const FILTER_TYPES: (LogType | "All")[] = [
   "All",
   "command",
@@ -55,15 +55,15 @@ function timeAgo(ts: number): string {
 /**
  * Split log details into the main description and a reason.
  * Details format examples:
- *   "Muted 'noisy_user' for 10 minutes by Moderator Alex — reason: caps spam"
- *   "Kicked user 'spammer123' by nyx — reason: spam"
- *   "Set cooldown to 5s by nyx — RPG System"  (no reason)
+ *   "Muted 'noisy_user' for 10 minutes by Moderator Alex : reason: caps spam"
+ *   "Kicked user 'spammer123' by nyx : reason: spam"
+ *   "Set cooldown to 5s by nyx : RPG System"  (no reason)
  */
 function splitDetails(details: string): { main: string; reason: string | null } {
-  // Look for "— reason:" or "reason:" in the details
-  const reasonMatch = details.match(/—\s*reason:\s*(.+?)$/i) || details.match(/\breason:\s*(.+?)$/i);
+  // Look for ": reason:" or "reason:" in the details
+  const reasonMatch = details.match(/:\s*reason:\s*(.+?)$/i) || details.match(/\breason:\s*(.+?)$/i);
   if (reasonMatch) {
-    const main = details.replace(reasonMatch[0], "").replace(/—\s*$/, "").trim();
+    const main = details.replace(reasonMatch[0], "").replace(/:\s*$/, "").trim();
     return { main, reason: reasonMatch[1].trim() };
   }
   return { main: details, reason: null };
@@ -107,7 +107,7 @@ export function LoggingTab() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search by action, actor, or details…"
+            placeholder="Search activity..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 text-sm h-9"
@@ -134,7 +134,7 @@ export function LoggingTab() {
         </div>
       </div>
 
-      {/* Log list — scrollable container */}
+      {/* Log list : scrollable container */}
       <div className="cadia-card overflow-hidden flex flex-col">
         <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between shrink-0">
           <span className="text-xs font-semibold text-muted-foreground">
@@ -151,7 +151,7 @@ export function LoggingTab() {
           {filtered.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                No logs match your filters
+                No activity matches the current filters.
               </p>
             </div>
           ) : (

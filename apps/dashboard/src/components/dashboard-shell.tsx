@@ -58,7 +58,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [pendingHome, setPendingHome] = useState(false);
   const [serverIconFailed, setServerIconFailed] = useState(false);
 
-  // Guarded tab switch — checks for unsaved changes
+  // Guarded tab switch : checks for unsaved changes
   const handleTabSwitch = (tab: DashboardTab) => {
     if (tab === activeTab) return;
     if (hasUnsavedChanges) {
@@ -95,7 +95,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
     setPendingHome(false);
   };
 
-  // Scroll to top when tab changes — fires before paint
+  // Scroll to top when tab changes : fires before paint
   useIsomorphicLayoutEffect(() => {
     const main = document.querySelector("main");
     if (main) main.scrollTop = 0;
@@ -149,10 +149,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
     <div className="min-h-screen flex flex-col cadia-bg">
       <div className="cadia-particles" />
 
-      {/* Top bar — fixed, never scrolls */}
+      {/* Top bar : fixed, never scrolls */}
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-border/60 px-4 py-2.5 flex items-center justify-between bg-card/80 backdrop-blur-xl h-[49px]">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Hamburger — toggles mobile sidebar */}
+          {/* Hamburger : toggles mobile sidebar */}
           <button
             onClick={() => setMobileSidebarOpen((v) => !v)}
             className="md:hidden p-1.5 -ml-1.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
@@ -165,7 +165,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             )}
           </button>
 
-          {/* Logo + CADIA title — returns to home */}
+          {/* Logo + CADIA title : returns to home */}
           <button
             onClick={handleHomeClick}
             className="flex items-center gap-3 cursor-pointer"
@@ -253,7 +253,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </div>
       </header>
 
-      {/* Mobile sidebar drawer — slides in from left */}
+      {/* Mobile sidebar drawer : slides in from left */}
       <AnimatePresence>
         {mobileSidebarOpen && (
           <>
@@ -284,7 +284,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </AnimatePresence>
 
       <div className="flex-1 flex pt-[49px]">
-        {/* Desktop sidebar — fixed, full height, never scrolls */}
+        {/* Desktop sidebar : fixed, full height, never scrolls */}
         <aside className="hidden md:flex md:flex-col md:fixed md:top-[49px] md:left-0 md:bottom-0 md:w-60 md:border-r md:border-border/60 bg-sidebar/40 backdrop-blur-xl shrink-0 z-30">
           <SidebarContent
             server={server}
@@ -294,7 +294,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           />
         </aside>
 
-        {/* Main content — scrolls independently, offset for fixed sidebar */}
+        {/* Main content : scrolls independently, offset for fixed sidebar */}
         <main className="flex-1 min-w-0 p-4 sm:p-6 cadia-scroll md:ml-60">
           <motion.div
             key={activeTab}
@@ -398,7 +398,7 @@ function SidebarContent({
 
       <div className="flex-1" />
 
-      {/* Premium CTA — golden shine on hover */}
+      {/* Premium CTA : golden shine on hover */}
       <button
         onClick={() => setTab("premium")}
         className={`cadia-premium-cta flex items-center gap-2.5 px-4 py-3 mt-2 mb-1 text-left rounded-xl border-2 transition-all overflow-hidden relative group ${

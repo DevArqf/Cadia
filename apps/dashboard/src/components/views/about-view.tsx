@@ -19,27 +19,27 @@ import {
 const SECTIONS = [
   {
     icon: Shield,
-    title: "Moderation & System",
+    title: "Control without Complexity",
     color: "#3bb143",
-    text: "Cadia was born from a simple frustration: existing moderation bots were either too rigid or too chaotic. We built a system that gives server admins granular control over every command, every channel, every role. Auto-mod rules catch spam and raids before they escalate. Audit logs record every action — who banned whom, when, and why. Per-command permissions mean your moderators only have the power they need, nothing more. The dashboard loads in under a second, and every change saves instantly. No more guessing if a setting took effect.",
+    text: "Cadia gives administrators precise control over commands, channels, and roles without turning routine work into configuration overhead. Automated protection handles common threats, audit records preserve accountability, and focused permissions keep staff access appropriate.",
   },
   {
     icon: Swords,
-    title: "RPG & Adventure",
+    title: "Engagement with Depth",
     color: "#5e3a6d",
-    text: "What started as a side experiment — a simple leveling system — evolved into a full RPG engine. Members choose classes, embark on quests, battle each other in PvP arenas, and team up for PvE encounters. Every stat is configurable: XP curves, drop rates, cooldowns, reward tables. Your economy, your rules. We've seen servers turn into thriving fantasy worlds where members log in daily not just to chat, but to level up, trade, and compete. The RPG module is optional — turn it off and Cadia is a pure moderation bot. Turn it on and your server becomes an adventure.",
+    text: "Cadia's optional RPG system turns everyday participation into progression. Members can choose classes, complete quests, compete, cooperate, and build lasting profiles. Server owners retain control over pacing, rewards, and access.",
   },
   {
     icon: Trophy,
-    title: "Leaderboard & Competition",
+    title: "Progress Members Can See",
     color: "#65b8da",
-    text: "Competition drives engagement. Cadia tracks every member's XP, level, and achievements in real-time. Weekly leaderboards reset every Monday, giving everyone a fresh chance to climb. All-time rankings show your server's legends. Seasonal competitions come with custom rewards — roles, badges, even real-world prizes if you choose to sponsor them. Display the top 10 in a dedicated channel, celebrate milestones automatically, and watch your most active members become local celebrities. The leaderboard updates live as members earn XP — no refresh needed.",
+    text: "Live leaderboards, achievements, and seasonal goals make contribution visible. New members can find a path forward, established members can protect their standing, and staff can recognize progress without manual tracking.",
   },
   {
     icon: Heart,
     title: "Built with Care",
     color: "#e94041",
-    text: "Cadia isn't built by a faceless corporation. It's built by Discord veterans who use the bot in their own communities every single day. Every feature exists because we needed it ourselves. Every UI decision was made with one question: could my mom use this? We don't sell your data. We don't read your messages. We don't train AI on your community. The bot is open source — you can read every line of code. Premium exists to cover server costs and fund development, not to lock features behind a paywall. Free tier gets everything you need to run a great server.",
+    text: "Cadia is built around practical community management. The project is open source, its controls are designed to be understandable, and its free tier provides the foundation needed to operate a capable Discord server.",
   },
 ];
 
@@ -91,7 +91,7 @@ export function AboutView() {
             ABOUT CADIA
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            One bot. Total control. Built by Discord veterans, for Discord communities.
+            Purpose-built tools for communities that expect clarity, control, and room to grow.
           </p>
         </motion.div>
 
@@ -214,11 +214,11 @@ export function AboutView() {
             className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold h-12 px-8"
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            Try Cadia Now
+            Get Started with Cadia
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
           <p className="text-xs text-muted-foreground mt-3">
-            Free forever. Premium available for power users.
+            Start free. Upgrade when your community needs more.
           </p>
         </motion.div>
       </main>

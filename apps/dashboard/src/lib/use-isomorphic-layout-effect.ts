@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect } from "react";
  * useIsomorphicLayoutEffect
  *
  * useLayoutEffect fires synchronously after DOM mutations but BEFORE the
- * browser paints — perfect for scroll resets, measurements, and other
+ * browser paints : perfect for scroll resets, measurements, and other
  * effects that must happen before the user sees the rendered frame.
  *
  * BUT: useLayoutEffect logs a warning when used during SSR (it doesn't run

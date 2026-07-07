@@ -39,6 +39,8 @@ const DEFAULT_CONFIG: AutoModConfig = {
 
 export function AutoModEditor({ onBack }: { onBack: () => void }) {
   const server = useCadia((state) => state.selectedServer);
+  const moduleEnabled = useCadia((state) => state.modules.find((module) => module.id === "automod")?.enabled ?? false);
+  const updateModule = useCadia((state) => state.updateModule);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,7 +54,7 @@ export function AutoModEditor({ onBack }: { onBack: () => void }) {
     fetch(`/api/servers/${server.id}/automod`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload.message || "Could not load AutoMod");
+        if (!response.ok) throw new Error(payload.message || "AutoMod settings are unavailable");
         return payload.config as AutoModConfig;
       })
       .then((next) => {
@@ -89,14 +91,15 @@ export function AutoModEditor({ onBack }: { onBack: () => void }) {
       const response = await fetch(`/api/servers/${server.id}/automod`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify({ config: { ...config, enabled: moduleEnabled } }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || "Could not save AutoMod");
       setConfig(payload.config);
+	  await useCadia.getState().saveConfig();
       setDirty(false);
       useCadia.setState({ hasUnsavedChanges: false });
-      toast.success("AutoMod rules synchronized with Discord");
+      toast.success("AutoMod protection updated");
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Could not save AutoMod";
       setError(message);
@@ -126,7 +129,7 @@ export function AutoModEditor({ onBack }: { onBack: () => void }) {
           <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-cadia" /><h2 className="text-lg font-bold">AutoMod</h2></div>
           <p className="mt-1 text-xs text-muted-foreground">{server.name}</p>
         </div>
-        <div className="flex items-center gap-2"><Label htmlFor="automod-enabled" className="text-xs">Protection</Label><Switch id="automod-enabled" checked={config.enabled} onCheckedChange={(enabled) => change({ ...config, enabled })} /></div>
+        <div className="flex items-center gap-2"><Label htmlFor="automod-enabled" className="text-xs">Protection Active</Label><Switch id="automod-enabled" checked={moduleEnabled} onCheckedChange={(enabled) => { updateModule("automod", { enabled }); change({ ...config, enabled }); }} /></div>
       </div>
 
       {error && <div className="rounded-md border border-fail/40 bg-fail/10 px-3 py-2 text-xs text-fail">{error}</div>}

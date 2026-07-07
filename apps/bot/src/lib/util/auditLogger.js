@@ -38,7 +38,7 @@ const auditActions = {
 	messageDeleteBulk: { category: 'messages', label: 'Bulk Deletes', description: 'Bulk message removals.' },
 	memberAdd: { category: 'members', label: 'Member Joins', description: 'New members joining.' },
 	memberRemove: { category: 'members', label: 'Member Leaves', description: 'Members leaving.' },
-	memberUpdate: { category: 'members', label: 'Member Updates', description: 'Nickname and role changes.' },
+	memberUpdate: { category: 'members', label: 'Member Updates', description: 'Avatar, nickname, and role changes.' },
 	banAdd: { category: 'moderation', label: 'Bans', description: 'Members being banned.' },
 	banRemove: { category: 'moderation', label: 'Unbans', description: 'Members being unbanned.' },
 	channelCreate: { category: 'channels', label: 'Channel Creates', description: 'New channels created.' },
