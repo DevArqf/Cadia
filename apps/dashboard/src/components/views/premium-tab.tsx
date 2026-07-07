@@ -26,8 +26,8 @@ export function PremiumTab() {
     setSelected(planId);
     const plan = PREMIUM_PLANS.find((p) => p.id === planId);
     if (plan) {
-      toast.success(`${plan.name} plan selected!`, {
-        description: "Redirecting to secure checkout…",
+      toast.success(`${plan.name} selected`, {
+        description: "Opening secure checkout...",
       });
       addLog({
         type: "audit",
@@ -56,8 +56,7 @@ export function PremiumTab() {
           Unlock <span className="text-rpg">Cadia Premium</span>
         </h2>
         <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-          Power up your server with all modules, custom branding, and priority
-          support. Cancel anytime.
+          Expand your server's capabilities with advanced customization and priority support. Change or cancel your plan at any time.
         </p>
       </div>
 
@@ -93,7 +92,7 @@ export function PremiumTab() {
         )}
       </div>
 
-      {/* Plans grid — aligned panels */}
+      {/* Plans grid : aligned panels */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch pt-4">
         {PREMIUM_PLANS.map((plan, i) => (
           <motion.div
@@ -134,7 +133,7 @@ export function PremiumTab() {
               </div>
             </div>
 
-            {/* Price — aligned baseline */}
+            {/* Price : aligned baseline */}
             <div className="mb-5 h-10 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-foreground">
                 ${plan.price}
@@ -144,7 +143,7 @@ export function PremiumTab() {
               </span>
             </div>
 
-            {/* Features — aligned with consistent line heights */}
+            {/* Features : aligned with consistent line heights */}
             <ul className="space-y-2.5 mb-6 flex-1">
               {plan.features.map((f) => (
                 <li
@@ -160,7 +159,7 @@ export function PremiumTab() {
               ))}
             </ul>
 
-            {/* Button — aligned at bottom */}
+            {/* Button : aligned at bottom */}
             <Button
               onClick={() => handleChoose(plan.id)}
               disabled={plan.id === "plan-free"}

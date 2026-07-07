@@ -61,7 +61,7 @@ export function LegalPageView({ page }: LegalPageViewProps) {
       <div className="cadia-particles" />
       <div className="cadia-bg-shine" />
 
-      {/* Header — fixed */}
+      {/* Header : fixed */}
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-border/60 px-4 py-3 flex items-center justify-between bg-card/80 backdrop-blur-xl h-[49px]">
         <button
           onClick={() => setView("landing")}
@@ -82,7 +82,7 @@ export function LegalPageView({ page }: LegalPageViewProps) {
         </Button>
       </header>
 
-      {/* Tab switcher — sticky under header */}
+      {/* Tab switcher : sticky under header */}
       <div className="fixed top-[49px] left-0 right-0 z-30 px-4 py-3 flex items-center gap-2 border-b border-border/40 bg-card/60 backdrop-blur-sm">
         <Shield className="h-3.5 w-3.5 text-cadia mr-1" />
         <button
@@ -142,7 +142,7 @@ export function LegalPageView({ page }: LegalPageViewProps) {
           )}
           {!doc.lastUpdated && <div className="mb-6" />}
 
-          {/* Sections — no boxes, just spacing + border separators */}
+          {/* Sections : no boxes, just spacing + border separators */}
           <div className="space-y-6">
             {doc.sections.map((section, i) => (
               <motion.div

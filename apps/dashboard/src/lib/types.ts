@@ -1,4 +1,4 @@
-// Cadia bot — shared types
+// Cadia bot : shared types
 export type View =
   | "landing"
   | "login"
@@ -180,6 +180,32 @@ export interface AutoModConfig {
   };
   exemptRoleIds: string[];
   exemptChannelIds: string[];
+}
+
+export interface TicketEmbedAppearance {
+  title: string;
+  description: string;
+  footer: string;
+  authorName: string;
+  authorIconUrl: string;
+  footerIconUrl: string;
+  color: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  showTimestamp: boolean;
+}
+
+export interface TicketAppearanceConfig {
+  guildId: string;
+  panelChannelId: string | null;
+  panelMessageId: string | null;
+  enabled: boolean;
+  panel: TicketEmbedAppearance & {
+    buttonLabel: string;
+    buttonEmoji: string;
+    controlType: "button" | "select";
+  };
+  openedTicket: TicketEmbedAppearance;
 }
 
 export type LogType =

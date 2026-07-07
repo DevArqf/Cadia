@@ -62,8 +62,14 @@ const ALL_VARIABLES = [
   { name: "{actor}", desc: "Who performed the logged action", categories: ["Logging"] },
 ];
 
-export function CommandsTab() {
+interface CommandsTabProps {
+  moduleId?: string;
+  embedded?: boolean;
+}
+
+export function CommandsTab({ moduleId, embedded = false }: CommandsTabProps = {}) {
   const modules = useCadia((s) => s.modules);
+  const standaloneCommands = useCadia((s) => s.commands);
   const server = useCadia((s) => s.selectedServer);
   const toggleCommand = useCadia((s) => s.toggleCommand);
   const updateCommand = useCadia((s) => s.updateCommand);
@@ -85,9 +91,16 @@ export function CommandsTab() {
     avatar: "#5e3a6d",
   };
 
-  const allCommands = useMemo(() => modules.flatMap((m) =>
+  const moduleCommands = useMemo(() => modules.flatMap((m) =>
     m.commands.map((c) => ({ ...c, moduleId: m.id, moduleName: m.name, moduleCategory: m.category })),
   ), [modules]);
+
+  // System commands belong to their module editor. The standalone Commands tab
+  // intentionally excludes them so one setting never has two competing homes.
+  const allCommands = useMemo(
+    () => moduleId ? moduleCommands.filter((command) => command.moduleId === moduleId) : standaloneCommands.map((command) => ({ ...command, moduleId: undefined, moduleName: "Standalone", moduleCategory: command.category })),
+    [moduleCommands, moduleId, standaloneCommands],
+  );
 
   const filteredCommands = useMemo(() => allCommands.filter((c) => {
     if (filterModule !== "All" && c.moduleId !== filterModule) return false;
@@ -95,7 +108,7 @@ export function CommandsTab() {
     return true;
   }), [allCommands, filterModule, deferredSearch]);
 
-  const moduleOptions = useMemo(() => ["All", ...modules.map((m) => m.id)], [modules]);
+  const moduleOptions = useMemo(() => moduleId ? ["All"] : ["All"], [moduleId]);
   const visibleVariables = useMemo(() => variablesCategory === "all"
     ? ALL_VARIABLES
     : ALL_VARIABLES.filter((v) => v.categories.includes(variablesCategory)), [variablesCategory]);
@@ -107,7 +120,7 @@ export function CommandsTab() {
 
   if (!server) return null;
 
-  const handleSaveCommand = async (moduleId: string, cmd: BotCommand) => {
+  const handleSaveCommand = async (moduleId: string | undefined, cmd: BotCommand) => {
 		await useCadia.getState().saveConfig();
     addLog({
       type: "audit",
@@ -116,13 +129,12 @@ export function CommandsTab() {
       actor: effectiveUser.username,
       actorId: effectiveUser.id,
       action: "Saved command config",
-      details: `Command: /${cmd.name} (module: ${modules.find((m) => m.id === moduleId)?.name})`,
+      details: `Command: /${cmd.name}${moduleId ? ` (module: ${modules.find((m) => m.id === moduleId)?.name})` : ""}`,
     });
     toast.success(`/${cmd.name} settings saved`);
   };
 
   const toggleIdInArray = (cmd: BotCommand, field: "allowedRoleIds" | "allowedChannelIds" | "ignoredChannelIds" | "ignoredRoleIds", id: string) => {
-		if (!cmd.moduleId) return;
     const current = (cmd[field] || []) as string[];
     const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
     updateCommand(cmd.moduleId, cmd.id, { [field]: next } as Partial<BotCommand>);
@@ -185,7 +197,7 @@ export function CommandsTab() {
           </PopoverTrigger>
           <PopoverContent className="p-0 max-w-[350px]" align="start">
             <Cmd>
-              <CommandInput placeholder={`Search ${label.toLowerCase()}…`} />
+              <CommandInput placeholder={`Search ${label.toLowerCase()}...`} />
               <CommandList>
                 <CommandEmpty>No results found.</CommandEmpty>
                 <CommandGroup>
@@ -225,7 +237,7 @@ export function CommandsTab() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Terminal className="h-5 w-5 text-cadia" />
-          <h2 className="text-xl font-bold text-foreground">Commands</h2>
+          <h2 className="text-xl font-bold text-foreground">{embedded ? "Included Commands" : "Command Controls"}</h2>
         </div>
         <Button
           variant="outline"
@@ -242,12 +254,12 @@ export function CommandsTab() {
       </div>
 
       {/* Search + filter */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      {!embedded && <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search commands…"
+            placeholder="Find a command..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-card/50 focus:outline-none focus:border-cadia/50 transition-colors"
@@ -272,16 +284,15 @@ export function CommandsTab() {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* Commands list */}
       <div className="space-y-2">
         {filteredCommands.map((c) => {
           const isExpanded = expandedCmd === c.id;
-          const parentModule = modules.find((m) => m.id === c.moduleId);
           return (
             <div key={c.id} className={`cadia-card overflow-hidden transition-all ${isExpanded ? "border-cadia/40" : ""}`}>
-              {/* Command header — Dyno-style row */}
+              {/* Command header : Dyno-style row */}
               <div className="flex items-center gap-3 p-3 sm:p-4">
                 <button
                   onClick={() => setExpandedCmd(isExpanded ? null : c.id)}
@@ -322,9 +333,9 @@ export function CommandsTab() {
                 />
               </div>
 
-              {/* Expanded config — Dyno-style permissions modal content */}
+              {/* Expanded config : Dyno-style permissions modal content */}
               <AnimatePresence>
-                {isExpanded && parentModule && (
+                {isExpanded && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
@@ -362,7 +373,7 @@ export function CommandsTab() {
                         />
                       </div>
 
-                      {/* Cooldown — slider + editable number input */}
+                      {/* Cooldown : slider + editable number input */}
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold flex items-center justify-between">
                           <span className="flex items-center gap-1.5">
@@ -467,7 +478,7 @@ export function CommandsTab() {
 
       {filteredCommands.length === 0 && (
         <div className="cadia-card p-6 text-center">
-          <p className="text-sm text-muted-foreground">No commands match your filters</p>
+          <p className="text-sm text-muted-foreground">{embedded ? "This module has no additional command settings." : "System commands are managed from their module settings."}</p>
         </div>
       )}
 

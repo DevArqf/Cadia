@@ -27,7 +27,7 @@ export function ServerSelectView() {
   const selectServer = useCadia((s) => s.selectServer);
 
   const visibleServers = useMemo(() => {
-    // Show ALL servers the user can manage — including blacklisted ones
+    // Show ALL servers the user can manage : including blacklisted ones
     // (blacklisted servers show a fallback page when selected)
     return servers.filter((server) => server.userCanManage && !blacklistedIds.includes(server.id));
   }, [servers, blacklistedIds]);
@@ -88,7 +88,7 @@ export function ServerSelectView() {
           className="mb-8"
         >
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Select a server
+            Choose a Server
           </h1>
         </motion.div>
 
@@ -110,11 +110,10 @@ export function ServerSelectView() {
         {visibleServers.length === 0 && (
           <div className="cadia-card p-8 text-center">
             <p className="text-sm font-semibold text-muted-foreground mb-3">
-              No mutual servers found
+              No manageable servers found
             </p>
             <p className="text-sm text-muted-foreground">
-              You don&apos;t manage any server Cadia is in. Add Cadia to your
-              server to get started.
+              Add Cadia to a server you manage, then return here to configure it.
             </p>
           </div>
         )}
@@ -185,12 +184,12 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                     {s.botInServer ? (
                       <>
                         <Check className="h-2.5 w-2.5" />
-                        Installed
+                        Ready
                       </>
                     ) : (
                       <>
                         <X className="h-2.5 w-2.5" />
-                        Not Installed
+                        Add Required
                       </>
                     )}
                   </div>
@@ -235,7 +234,7 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                     className="cadia-btn w-full bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
                   >
                     <ServerIcon className="h-4 w-4 mr-1.5" />
-                    Open Dashboard
+                    Manage Server
                   </Button>
                 ) : (
                   <a
@@ -245,7 +244,7 @@ function ServerCard({ server: s, index, blacklisted, onSelect }: {
                     <Button className="cadia-add-bot-btn cadia-btn w-full text-background text-sm font-semibold group relative overflow-hidden">
                       <span className="relative z-10 flex items-center justify-center">
                         <ExternalLink className="h-4 w-4 mr-2 transition-transform group-hover:translate-x-0.5" />
-                        Add Cadia Now
+                        Add Cadia
                       </span>
                     </Button>
                   </a>

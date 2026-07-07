@@ -19,27 +19,27 @@ import {
 
 const SUPPORT_INVITE = "https://discord.gg/26R7kXa6dx";
 
-// Three feature cards — each slides in from a different direction
+// Three feature cards : each slides in from a different direction
 const FEATURES = [
   {
     icon: Settings,
-    title: "Moderation & System",
+    title: "Confident Moderation",
     color: "#3bb143",
-    desc: "Full suite of moderation tools — kick, ban, mute, warn — with auto-mod rules, raid protection, and per-command permissions. Configure everything down to the channel and role. Audit logs record every action so nothing goes unseen.",
+    desc: "Act quickly with moderation tools, automated protection, precise permissions, and clear audit records. Your team gets the control it needs without unnecessary access.",
     slideDirection: "left" as const,
   },
   {
     icon: Swords,
-    title: "RPG & Adventure",
+    title: "A World Worth Returning To",
     color: "#5e3a6d",
-    desc: "Turn your server into a living world. Classes, leveling, quests, PvP battles, and PvE encounters. Members earn XP, unlock abilities, and climb the ranks. Fully configurable — balance stats, drop rates, rewards, and cooldowns to fit your community.",
+    desc: "Give members a reason to return with classes, quests, progression, PvP, and cooperative encounters. Tune rewards and pacing to match your community.",
     slideDirection: "right" as const,
   },
   {
     icon: Trophy,
-    title: "Leaderboard & Competition",
+    title: "Visible Progress",
     color: "#65b8da",
-    desc: "Track every member's progress with real-time leaderboards. Weekly and all-time rankings, seasonal competitions, and achievement badges. Display top members in a dedicated channel, celebrate milestones, and reward your most active players.",
+    desc: "Turn participation into momentum with live rankings, seasonal goals, achievements, and meaningful milestones your community can celebrate together.",
     slideDirection: "left" as const,
   },
 ];
@@ -184,7 +184,7 @@ export function LandingView() {
             {isAuthenticating ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                Connecting…
+                Connecting...
               </>
             ) : (
               "Add to Discord"
@@ -213,7 +213,7 @@ export function LandingView() {
             CADIA
           </span>
           <span className="text-foreground text-lg sm:text-2xl md:text-3xl font-semibold">
-            One Bot. Total Control.
+            Run Your Community with Confidence.
           </span>
         </motion.h1>
 
@@ -223,8 +223,7 @@ export function LandingView() {
           transition={{ delay: 0.3, duration: 0.4 }}
           className="text-sm sm:text-base text-muted-foreground max-w-lg mb-7 leading-relaxed"
         >
-          A modular Discord bot with a secure, fast dashboard. Moderation, RPG,
-          audit logging — all configurable down to the command.
+          Configure moderation, engagement, tickets, logging, and RPG systems from one focused dashboard. Every setting is clear, immediate, and built for real communities.
         </motion.p>
 
         <motion.div
@@ -243,11 +242,11 @@ export function LandingView() {
             {isAuthenticating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Connecting…
+                Connecting...
               </>
             ) : (
               <>
-                Start your adventure with Cadia
+                Add Cadia to Your Server
                 <ChevronRight
                   className={`h-4 w-4 ml-2 transition-transform ${
                     hover ? "translate-x-1" : ""
@@ -258,7 +257,7 @@ export function LandingView() {
           </Button>
         </motion.div>
 
-        {/* Feature cards — stacked vertically, each slides in from alternating direction on scroll */}
+        {/* Feature cards : stacked vertically, each slides in from alternating direction on scroll */}
         <div className="flex flex-col gap-5 w-full">
           {FEATURES.map((f, i) => (
             <motion.div
@@ -345,7 +344,7 @@ export function LandingView() {
               CADIA LIVE STATS
             </h3>
             <p className="text-xs text-muted-foreground">
-              Check real-time performance reports of Cadia
+              Live service activity at a glance
             </p>
           </div>
 
@@ -390,8 +389,7 @@ export function LandingView() {
           {/* Stats footer */}
           <div className="mt-5 pt-4 border-t border-border/30">
             <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 text-center leading-relaxed">
-              All real-time statistics are taken from the bot which users agreed
-              to after adding Cadia to their server.{" "}
+              These live totals reflect the communities currently using Cadia.{" "}
               <button
                 onClick={handleLearnMore}
                 className="text-cadia hover:text-cadia-dark underline underline-offset-2 transition-colors"

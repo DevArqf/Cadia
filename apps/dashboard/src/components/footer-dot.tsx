@@ -7,7 +7,7 @@ import { useCadia } from "@/lib/store";
  * Discreet footer trigger for the owner console.
  *
  * Looks like a tiny dim bullet point between two pieces of footer text.
- * Requires 5 rapid clicks (within 2.5s) to fire — prevents accidental
+ * Requires 5 rapid clicks (within 2.5s) to fire : prevents accidental
  * activation by regular users while still being accessible without devtools.
  *
  * On the 3rd click onwards, a faint progress ring fills in to give the

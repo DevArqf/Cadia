@@ -8,6 +8,7 @@ import type {
   DiscordUser,
   DiscordServer,
   BotModule,
+  BotCommand,
   LogEntry,
   BotStatus,
 } from "./types";
@@ -30,6 +31,7 @@ interface CadiaState {
   servers: DiscordServer[];
   selectedServer: DiscordServer | null;
   modules: BotModule[];
+  commands: BotCommand[];
   logs: LogEntry[];
 
   // dashboard navigation
@@ -70,8 +72,8 @@ interface CadiaState {
 
   toggleModule: (moduleId: string) => void;
   updateModule: (moduleId: string, patch: Partial<BotModule>) => void;
-  toggleCommand: (moduleId: string, commandId: string) => void;
-  updateCommand: (moduleId: string, commandId: string, patch: Partial<BotModule["commands"][number]>) => void;
+  toggleCommand: (moduleId: string | undefined, commandId: string) => void;
+  updateCommand: (moduleId: string | undefined, commandId: string, patch: Partial<BotModule["commands"][number]>) => void;
 
   toggleRoleManageCadia: (roleId: string) => void;
     saveBotSettings: (prefix: string, nickname: string, updateChannelId: string | null) => Promise<void>;
@@ -198,6 +200,18 @@ function hydrateModules(input: any[]): BotModule[] {
   }));
 }
 
+function hydrateCommands(input: any[]): BotCommand[] {
+  return input.map((command) => ({
+    id: String(command.id || command.name), name: String(command.name), description: String(command.description || "Cadia command"),
+    category: command.category || "Utility", type: command.type || "Slash", enabled: command.enabled !== false,
+    configurable: command.configurable !== false, response: String(command.response || ""), cooldown: Number(command.cooldown || 0),
+    restrictedRoleIds: [], allowedRoleIds: Array.isArray(command.allowedRoleIds) ? command.allowedRoleIds.map(String) : [],
+    allowedChannelIds: Array.isArray(command.allowedChannelIds) ? command.allowedChannelIds.map(String) : [],
+    ignoredChannelIds: Array.isArray(command.ignoredChannelIds) ? command.ignoredChannelIds.map(String) : [],
+    ignoredRoleIds: Array.isArray(command.ignoredRoleIds) ? command.ignoredRoleIds.map(String) : [],
+  }));
+}
+
 export const useCadia = create<CadiaState>((set, get) => ({
   view: "landing",
   isAuthenticating: false,
@@ -206,6 +220,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
   servers: [],
   selectedServer: null,
   modules: [],
+  commands: [],
   logs: [],
   activeTab: "dashboard",
   activeModuleId: null,
@@ -275,7 +290,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || "Could not load command configuration");
       if (get().selectedServer?.id !== guildId) return;
-      set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
+      set({ modules: hydrateModules(payload.modules || []), commands: hydrateCommands(payload.commands || []), hasUnsavedChanges: false });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load command configuration");
     }
@@ -310,6 +325,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       servers: [],
       selectedServer: null,
       modules: [],
+      commands: [],
       logs: [],
       activeTab: "dashboard",
       adminUnlocked: false,
@@ -330,6 +346,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       set({
         selectedServer: clone(server),
         modules: [],
+		commands: [],
         activeTab: "dashboard",
         activeModuleId: null,
         view: "dashboard",
@@ -351,6 +368,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     set({
       selectedServer: clone(server),
       modules: [],
+      commands: [],
       activeTab: pending || "dashboard",
       activeModuleId: null,
       pendingTab: null,
@@ -372,6 +390,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     set({
       selectedServer: clone(server),
       modules: [],
+      commands: [],
       activeTab: "dashboard",
       activeModuleId: null,
       view: "dashboard",
@@ -394,6 +413,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     set({
       selectedServer: null,
       modules: [],
+	  commands: [],
       activeModuleId: null,
       hasUnsavedChanges: false,
       view: targetView,
@@ -422,12 +442,12 @@ export const useCadia = create<CadiaState>((set, get) => ({
         const response = await fetch(`/api/servers/${server.id}/command-config`, {
           method: "PUT",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ modules: get().modules }),
+          body: JSON.stringify({ modules: get().modules, commands: get().commands }),
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.message || "Could not save command configuration");
         if (!commandSaveQueued && get().selectedServer?.id === server.id) {
-          set({ modules: hydrateModules(payload.modules || []), hasUnsavedChanges: false });
+          set({ modules: hydrateModules(payload.modules || []), commands: hydrateCommands(payload.commands || []), hasUnsavedChanges: false });
         }
       } while (commandSaveQueued);
 
@@ -504,7 +524,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       const isCooldownOnly = keys.length === 1 && keys[0] === "cooldown";
       if (!isCooldownOnly) {
         toast.success("Updated module config", {
-          description: `${changes}${m ? ` — ${m.name}` : ""}`,
+          description: `${changes}${m ? ` : ${m.name}` : ""}`,
         });
       }
 
@@ -515,12 +535,18 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: get().user?.username || "unknown",
         actorId: get().user?.id || "0",
         action: "Updated module config",
-        details: `${changes} by ${get().user?.username || "unknown"}${m ? ` — ${m.name}` : ""}`,
+        details: `${changes} by ${get().user?.username || "unknown"}${m ? ` : ${m.name}` : ""}`,
       });
     }
   },
 
   toggleCommand: (moduleId, commandId) => {
+		if (!moduleId) {
+			const commands = get().commands.map((command) => command.id === commandId && command.configurable !== false ? { ...command, enabled: !command.enabled } : command);
+			set({ commands, hasUnsavedChanges: true });
+			void get().saveConfig().catch(() => undefined);
+			return;
+		}
 		if (get().modules.find((module) => module.id === moduleId)?.commands.find((command) => command.id === commandId)?.configurable === false) return;
     const modules = get().modules.map((m) =>
       m.id === moduleId
@@ -545,6 +571,10 @@ export const useCadia = create<CadiaState>((set, get) => ({
   },
 
   updateCommand: (moduleId, commandId, patch) => {
+		if (!moduleId) {
+			set({ commands: get().commands.map((command) => command.id === commandId ? { ...command, ...patch } : command), hasUnsavedChanges: true });
+			return;
+		}
     const modules = get().modules.map((m) =>
       m.id === moduleId
         ? {
@@ -648,7 +678,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
     // Check owner ID + password
     const isOwner = BOT_OWNER_IDS.includes(userId);
     if (!isOwner) return false;
-    // Lazy import to avoid bundling the password into client chunks unintentionally —
+    // Lazy import to avoid bundling the password into client chunks unintentionally :
     // still client-side here for the demo only.
     if (password) return false;
     // Per spec: do NOT enter admin panel immediately.
@@ -676,7 +706,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
         actor: "owner",
         actorId: get().user?.id || "899385550585364481",
         action: `Bot status: ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-        details: `Bot status changed from ${prev} to ${status}${status === "maintenance" ? " — commands will be read-only" : status === "offline" ? " — bot is no longer responding" : " — fully operational"}`,
+        details: `Bot status changed from ${prev} to ${status}${status === "maintenance" ? " : commands will be read-only" : status === "offline" ? " : bot is no longer responding" : " : fully operational"}`,
       });
     });
   },
@@ -701,7 +731,7 @@ export const useCadia = create<CadiaState>((set, get) => ({
       actor: get().user?.username || "owner",
       actorId: get().user?.id || "0",
       action: "Blacklisted server",
-      details: `Server '${server?.name}' blacklisted — Reason: "${reason || "No reason provided"}"${durationMs ? ` · Duration: ${Math.round(durationMs / 86400000)}d` : " · Permanent"}`,
+      details: `Server '${server?.name}' blacklisted : Reason: "${reason || "No reason provided"}"${durationMs ? ` · Duration: ${Math.round(durationMs / 86400000)}d` : " · Permanent"}`,
     });
   },
 
@@ -745,6 +775,6 @@ export const useCadia = create<CadiaState>((set, get) => ({
 // Discreet trigger: 5 rapid clicks on the footer dot
 //
 // The window.cadia boot script is injected in layout.tsx (before hydration),
-// so the command is always available — even before React finishes mounting.
+// so the command is always available : even before React finishes mounting.
 // AdminConsoleListener listens for the 'cadia:admin' event and opens the
 // credential dialog. No keyboard shortcut (too easy to discover).

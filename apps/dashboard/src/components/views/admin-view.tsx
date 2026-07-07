@@ -363,14 +363,14 @@ export function AdminView() {
             <span className="font-pixel text-sm text-rpg block tracking-wider">CADIA</span>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Shield className="h-3 w-3 text-rpg" />
-              Owner Control Panel
+              Administration
             </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Badge className="text-[10px] font-semibold bg-rpg/20 text-rpg border border-rpg/50">
             <Shield className="h-3 w-3 mr-1" />
-            ROOT
+            AUTHORIZED
           </Badge>
           <span className="text-xs text-muted-foreground hidden sm:inline">
             {user?.username} ({user?.id})
@@ -451,7 +451,7 @@ export function AdminView() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search servers by name or ID…"
+                  placeholder="Search servers by name or ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 text-sm h-9"
@@ -633,7 +633,7 @@ export function AdminView() {
               <div className="cadia-card p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="h-4 w-4 text-cadia" />
-                  <h3 className="text-sm font-semibold text-foreground">Bot Activity Message</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Discord Activity</h3>
                 </div>
                 <div className="flex gap-2">
                   <Input
@@ -651,14 +651,14 @@ export function AdminView() {
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-2">
-                  This is the &quot;Playing…&quot; status shown in Discord member lists.
+                  This is the &quot;Playing...&quot; status shown in Discord member lists.
                 </p>
               </div>
 
               <div className="cadia-card p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Cpu className="h-4 w-4 text-warning" />
-                  <h3 className="text-sm font-semibold text-foreground">System Info</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Runtime Health</h3>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   {[
@@ -768,7 +768,7 @@ export function AdminView() {
               <div className="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between shrink-0">
                 <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                   <Terminal className="h-3.5 w-3.5 text-rpg" />
-                  Admin Action History
+                  Administrative Activity
                 </span>
                 <span className="text-[11px] text-muted-foreground">{adminLogs.length} entries</span>
               </div>
@@ -779,7 +779,7 @@ export function AdminView() {
                 {adminLogs.length === 0 ? (
                   <div className="p-8 text-center">
                     <Terminal className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No admin actions recorded yet</p>
+                    <p className="text-sm text-muted-foreground">No administrative activity recorded yet.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border/40">

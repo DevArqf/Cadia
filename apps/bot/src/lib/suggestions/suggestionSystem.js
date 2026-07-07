@@ -3,11 +3,17 @@ const {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
+	ContainerBuilder,
 	EmbedBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
 	MessageFlags,
 	ModalBuilder,
 	TextInputBuilder,
-	TextInputStyle
+	SectionBuilder,
+	TextDisplayBuilder,
+	TextInputStyle,
+	ThumbnailBuilder
 } = require('discord.js');
 const { emojis } = require('../../config');
 const { withTransaction } = require('../database/mysql');
@@ -15,12 +21,13 @@ const SuggestionConfig = require('../schemas/suggestionConfigSchema');
 const Suggestion = require('../schemas/suggestionSchema');
 const { normalizeSuggestionAppearance, renderTemplate } = require('./appearance');
 const { getGuildCommandConfig, isModuleEnabled } = require('../runtime/guildCommandConfig');
+const { addTemplateText } = require('../util/componentsV2');
 
 const SUGGESTION_PREFIX = 'suggestions';
 const SUGGESTION_COOLDOWN_MS = 5 * 60_000;
 const voteQueues = new Map();
 
-function buildSuggestionPanel(config = {}) {
+function buildSuggestionPanel(config = {}, guild = null) {
 	if (typeof config === 'string') config = { style: config };
 	const appearance = normalizeSuggestionAppearance(config);
 	const panel = appearance.panel;
@@ -44,13 +51,26 @@ function buildSuggestionPanel(config = {}) {
 			allowedMentions
 		};
 	}
+	if (appearance.style === 'componentsV2') {
+		const container = new ContainerBuilder().setAccentColor(Number.parseInt(panel.color.slice(1), 16));
+		const header = panel.title ? `## ${panel.title}` : '## Submit a Suggestion';
+		const thumbnail = resolveAsset(panel.thumbnailUrl, guild);
+		if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(header)).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
+		else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+		addTemplateText(container, panel.description || 'Submit a suggestion below.');
+		const image = resolveAsset(panel.imageUrl, guild);
+		if (image) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(image)));
+		if (panel.footer) addTemplateText(container, `-# ${panel.footer}`);
+		container.addActionRowComponents(components[0]);
+		return { flags: MessageFlags.IsComponentsV2, components: [container], allowedMentions };
+	}
 
 	const embed = new EmbedBuilder().setColor(panel.color);
 	if (panel.title) embed.setTitle(panel.title);
 	if (panel.description) embed.setDescription(panel.description);
 	if (panel.footer) embed.setFooter({ text: panel.footer });
-	if (panel.thumbnailUrl) embed.setThumbnail(panel.thumbnailUrl);
-	if (panel.imageUrl) embed.setImage(panel.imageUrl);
+	if (resolveAsset(panel.thumbnailUrl, guild)) embed.setThumbnail(resolveAsset(panel.thumbnailUrl, guild));
+	if (resolveAsset(panel.imageUrl, guild)) embed.setImage(resolveAsset(panel.imageUrl, guild));
 	if (!panel.title && !panel.description && !panel.footer && !panel.thumbnailUrl && !panel.imageUrl) {
 		embed.setDescription('Submit a suggestion below.');
 	}
@@ -84,7 +104,7 @@ function buildSuggestionModal() {
 		);
 }
 
-function buildSuggestionPost(suggestion, config = {}) {
+function buildSuggestionPost(suggestion, config = {}, guild = null) {
 	const upvotes = suggestion.upvotes?.length || 0;
 	const downvotes = suggestion.downvotes?.length || 0;
 	const post = normalizeSuggestionAppearance(config).post;
@@ -104,8 +124,8 @@ function buildSuggestionPost(suggestion, config = {}) {
 	if (title) embed.setTitle(title);
 	if (description) embed.setDescription(description);
 	if (footer) embed.setFooter({ text: footer });
-	if (post.thumbnailUrl) embed.setThumbnail(post.thumbnailUrl);
-	if (post.imageUrl) embed.setImage(post.imageUrl);
+	if (resolveAsset(post.thumbnailUrl, guild)) embed.setThumbnail(resolveAsset(post.thumbnailUrl, guild));
+	if (resolveAsset(post.imageUrl, guild)) embed.setImage(resolveAsset(post.imageUrl, guild));
 	if (post.showTimestamp) embed.setTimestamp(suggestion.createdAt || Date.now());
 	if (!title && !description && !footer && !post.thumbnailUrl && !post.imageUrl) embed.setDescription(suggestion.body || 'Suggestion');
 	const components = [
@@ -124,6 +144,19 @@ function buildSuggestionPost(suggestion, config = {}) {
 				.setDisabled(suggestion.status !== 'open')
 		)
 	];
+	if (post.style === 'componentsV2') {
+		const container = new ContainerBuilder().setAccentColor(Number.parseInt(post.color.slice(1), 16));
+		const thumbnail = resolveAsset(post.thumbnailUrl, guild);
+		const header = title ? `## ${title}` : '## Suggestion';
+		if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(header)).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
+		else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+		addTemplateText(container, description || suggestion.body || 'Suggestion');
+		const image = resolveAsset(post.imageUrl, guild);
+		if (image) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(image)));
+		if (footer || post.showTimestamp) addTemplateText(container, [footer ? `-# ${footer}` : '', post.showTimestamp ? `-# Created <t:${Math.floor((suggestion.createdAt || Date.now()) / 1000)}:F>` : ''].filter(Boolean).join('\n'));
+		container.addActionRowComponents(components[0]);
+		return { flags: MessageFlags.IsComponentsV2, components: [container], allowedMentions: { parse: [] } };
+	}
 
 	return { embeds: [embed], components, allowedMentions: { parse: [] } };
 }
@@ -176,7 +209,7 @@ async function submitSuggestion(interaction) {
 	});
 
 	try {
-		const message = await interaction.channel.send(buildSuggestionPost(suggestion, config));
+		const message = await interaction.channel.send(buildSuggestionPost(suggestion, config, interaction.guild));
 		suggestion.messageId = message.id;
 		suggestion.updatedAt = Date.now();
 		await suggestion.save();
@@ -219,7 +252,7 @@ async function voteOnSuggestion(interaction) {
 		}
 
 		const config = await SuggestionConfig.findOne({ guildId: suggestion.guildId });
-		return interaction.message.edit(buildSuggestionPost(suggestion, config || {}));
+		return interaction.message.edit(buildSuggestionPost(suggestion, config || {}, interaction.guild));
 	});
 }
 
@@ -257,6 +290,11 @@ function formatRemainingTime(milliseconds) {
 
 function ephemeralReply(interaction, content) {
 	return interaction.reply({ content, flags: MessageFlags.Ephemeral });
+}
+
+function resolveAsset(value, guild) {
+	if (value === '{serverIcon}') return guild?.iconURL?.({ size: 1024 }) || '';
+	return value || '';
 }
 
 module.exports = {

@@ -8,6 +8,7 @@ process.env.DEVELOPERS ??= 'developer';
 const {
 	MODULES,
 	buildCommandCatalog,
+	buildDashboardCatalog,
 	getCommandPolicy,
 	getModulePolicy,
 	isCommandEnabled,
@@ -22,11 +23,12 @@ const {
 	syncAutoModRules
 } = require('../src/lib/automod/autoModService');
 
-test('dashboard modules match the command Systems directories', () => {
+test('dashboard modules expose user-configurable systems and exclude developer blacklist controls', () => {
 	assert.deepEqual(
 		Object.values(MODULES).map((module) => module.name).sort(),
-		['Automod', 'Blacklist', 'Counting', 'Levelling', 'Logging', 'Minigame', 'RPG System', 'Suggestions', 'Tickets', 'Top.gg', 'Welcoming']
+		['Automod', 'Counting', 'Levelling', 'Logging', 'Minigame', 'RPG System', 'Suggestions', 'Tickets', 'Top.gg', 'Welcoming']
 	);
+	assert.equal(resolveModuleId(fakeCommand('blacklist-add', 'Systems', 'Blacklist')), null);
 });
 
 test('dashboard command catalog is built from the live Sapphire command store', () => {
@@ -40,10 +42,7 @@ test('dashboard command catalog is built from the live Sapphire command store', 
 		commands: { automod: { enabled: false } }
 	});
 
-	assert.deepEqual(catalog.map((module) => module.id), ['automod', 'topgg']);
-	assert.equal(catalog.find((module) => module.id === 'topgg').enabled, true);
-	assert.equal(catalog.find((module) => module.id === 'topgg').configurable, false);
-	assert.equal(catalog.find((module) => module.id === 'topgg').commands[0].configurable, false);
+	assert.deepEqual(catalog.map((module) => module.id), ['automod']);
 	assert.equal(catalog.find((module) => module.id === 'automod').commands[0].enabled, false);
 	assert.equal(resolveModuleId(vote), 'topgg');
 	assert.equal(resolveModuleId(ping), null);
@@ -56,7 +55,8 @@ test('commands outside the Systems directory do not create dashboard modules or 
 	const client = { stores: { get: () => new Map([['ping', ping]]) } };
 
 	assert.deepEqual(buildCommandCatalog(client), []);
-	assert.equal(isCommandEnabled({ modules: { other: false }, commands: { ping: { enabled: false } } }, ping), true);
+	assert.equal(isCommandEnabled({ modules: { other: false }, commands: { ping: { enabled: false } } }, ping), false);
+	assert.deepEqual(buildDashboardCatalog(client).commands.map((command) => command.name), ['ping']);
 });
 
 test('vote commands remain enabled despite stale dashboard disable policies', () => {

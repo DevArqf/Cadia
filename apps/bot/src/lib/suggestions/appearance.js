@@ -16,12 +16,13 @@ const DEFAULT_POST_APPEARANCE = Object.freeze({
 	color: '#65b8da',
 	thumbnailUrl: '',
 	imageUrl: '',
-	showTimestamp: true
+	showTimestamp: true,
+	style: 'embed'
 });
 
 function normalizeSuggestionAppearance(config = {}) {
 	return {
-		style: config.style === 'message' ? 'message' : 'embed',
+		style: config.style === 'message' ? 'message' : config.style === 'componentsV2' ? 'componentsV2' : 'embed',
 		panel: normalizePanelAppearance(config.panel),
 		post: normalizePostAppearance(config.post)
 	};
@@ -33,8 +34,8 @@ function normalizePanelAppearance(value = {}) {
 		description: cleanText(value?.description, DEFAULT_PANEL_APPEARANCE.description, 4000),
 		footer: cleanText(value?.footer, DEFAULT_PANEL_APPEARANCE.footer, 2000),
 		color: normalizeColor(value?.color, DEFAULT_PANEL_APPEARANCE.color),
-		thumbnailUrl: normalizeUrl(value?.thumbnailUrl),
-		imageUrl: normalizeUrl(value?.imageUrl),
+		thumbnailUrl: normalizeAssetUrl(value?.thumbnailUrl),
+		imageUrl: normalizeAssetUrl(value?.imageUrl),
 		buttonLabel: cleanText(value?.buttonLabel, DEFAULT_PANEL_APPEARANCE.buttonLabel, 80) || DEFAULT_PANEL_APPEARANCE.buttonLabel,
 		buttonEmoji: normalizeButtonEmoji(value?.buttonEmoji)
 	};
@@ -46,9 +47,10 @@ function normalizePostAppearance(value = {}) {
 		description: cleanText(value?.description, DEFAULT_POST_APPEARANCE.description, 4000),
 		footer: cleanText(value?.footer, DEFAULT_POST_APPEARANCE.footer, 2000),
 		color: normalizeColor(value?.color, DEFAULT_POST_APPEARANCE.color),
-		thumbnailUrl: normalizeUrl(value?.thumbnailUrl),
-		imageUrl: normalizeUrl(value?.imageUrl),
-		showTimestamp: value?.showTimestamp !== false
+		thumbnailUrl: normalizeAssetUrl(value?.thumbnailUrl),
+		imageUrl: normalizeAssetUrl(value?.imageUrl),
+		showTimestamp: value?.showTimestamp !== false,
+		style: value?.style === 'componentsV2' ? 'componentsV2' : 'embed'
 	};
 }
 
@@ -81,6 +83,10 @@ function normalizeUrl(value) {
 	} catch {
 		return '';
 	}
+}
+
+function normalizeAssetUrl(value) {
+	return String(value || '').trim() === '{serverIcon}' ? '{serverIcon}' : normalizeUrl(value);
 }
 
 function normalizeButtonEmoji(value) {

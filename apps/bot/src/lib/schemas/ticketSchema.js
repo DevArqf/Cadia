@@ -1,4 +1,5 @@
 const { createModel } = require('../database/model');
+const { DEFAULT_OPENED_TICKET, DEFAULT_TICKET_PANEL } = require('../tickets/appearance');
 
 const TicketConfigSchema = createModel('ticketConfigSchema', {
 	guildId: null,
@@ -11,6 +12,8 @@ const TicketConfigSchema = createModel('ticketConfigSchema', {
 	logChannelId: null,
 	title: 'Need help?',
 	description: 'Open a ticket and the support team will help you as soon as possible.',
+	panel: () => ({ ...DEFAULT_TICKET_PANEL }),
+	openedTicket: () => ({ ...DEFAULT_OPENED_TICKET }),
 	maxOpenTickets: 1,
 	ticketNameFormat: 'ticket-{username}',
 	createdAt: () => Date.now(),

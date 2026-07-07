@@ -1,4 +1,4 @@
-// Legal content for Cadia — Terms of Service, FAQ, Privacy Policy
+// Legal content for Cadia : Terms of Service, FAQ, Privacy Policy
 
 export interface LegalSection {
   heading?: string;
@@ -112,7 +112,7 @@ export const FAQ: LegalDoc = {
 };
 
 export const PRIVACY_POLICY: LegalDoc = {
-  title: "Privacy Policy of Cadia",
+  title: "Cadia Privacy Policy",
   lastUpdated: "June 23, 2026",
   sections: [
     {

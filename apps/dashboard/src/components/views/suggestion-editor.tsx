@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { DiscordMarkdown } from "@/components/discord-markdown";
 import { ArrowLeft, Hash, Loader2, MessageSquareText, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ interface SuggestionEditorProps {
 
 export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
   const server = useCadia((state) => state.selectedServer);
+  const moduleEnabled = useCadia((state) => state.modules.find((module) => module.id === "suggestions")?.enabled ?? false);
+  const updateModule = useCadia((state) => state.updateModule);
   const [config, setConfig] = useState<SuggestionConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,7 +65,7 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
         return payload.config as SuggestionConfig;
       })
       .then((next) => {
-        setConfig(next);
+        setConfig(normalizeDashboardSuggestionConfig(next));
         setError("");
         setDirty(false);
       })
@@ -99,14 +101,15 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
       const response = await fetch(`/api/servers/${server.id}/suggestions`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify({ config: normalizeDashboardSuggestionConfig({ ...config, enabled: moduleEnabled }) }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || "Could not save suggestion settings");
-      setConfig(payload.config);
+      setConfig(normalizeDashboardSuggestionConfig(payload.config));
+	  await useCadia.getState().saveConfig();
       setDirty(false);
       useCadia.setState({ hasUnsavedChanges: false });
-      toast.success("Suggestion appearance saved");
+      toast.success("Suggestion experience updated");
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Could not save suggestion settings";
       setError(message);
@@ -135,13 +138,13 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
         <div>
           <div className="flex items-center gap-2">
             <MessageSquareText className="h-5 w-5 text-cadia" />
-            <h2 className="text-lg font-bold">Suggestion Appearance</h2>
+            <h2 className="text-lg font-bold">Suggestion Experience</h2>
           </div>
           <p className="text-xs text-muted-foreground mt-1">{server.name}</p>
         </div>
         <div className="flex items-center gap-2">
           <Label htmlFor="suggestions-enabled" className="text-xs">Enabled</Label>
-          <Switch id="suggestions-enabled" checked={config.enabled} onCheckedChange={(enabled) => update({ enabled })} />
+          <Switch id="suggestions-enabled" checked={moduleEnabled} onCheckedChange={(enabled) => { updateModule("suggestions", { enabled }); update({ enabled }); }} />
         </div>
       </div>
 
@@ -168,8 +171,8 @@ export function SuggestionEditor({ onBack }: SuggestionEditorProps) {
           </div>
 
           <div className="xl:sticky xl:top-16 self-start space-y-3">
-            <h3 className="text-xs font-semibold uppercase text-muted-foreground">Discord Preview</h3>
-            <DiscordPreview config={config} />
+            <h3 className="text-xs font-semibold uppercase text-muted-foreground">Live Discord Preview</h3>
+            <DiscordPreview config={config} serverIcon={server.icon.startsWith("http") ? server.icon : ""} />
           </div>
         </div>
       )}
@@ -228,6 +231,35 @@ function PostFields({ value, update }: { value: SuggestionPostAppearance; update
   );
 }
 
+function normalizeDashboardSuggestionConfig(input: SuggestionConfig): SuggestionConfig {
+  return {
+    guildId: input.guildId,
+    channelId: input.channelId,
+    panelMessageId: input.panelMessageId,
+    enabled: input.enabled,
+    style: input.style === "message" ? "message" : "embed",
+    panel: {
+      title: input.panel.title,
+      description: input.panel.description,
+      footer: input.panel.footer,
+      color: input.panel.color,
+      thumbnailUrl: input.panel.thumbnailUrl,
+      imageUrl: input.panel.imageUrl,
+      buttonLabel: input.panel.buttonLabel,
+      buttonEmoji: input.panel.buttonEmoji,
+    },
+    post: {
+      title: input.post.title,
+      description: input.post.description,
+      footer: input.post.footer,
+      color: input.post.color,
+      thumbnailUrl: input.post.thumbnailUrl,
+      imageUrl: input.post.imageUrl,
+      showTimestamp: input.post.showTimestamp,
+    },
+  };
+}
+
 interface AppearanceFieldsProps {
   color: string;
   thumbnailUrl: string;
@@ -238,6 +270,7 @@ interface AppearanceFieldsProps {
 function AppearanceFields({ color, thumbnailUrl, imageUrl, update }: AppearanceFieldsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+	  <p className="sm:col-span-2 text-[10px] text-muted-foreground">Use <code>{"{serverIcon}"}</code> in an image URL field to show the server icon.</p>
       <Field label="Color">
         <div className="flex gap-2">
           <input type="color" value={validColor(color)} onChange={(event) => update({ color: event.target.value })} className="h-9 w-11 rounded border border-input bg-background p-1" aria-label="Embed color" />
@@ -250,18 +283,18 @@ function AppearanceFields({ color, thumbnailUrl, imageUrl, update }: AppearanceF
   );
 }
 
-function DiscordPreview({ config }: { config: SuggestionConfig }) {
+function DiscordPreview({ config, serverIcon }: { config: SuggestionConfig; serverIcon: string }) {
   const panel = config.panel;
   const post = config.post;
   const variables = useMemo(() => ({ title: "More community events", body: "Add a monthly server event with community voting.", upvotes: "12", downvotes: "2", author: "@sample-user", id: "preview", status: "open" }), []);
   return (
     <div className="rounded-md border border-[#26303d] bg-[#111318] p-4 space-y-5 overflow-hidden">
       <PreviewMessage title="Panel">
-        {config.style === "embed" ? <EmbedPreview color={panel.color} title={panel.title} description={panel.description} footer={panel.footer} thumbnailUrl={panel.thumbnailUrl} imageUrl={panel.imageUrl} /> : <PlainPreview title={panel.title} description={panel.description} footer={panel.footer} />}
+        {config.style === "embed" ? <EmbedPreview color={panel.color} title={panel.title} description={panel.description} footer={panel.footer} thumbnailUrl={panel.thumbnailUrl === "{serverIcon}" ? serverIcon : panel.thumbnailUrl} imageUrl={panel.imageUrl === "{serverIcon}" ? serverIcon : panel.imageUrl} /> : <PlainPreview title={panel.title} description={panel.description} footer={panel.footer} />}
         <div className="mt-2"><span className="inline-flex h-8 items-center rounded px-3 text-xs font-semibold bg-[#5865f2] text-white">{panel.buttonEmoji} {panel.buttonLabel}</span></div>
       </PreviewMessage>
       <PreviewMessage title="Suggestion">
-        <EmbedPreview color={post.color} title={renderPreview(post.title, variables)} description={renderPreview(post.description, variables)} footer={renderPreview(post.footer, variables)} thumbnailUrl={post.thumbnailUrl} imageUrl={post.imageUrl} timestamp={post.showTimestamp} />
+        <EmbedPreview color={post.color} title={renderPreview(post.title, variables)} description={renderPreview(post.description, variables)} footer={renderPreview(post.footer, variables)} thumbnailUrl={post.thumbnailUrl === "{serverIcon}" ? serverIcon : post.thumbnailUrl} imageUrl={post.imageUrl === "{serverIcon}" ? serverIcon : post.imageUrl} timestamp={post.showTimestamp} />
         <div className="mt-2 flex gap-2"><span className="rounded bg-[#248046] px-3 py-2 text-xs text-white">Upvote (12)</span><span className="rounded bg-[#da373c] px-3 py-2 text-xs text-white">Downvote (2)</span></div>
       </PreviewMessage>
     </div>
@@ -274,8 +307,8 @@ function EmbedPreview({ color, title, description, footer, thumbnailUrl, imageUr
       <span className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: validColor(color) }} />
       <div className="flex gap-3">
         <div className="min-w-0 flex-1">
-          {title && <div className="font-semibold text-sm text-white break-words"><ReactMarkdown>{title}</ReactMarkdown></div>}
-          {description && <div className="mt-1 text-xs leading-5 break-words prose-invert"><ReactMarkdown>{description}</ReactMarkdown></div>}
+          {title && <div className="font-semibold text-sm text-white break-words"><DiscordMarkdown>{title}</DiscordMarkdown></div>}
+          {description && <DiscordMarkdown className="mt-1 text-xs leading-5 break-words">{description}</DiscordMarkdown>}
         </div>
         {isHttpsUrl(thumbnailUrl) && <img src={thumbnailUrl} alt="" className="h-16 w-16 rounded object-cover shrink-0" />}
       </div>
@@ -286,7 +319,7 @@ function EmbedPreview({ color, title, description, footer, thumbnailUrl, imageUr
 }
 
 function PlainPreview({ title, description, footer }: { title: string; description: string; footer: string }) {
-  return <div className="text-xs leading-5 text-[#dbdee1]"><ReactMarkdown>{[title ? `**${title}**` : "", description, footer ? `-# ${footer}` : ""].filter(Boolean).join("\n")}</ReactMarkdown></div>;
+  return <DiscordMarkdown className="text-xs leading-5 text-[#dbdee1]">{[title ? `**${title}**` : "", description, footer ? `-# ${footer}` : ""].filter(Boolean).join("\n")}</DiscordMarkdown>;
 }
 
 function PreviewMessage({ title, children }: { title: string; children: React.ReactNode }) {

@@ -68,11 +68,10 @@ export function BlacklistFallback() {
           {/* Message */}
           <div className="space-y-3 mb-8">
             <p className="text-sm text-foreground font-semibold">
-              You have been blacklisted from using Cadia.
+              Access to Cadia is restricted for this server.
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              This server has been blacklisted by the Cadia team. You can no
-              longer access the dashboard or use Cadia's features in this server.
+              Cadia is unavailable in this server because an access restriction is active.
             </p>
             {info?.reason && (
               <div className="mt-4 p-3 rounded-lg border border-fail/30 bg-fail/5 text-left">
@@ -85,7 +84,7 @@ export function BlacklistFallback() {
               </div>
             )}
             <p className="text-xs text-muted-foreground leading-relaxed mt-4">
-              Contact Cadia support to resolve this problem.
+              Contact Cadia Support if you believe this restriction should be reviewed.
             </p>
           </div>
 
@@ -98,7 +97,7 @@ export function BlacklistFallback() {
           >
             <Button className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold h-12 px-6">
               <MessageCircle className="h-4 w-4 mr-2" />
-              Contact Cadia Support
+              Request a Review
             </Button>
           </a>
         </motion.div>

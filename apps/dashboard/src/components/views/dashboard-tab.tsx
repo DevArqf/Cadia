@@ -62,9 +62,9 @@ function timeAgo(ts: number, now: number): string {
 
 /** Split log details into the main description and a reason (if present). */
 function splitDetails(details: string): { main: string; reason: string | null } {
-  const reasonMatch = details.match(/—\s*reason:\s*(.+?)$/i) || details.match(/\breason:\s*(.+?)$/i);
+  const reasonMatch = details.match(/:\s*reason:\s*(.+?)$/i) || details.match(/\breason:\s*(.+?)$/i);
   if (reasonMatch) {
-    const main = details.replace(reasonMatch[0], "").replace(/—\s*$/, "").trim();
+    const main = details.replace(reasonMatch[0], "").replace(/:\s*$/, "").trim();
     return { main, reason: reasonMatch[1].trim() };
   }
   return { main: details, reason: null };
@@ -182,7 +182,7 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-5">
-      {/* Header — reduced (no online %, no region) */}
+      {/* Header : reduced (no online %, no region) */}
       <div className="cadia-card cadia-card-hover p-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div
@@ -233,7 +233,7 @@ export function DashboardTab() {
         </div>
       </div>
 
-      {/* Quick stats — 4 cards */}
+      {/* Quick stats : 4 cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: Zap, label: "Boost Level", value: `Lvl ${server.boostLevel}`, sub: `${server.boostCount} boosts` },
@@ -268,7 +268,7 @@ export function DashboardTab() {
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold flex items-center gap-1.5">
               <Terminal className="h-3 w-3 text-cadia" />
-              Command Prefix
+              Prefix
             </Label>
             <Input
               type="text"
@@ -287,7 +287,7 @@ export function DashboardTab() {
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold flex items-center gap-1.5">
               <Bot className="h-3 w-3 text-cadia" />
-              Bot Nickname
+              Server Nickname
             </Label>
             <Input
               type="text"
@@ -302,7 +302,7 @@ export function DashboardTab() {
             </p>
           </div>
 
-          {/* Update Channel — single-select dropdown */}
+          {/* Update Channel : single-select dropdown */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold flex items-center gap-1.5">
               <Bell className="h-3 w-3 text-cadia" />
@@ -322,14 +322,14 @@ export function DashboardTab() {
                       {selectedChannel.name}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground text-sm">Select a channel…</span>
+                    <span className="text-muted-foreground text-sm">Choose a channel...</span>
                   )}
                   <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0 max-w-[300px]" align="start">
                 <Command>
-                  <CommandInput placeholder="Search channels…" />
+                  <CommandInput placeholder="Search channels..." />
                   <CommandList>
                     <CommandEmpty>No channels found.</CommandEmpty>
                     <CommandGroup>
@@ -368,18 +368,18 @@ export function DashboardTab() {
             className="cadia-btn bg-cadia text-background hover:bg-cadia-dark text-sm font-semibold"
           >
             <Save className="h-3.5 w-3.5 mr-1.5" />
-            {isSavingBotConfig ? "Saving..." : "Save Configuration"}
+            {isSavingBotConfig ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>
 
-      {/* Role management — selected roles shown inside the selection menu */}
+      {/* Role management : selected roles shown inside the selection menu */}
       <div className="cadia-card p-5">
         <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-cadia" />
             <h3 className="text-sm font-semibold text-foreground">
-              Cadia Manager Roles
+              Dashboard Access Roles
             </h3>
             <span className="text-[10px] text-muted-foreground bg-muted/50 border border-border/50 px-2 py-0.5 rounded-md">
               {managerRoles.length} Selected · {server.roles.length} Total Roles
@@ -396,7 +396,7 @@ export function DashboardTab() {
         </div>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
           Choose which roles can manage Cadia through this dashboard. Members
-          must hold one of these roles (or have Administrator / Manage Server)
+          Members need one of these roles, Administrator, or Manage Server to configure Cadia.
           to control the bot.
         </p>
 
@@ -410,7 +410,7 @@ export function DashboardTab() {
             >
               {managerRoles.length === 0 ? (
                 <span className="text-muted-foreground py-1.5 text-sm">
-                  Restricted to Administrator by default — select roles to grant access
+                  Administrators only by default. Select roles to grant access.
                 </span>
               ) : (
                 <div className="flex items-center gap-1.5 flex-wrap py-1.5">
@@ -457,7 +457,7 @@ export function DashboardTab() {
           </PopoverTrigger>
           <PopoverContent className="p-0 max-w-[400px]" align="start">
             <Command>
-              <CommandInput placeholder="Search roles…" />
+              <CommandInput placeholder="Search roles..." />
               <CommandList>
                 <CommandEmpty>No roles found.</CommandEmpty>
                 <CommandGroup>
@@ -501,20 +501,20 @@ export function DashboardTab() {
         </Popover>
       </div>
 
-      {/* Recent Activity — scrollable container */}
+      {/* Recent Activity : scrollable container */}
       <div className="cadia-card overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-border/40 shrink-0">
           <div className="h-6 w-6 rounded-md flex items-center justify-center border bg-warning/20 border-warning/40 text-warning">
             <History className="h-3.5 w-3.5" />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
+          <h3 className="text-sm font-semibold text-foreground">Configuration Activity</h3>
           <span className="text-[10px] text-muted-foreground ml-auto">
             {recentLogs.length} event{recentLogs.length === 1 ? "" : "s"}
           </span>
         </div>
         {recentLogs.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-6">
-            No recent activity.
+            No configuration changes recorded yet.
           </p>
         ) : (
           <div

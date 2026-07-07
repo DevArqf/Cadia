@@ -19,6 +19,7 @@ const { serializeSuggestionConfig } = require('../src/lib/ipc/botIpcServer');
 test('suggestion panels support embed and message styling with persistent controls', () => {
 	const embedPanel = buildSuggestionPanel('embed');
 	const messagePanel = buildSuggestionPanel('message');
+	const v2Panel = buildSuggestionPanel({ style: 'componentsV2', panel: { title: 'Ideas', description: 'Before\n{separator:large}\nAfter' } });
 
 	assert.equal(embedPanel.embeds.length, 1);
 	assert.equal(embedPanel.components[0].components[0].data.custom_id, 'suggestions:open');
@@ -26,6 +27,8 @@ test('suggestion panels support embed and message styling with persistent contro
 	assert.match(messagePanel.content, /suggestion/i);
 	assert.equal(messagePanel.components[0].components[0].data.custom_id, 'suggestions:open');
 	assert.deepEqual(messagePanel.allowedMentions, { parse: [] });
+	assert.ok(v2Panel.flags);
+	assert.doesNotThrow(() => v2Panel.components[0].toJSON());
 });
 
 test('suggestion modal enforces bounded title and body input', () => {

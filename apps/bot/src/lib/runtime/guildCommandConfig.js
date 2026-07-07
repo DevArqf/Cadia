@@ -7,19 +7,19 @@ const MAX_RESPONSE_LENGTH = 500;
 const cache = new Map();
 const IMMUTABLE_COMMANDS = new Set(['vote', 'top-gg']);
 const IMMUTABLE_MODULES = new Set(['topgg']);
+const DASHBOARD_EXCLUDED_COMMANDS = new Set(['vote', 'top-gg', 'blacklist-add', 'blacklist-list', 'blacklist-remove']);
 
 const MODULES = Object.freeze({
-	automod: { name: 'Automod', description: 'Native Discord content, spam, and mention protection.', category: 'Moderation' },
-	blacklist: { name: 'Blacklist', description: 'Server and member blacklist administration.', category: 'Moderation' },
-	counting: { name: 'Counting', description: 'Counting channels and counting rewards.', category: 'Community' },
-	levelling: { name: 'Levelling', description: 'Message XP, ranks, and leaderboards.', category: 'Community' },
-	logging: { name: 'Logging', description: 'Server audit and moderation event logging.', category: 'Logging' },
-	minigames: { name: 'Minigame', description: 'Interactive games and community challenges.', category: 'Fun' },
-	rpg: { name: 'RPG System', description: 'Cadia progression, combat, quests, and inventory.', category: 'RPG' },
-	suggestions: { name: 'Suggestions', description: 'Community suggestions and persistent voting.', category: 'Community' },
-	tickets: { name: 'Tickets', description: 'Support ticket panels and staff workflows.', category: 'Utility' },
+	automod: { name: 'AutoMod', description: 'Stop harmful content, spam, and mention abuse before it disrupts your server.', category: 'Moderation' },
+	counting: { name: 'Counting', description: 'Build a shared counting streak with configurable channels and rewards.', category: 'Community' },
+	levelling: { name: 'Levelling', description: 'Reward meaningful activity with XP, ranks, and competitive leaderboards.', category: 'Community' },
+	logging: { name: 'Logging', description: 'Keep a dependable record of important server and moderation activity.', category: 'Logging' },
+	minigames: { name: 'Minigames', description: 'Give members quick, interactive ways to play and compete together.', category: 'Fun' },
+	rpg: { name: 'RPG System', description: 'Create long-term progression through combat, quests, equipment, and rewards.', category: 'RPG' },
+	suggestions: { name: 'Suggestions', description: 'Collect ideas, measure support, and keep community feedback organized.', category: 'Community' },
+	tickets: { name: 'Tickets', description: 'Run private, structured support conversations with clear staff controls.', category: 'Utility' },
 	topgg: { name: 'Top.gg', description: 'Voting and bot-list integrations.', category: 'Utility', configurable: false },
-	welcome: { name: 'Welcoming', description: 'New-member greetings and welcome configuration.', category: 'Community' }
+	welcome: { name: 'Welcoming', description: 'Give every new member a polished introduction to your community.', category: 'Community' }
 });
 
 async function getGuildCommandConfig(guildId, { fresh = false } = {}) {
@@ -44,16 +44,38 @@ async function saveGuildCommandConfig(guildId, input, updatedBy = null, catalog 
 }
 
 function buildCommandCatalog(client, config = null) {
+	return buildDashboardCatalog(client, config).modules;
+}
+
+function buildDashboardCatalog(client, config = null) {
 	const commandStore = client.stores?.get?.('commands');
 	const commands = commandStore ? [...commandStore.values()] : [];
 	const moduleMap = new Map();
+	const standaloneCommands = [];
 
 	for (const command of commands) {
 		if (!command.supportsChatInputCommands?.() && !command.supportsMessageCommands?.() && !command.supportsContextMenuCommands?.()) continue;
-		if (isDeveloperCommand(command)) continue;
+		if (isDeveloperCommand(command) || DASHBOARD_EXCLUDED_COMMANDS.has(command.name)) continue;
 		const moduleId = resolveModuleId(command);
-		if (!moduleId) continue;
+		const policy = getCommandPolicy(config, command.name);
+		const serialized = {
+			id: command.name,
+			name: command.name,
+			description: command.description || 'Cadia command',
+			type: command.supportsChatInputCommands?.() ? 'Slash' : command.supportsContextMenuCommands?.() ? 'Context' : 'Command',
+			...policy,
+			configurable: true,
+			enabled: policy.enabled,
+			moduleId: moduleId || null,
+			moduleName: moduleId ? MODULES[moduleId]?.name || moduleId : null,
+			category: normalizeCommandCategory(command)
+		};
+		if (!moduleId) {
+			standaloneCommands.push(serialized);
+			continue;
+		}
 		const definition = MODULES[moduleId];
+		if (!definition || moduleId === 'topgg') continue;
 		if (!moduleMap.has(moduleId)) {
 			const policy = getModulePolicy(config, moduleId);
 			moduleMap.set(moduleId, {
@@ -67,26 +89,20 @@ function buildCommandCatalog(client, config = null) {
 				commands: []
 			});
 		}
-		const policy = getCommandPolicy(config, command.name);
-		moduleMap.get(moduleId).commands.push({
-			id: command.name,
-			name: command.name,
-			description: command.description || 'Cadia command',
-			type: command.supportsChatInputCommands?.() ? 'Slash' : command.supportsContextMenuCommands?.() ? 'Context' : 'Command',
-			...policy,
-			configurable: !IMMUTABLE_COMMANDS.has(command.name),
-			enabled: IMMUTABLE_COMMANDS.has(command.name) ? true : policy.enabled
-		});
+		moduleMap.get(moduleId).commands.push(serialized);
 	}
 
-	return [...moduleMap.values()]
+	const modules = [...moduleMap.values()]
 		.map((module) => ({ ...module, commands: module.commands.sort((left, right) => left.name.localeCompare(right.name)) }))
 		.sort((left, right) => left.name.localeCompare(right.name));
+	return { modules, commands: standaloneCommands.sort((left, right) => left.name.localeCompare(right.name)) };
 }
 
 function normalizeStoredConfig(input = {}, catalog = null) {
-	const moduleIds = new Set((catalog || []).map((module) => module.id));
-	const commandIds = new Set((catalog || []).flatMap((module) => module.commands.map((command) => command.name)));
+	const catalogModules = Array.isArray(catalog) ? catalog : catalog?.modules || [];
+	const standaloneCommands = Array.isArray(catalog?.commands) ? catalog.commands : [];
+	const moduleIds = new Set(catalogModules.map((module) => module.id));
+	const commandIds = new Set([...catalogModules.flatMap((module) => module.commands.map((command) => command.name)), ...standaloneCommands.map((command) => command.name)]);
 	const modules = {};
 	const commands = {};
 
@@ -109,7 +125,8 @@ function resolveModuleId(command) {
 	const subcategory = String(command.subCategory || command.fullCategory?.[1] || '').toLowerCase();
 	if (category !== 'systems') return null;
 	if (subcategory.includes('automod')) return 'automod';
-	if (subcategory.includes('blacklist')) return 'blacklist';
+	// Blacklist is a developer-only enforcement system, not a guild module.
+	if (subcategory.includes('blacklist')) return null;
 	if (subcategory.includes('counting')) return 'counting';
 	if (subcategory.includes('levelling')) return 'levelling';
 	if (subcategory.includes('logging')) return 'logging';
@@ -124,11 +141,18 @@ function resolveModuleId(command) {
 
 function isCommandEnabled(config, command) {
 	if (IMMUTABLE_COMMANDS.has(command.name)) return true;
+	if (isDeveloperCommand(command)) return true;
 	if (!config) return true;
 	const moduleId = resolveModuleId(command);
-	if (!moduleId) return true;
+	if (!moduleId) return getCommandPolicy(config, command.name).enabled;
 	if (!getModulePolicy(config, moduleId).enabled) return false;
 	return getCommandPolicy(config, command.name).enabled;
+}
+
+function normalizeCommandCategory(command) {
+	const value = String(command.category || command.fullCategory?.[0] || 'Utility');
+	const allowed = ['Moderation', 'RPG', 'Utility', 'Fun', 'Logging', 'Community'];
+	return allowed.find((category) => category.toLowerCase() === value.toLowerCase()) || 'Utility';
 }
 
 function isModuleEnabled(config, moduleId) {
@@ -195,9 +219,11 @@ function clearGuildCommandConfigCache() {
 
 module.exports = {
 	MODULES,
+	DASHBOARD_EXCLUDED_COMMANDS,
 	IMMUTABLE_COMMANDS,
 	IMMUTABLE_MODULES,
 	buildCommandCatalog,
+	buildDashboardCatalog,
 	clearGuildCommandConfigCache,
 	getGuildCommandConfig,
 	getCommandPolicy,

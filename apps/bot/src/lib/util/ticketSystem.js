@@ -4,16 +4,33 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	ChannelType,
+	ContainerBuilder,
 	EmbedBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
 	MessageFlags,
-	PermissionFlagsBits
+	ModalBuilder,
+	PermissionFlagsBits,
+	SeparatorBuilder,
+	SeparatorSpacingSize,
+	SectionBuilder,
+	StringSelectMenuBuilder,
+	StringSelectMenuOptionBuilder,
+	TextDisplayBuilder,
+	TextInputBuilder,
+	TextInputStyle,
+	ThumbnailBuilder
 } = require('discord.js');
 const { color, emojis } = require('../../config');
 const { TicketConfigSchema, TicketSchema } = require('../schemas/ticketSchema');
+const { normalizeTicketAppearance, renderTicketTemplate } = require('../tickets/appearance');
+const { addTemplateText } = require('./componentsV2');
 
 const TICKET_OPEN_ID = 'ticket:open';
 const TICKET_CLAIM_ID = 'ticket:claim';
 const TICKET_CLOSE_ID = 'ticket:close';
+const TICKET_CLOSE_SUBMIT_ID = 'ticket:close:submit';
+const TICKET_DELETE_DELAY_MS = 5_000;
 
 async function getTicketConfig(guildId) {
 	let config = await TicketConfigSchema.findOne({ guildId });
@@ -24,6 +41,9 @@ async function getTicketConfig(guildId) {
 	config.ticketNameFormat = config.ticketNameFormat || 'ticket-{username}';
 	config.title = config.title || 'Need help?';
 	config.description = config.description || 'Open a ticket and the support team will help you as soon as possible.';
+	const appearance = normalizeTicketAppearance(config);
+	config.panel = appearance.panel;
+	config.openedTicket = appearance.openedTicket;
 	return config;
 }
 
@@ -31,7 +51,9 @@ async function updateTicketConfig(guildId, patch) {
 	const config = await getTicketConfig(guildId);
 	const nextPatch = { ...patch };
 	if (patch.staffRoleIds) nextPatch.staffRoleIds = normalizeStaffRoleIds(patch);
-	Object.assign(config, nextPatch, { updatedAt: Date.now() });
+	Object.assign(config, nextPatch);
+	const appearance = normalizeTicketAppearance(config);
+	Object.assign(config, appearance, { title: appearance.panel.title, description: appearance.panel.description, updatedAt: Date.now() });
 	await config.save();
 	return config;
 }
@@ -70,11 +92,7 @@ async function createTicket(interaction) {
 		updatedAt: Date.now()
 	});
 
-	await channel.send({
-		content: `${interaction.user}${formatStaffRoleMentions(config.staffRoleIds)}`,
-		embeds: [ticketWelcomeEmbed(interaction.user, ticket, config)],
-		components: [ticketControlRow(ticket)]
-	});
+	await channel.send(buildTicketWelcomePayload(interaction.user, ticket, config, interaction.guild));
 
 	return interaction.reply({
 		embeds: [successEmbed('Ticket Created', `Your ticket has been created in ${channel}.`)],
@@ -110,7 +128,8 @@ async function closeTicket(interaction, reason = 'No reason provided.') {
 		});
 	}
 
-	await interaction.reply({ embeds: [successEmbed('Closing Ticket', 'Saving transcript and closing this ticket in a few seconds.')] });
+	const deleteAt = Date.now() + TICKET_DELETE_DELAY_MS;
+	await interaction.reply({ embeds: [successEmbed('Closing Ticket', `Saving the transcript now. This ticket will be deleted in **5 seconds** (<t:${Math.ceil(deleteAt / 1000)}:R>).\n**Reason:** ${reason || 'No reason provided.'}`)] });
 	await sendTicketTranscript(interaction, ticket, reason);
 
 	ticket.status = 'closed';
@@ -120,7 +139,15 @@ async function closeTicket(interaction, reason = 'No reason provided.') {
 	ticket.updatedAt = Date.now();
 	await ticket.save();
 
-	setTimeout(() => interaction.channel.delete(`Ticket closed by ${interaction.user.tag}: ${reason}`).catch(() => null), 5000);
+	setTimeout(() => interaction.channel.delete(`Ticket closed by ${interaction.user.tag}: ${reason || 'No reason provided.'}`).catch(() => null), TICKET_DELETE_DELAY_MS);
+}
+
+function buildCloseTicketModal() {
+	return new ModalBuilder().setCustomId(TICKET_CLOSE_SUBMIT_ID).setTitle('Close Ticket').addComponents(
+		new ActionRowBuilder().addComponents(
+			new TextInputBuilder().setCustomId('reason').setLabel('Reason (optional)').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(500)
+		)
+	);
 }
 
 async function addTicketUser(interaction, user) {
@@ -162,28 +189,58 @@ async function removeTicketUser(interaction, user) {
 	return interaction.reply({ embeds: [successEmbed('User Removed', `${user} can no longer view this ticket.`)] });
 }
 
-function buildTicketPanel(config) {
+function buildTicketPanel(config, guild = null) {
+	const panel = normalizeTicketAppearance(config).panel;
+	const variables = { maxopen: String(config.maxOpenTickets || 1), paneltitle: panel.title, servericon: guild?.iconURL?.({ size: 1024 }) || '' };
+	const title = renderTicketTemplate(panel.title, variables, 256);
+	const description = renderTicketTemplate(panel.description, variables, 4096);
+	const footer = renderTicketTemplate(panel.footer, variables, 2048);
+	const author = renderTicketTemplate(panel.authorName, variables, 256);
+	const thumbnailUrl = renderAsset(panel.thumbnailUrl, variables);
+	const imageUrl = renderAsset(panel.imageUrl, variables);
+	const control = buildOpenTicketControl(panel);
+
+	if (panel.style === 'componentsV2') {
+		const container = new ContainerBuilder().setAccentColor(Number.parseInt(panel.color.slice(1), 16));
+		const header = [title ? `## ${title}` : '', author ? `-# ${author}` : ''].filter(Boolean).join('\n');
+		if (thumbnailUrl) {
+			container.addSectionComponents(
+				new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(header || '## Open a Ticket')).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailUrl))
+			);
+		} else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header || '## Open a Ticket'));
+		addTemplateText(container, description || 'Open a ticket below.');
+		if (imageUrl) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(imageUrl)));
+		if (footer || panel.showTimestamp) {
+			addTemplateText(container, [footer ? `-# ${footer}` : '', panel.showTimestamp ? `-# Sent <t:${Math.floor(Date.now() / 1000)}:F>` : ''].filter(Boolean).join('\n'));
+		}
+		container.addActionRowComponents(new ActionRowBuilder().addComponents(control));
+		return { flags: MessageFlags.IsComponentsV2, components: [container], allowedMentions: { parse: [] } };
+	}
 	const embed = new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(config.title)
-		.setDescription(
-			[
-				config.description,
-				'',
-				`${emojis.custom.mail} **Open a private ticket** with the support team.`,
-				`${emojis.custom.info} **Limit:** ${config.maxOpenTickets} open ticket${config.maxOpenTickets === 1 ? '' : 's'} per member.`
-			].join('\n')
-		)
-		.setFooter({ text: 'Cadia Ticket System' });
+		.setColor(panel.color)
+		.setTitle(title)
+		.setDescription(description);
+	if (author) embed.setAuthor({ name: author, ...(renderAsset(panel.authorIconUrl, variables) ? { iconURL: renderAsset(panel.authorIconUrl, variables) } : {}) });
+	if (footer) embed.setFooter({ text: footer, ...(renderAsset(panel.footerIconUrl, variables) ? { iconURL: renderAsset(panel.footerIconUrl, variables) } : {}) });
+	if (thumbnailUrl) embed.setThumbnail(thumbnailUrl);
+	if (imageUrl) embed.setImage(imageUrl);
+	if (panel.showTimestamp) embed.setTimestamp();
 
 	return {
 		embeds: [embed],
-		components: [
-			new ActionRowBuilder().addComponents(
-				new ButtonBuilder().setCustomId(TICKET_OPEN_ID).setLabel('Open Ticket').setEmoji(emojis.custom.mail).setStyle(ButtonStyle.Primary)
-			)
-		]
+		components: [new ActionRowBuilder().addComponents(control)]
 	};
+}
+
+function buildOpenTicketControl(panel) {
+	if (panel.controlType === 'select') {
+		const option = new StringSelectMenuOptionBuilder().setLabel(panel.buttonLabel).setValue('open');
+		if (panel.buttonEmoji) option.setEmoji(panel.buttonEmoji);
+		return new StringSelectMenuBuilder().setCustomId(TICKET_OPEN_ID).setPlaceholder(panel.buttonLabel).addOptions(option);
+	}
+	const button = new ButtonBuilder().setCustomId(TICKET_OPEN_ID).setLabel(panel.buttonLabel).setStyle(ButtonStyle.Primary);
+	if (panel.buttonEmoji) button.setEmoji(panel.buttonEmoji);
+	return button;
 }
 
 function ticketControlRow(ticket) {
@@ -313,19 +370,67 @@ async function buildTranscript(channel) {
 		.join('\n\n');
 }
 
-function ticketWelcomeEmbed(user, ticket, config) {
-	return new EmbedBuilder()
-		.setColor(color.default)
-		.setTitle(`Ticket #${ticket.ticketNumber}`)
-		.setDescription(
-			[
-				`${emojis.custom.person} **Opened By:** ${user}`,
-				`${emojis.custom.clock} **Created:** <t:${Math.floor(ticket.createdAt / 1000)}:R>`,
-				'',
-				'Describe what you need help with. Staff can claim this ticket and close it when the issue is resolved.'
-			].join('\n')
-		)
-		.setFooter({ text: config.title });
+function ticketWelcomeEmbed(user, ticket, config, guild = null) {
+	const appearance = normalizeTicketAppearance(config);
+	const opened = appearance.openedTicket;
+	const variables = {
+		user: String(user),
+		username: user.username,
+		userid: user.id,
+		ticketnumber: String(ticket.ticketNumber),
+		created: `<t:${Math.floor(ticket.createdAt / 1000)}:R>`,
+		paneltitle: appearance.panel.title,
+		servericon: guild?.iconURL?.({ size: 1024 }) || ''
+	};
+	const embed = new EmbedBuilder().setColor(opened.color)
+		.setTitle(renderTicketTemplate(opened.title, variables, 256))
+		.setDescription(renderTicketTemplate(opened.description, variables, 4096));
+	if (opened.authorName) embed.setAuthor({ name: renderTicketTemplate(opened.authorName, variables, 256), ...(renderAsset(opened.authorIconUrl, variables) ? { iconURL: renderAsset(opened.authorIconUrl, variables) } : {}) });
+	if (opened.footer) embed.setFooter({ text: renderTicketTemplate(opened.footer, variables, 2048), ...(renderAsset(opened.footerIconUrl, variables) ? { iconURL: renderAsset(opened.footerIconUrl, variables) } : {}) });
+	if (renderAsset(opened.thumbnailUrl, variables)) embed.setThumbnail(renderAsset(opened.thumbnailUrl, variables));
+	if (renderAsset(opened.imageUrl, variables)) embed.setImage(renderAsset(opened.imageUrl, variables));
+	if (opened.showTimestamp) embed.setTimestamp();
+	return embed;
+}
+
+function buildTicketWelcomePayload(user, ticket, config, guild = null) {
+	const appearance = normalizeTicketAppearance(config);
+	const opened = appearance.openedTicket;
+	if (opened.style !== 'componentsV2') {
+		return {
+			content: `${user}${formatStaffRoleMentions(config.staffRoleIds)}`,
+			embeds: [ticketWelcomeEmbed(user, ticket, config, guild)],
+			components: [ticketControlRow(ticket)]
+		};
+	}
+	const variables = ticketTemplateVariables(user, ticket, appearance, guild);
+	const container = new ContainerBuilder().setAccentColor(Number.parseInt(opened.color.slice(1), 16));
+	const title = renderTicketTemplate(opened.title, variables, 256);
+	const author = renderTicketTemplate(opened.authorName, variables, 256);
+	const thumbnail = renderAsset(opened.thumbnailUrl, variables);
+	const header = [`${user}${formatStaffRoleMentions(config.staffRoleIds)}`, title ? `## ${title}` : '', author ? `-# ${author}` : ''].filter(Boolean).join('\n');
+	if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(header)).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
+	else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+	addTemplateText(container, renderTicketTemplate(opened.description, variables, 4096));
+	const image = renderAsset(opened.imageUrl, variables);
+	if (image) container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(image)));
+	const footer = renderTicketTemplate(opened.footer, variables, 2048);
+	if (footer || opened.showTimestamp) addTemplateText(container, [footer ? `-# ${footer}` : '', opened.showTimestamp ? `-# Created <t:${Math.floor(ticket.createdAt / 1000)}:F>` : ''].filter(Boolean).join('\n'));
+	container.addActionRowComponents(ticketControlRow(ticket));
+	return { flags: MessageFlags.IsComponentsV2, components: [container], allowedMentions: { users: [user.id], roles: config.staffRoleIds || [] } };
+}
+
+function ticketTemplateVariables(user, ticket, appearance, guild) {
+	return {
+		user: String(user), username: user.username, userid: user.id, ticketnumber: String(ticket.ticketNumber),
+		created: `<t:${Math.floor(ticket.createdAt / 1000)}:R>`, paneltitle: appearance.panel.title,
+		servericon: guild?.iconURL?.({ size: 1024 }) || ''
+	};
+}
+
+function renderAsset(template, variables) {
+	const rendered = renderTicketTemplate(template, variables, 2000);
+	return /^https:\/\//i.test(rendered) ? rendered : '';
 }
 
 function ticketClosedEmbed(user, ticket, reason) {
@@ -369,9 +474,13 @@ function failEmbed(description) {
 module.exports = {
 	TICKET_CLAIM_ID,
 	TICKET_CLOSE_ID,
+	TICKET_CLOSE_SUBMIT_ID,
 	TICKET_OPEN_ID,
 	addTicketUser,
 	buildTicketPanel,
+	buildTicketWelcomePayload,
+	buildCloseTicketModal,
+	ticketWelcomeEmbed,
 	canManageTickets,
 	claimTicket,
 	closeTicket,

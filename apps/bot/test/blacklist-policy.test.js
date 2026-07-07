@@ -51,7 +51,7 @@ test('blacklist policy bypasses privileged users and queries normal guilds', asy
 
 test('blacklist add rejects malformed guild IDs before database and cache access', async () => {
 	const schemaPath = require.resolve('../src/lib/schemas/blacklistSchema');
-	const commandPath = require.resolve('../src/commands/Systems/Blacklist/blacklist-add');
+	const commandPath = require.resolve('../src/commands/Developer/Blacklist/blacklist-add');
 	const originalSchema = require.cache[schemaPath];
 	const originalCommand = require.cache[commandPath];
 	let databaseReads = 0;
