@@ -23,7 +23,7 @@ class UserEvent extends Listener {
 				},
 				{ label: 'Content', value: formatDeletedMessageContent(message.content), icon: emojis.custom.pencil }
 			],
-			{ color: color.fail, emoji: emojis.custom.trash, user: author }
+			{ color: color.fail, emoji: emojis.custom.trash, mediaURLs: deletedMessageImageUrls(message), user: author }
 		);
 	}
 }
@@ -33,4 +33,15 @@ function formatDeletedMessageContent(content) {
 	return `\`${String(text).replaceAll('`', '\\`')}\``;
 }
 
-module.exports = { UserEvent, formatDeletedMessageContent };
+function deletedMessageImageUrls(message) {
+	return Array.from(message.attachments?.values?.() || [])
+		.filter((attachment) => attachment.contentType?.startsWith('image/') || hasImageExtension(attachment.name))
+		.map((attachment) => attachment.url)
+		.filter(Boolean);
+}
+
+function hasImageExtension(filename) {
+	return /\.(avif|gif|jpe?g|png|webp)$/i.test(filename || '');
+}
+
+module.exports = { UserEvent, deletedMessageImageUrls, formatDeletedMessageContent };

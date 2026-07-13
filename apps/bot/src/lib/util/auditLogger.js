@@ -1,5 +1,7 @@
 const {
 	ContainerBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
 	MessageFlags,
 	SectionBuilder,
 	SeparatorBuilder,
@@ -136,6 +138,7 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 		.setAccentColor(accent(options.color || color.default))
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(new TextDisplayBuilder().setContent(formatDetails(details)))
+		.addMediaGalleryComponents(createAuditMediaGallery(options.mediaURLs))
 		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
 		.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${emojis.custom.clock} **Logged:** <t:${loggedAt}:F>\n-# <t:${loggedAt}:R>`));
 
@@ -150,6 +153,24 @@ async function sendAuditLog(guild, eventKey, title, details = [], options = {}) 
 	}
 
 	await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }).catch(() => null);
+}
+
+function createAuditMediaGallery(mediaURLs) {
+	const urls = Array.from(mediaURLs || [])
+		.filter((url) => isHttpUrl(url))
+		.slice(0, 10);
+	if (!urls.length) return [];
+
+	return [new MediaGalleryBuilder().addItems(...urls.map((url) => new MediaGalleryItemBuilder().setURL(url)))];
+}
+
+function isHttpUrl(value) {
+	try {
+		const url = new URL(value);
+		return url.protocol === 'https:' || url.protocol === 'http:';
+	} catch {
+		return false;
+	}
 }
 
 function claimAuditEvent(guildId, eventKey, title, details, now = Date.now()) {
