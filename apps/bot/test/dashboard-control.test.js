@@ -26,7 +26,7 @@ const {
 test('dashboard modules expose user-configurable systems and exclude developer blacklist controls', () => {
 	assert.deepEqual(
 		Object.values(MODULES).map((module) => module.name).sort(),
-		['Automod', 'Counting', 'Levelling', 'Logging', 'Minigame', 'RPG System', 'Suggestions', 'Tickets', 'Top.gg', 'Welcoming']
+		['AutoMod', 'Counting', 'Levelling', 'Logging', 'Minigames', 'RPG System', 'Suggestions', 'Tickets', 'Top.gg', 'Welcoming']
 	);
 	assert.equal(resolveModuleId(fakeCommand('blacklist-add', 'Systems', 'Blacklist')), null);
 });
