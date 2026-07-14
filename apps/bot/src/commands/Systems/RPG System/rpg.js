@@ -643,12 +643,16 @@ async function handleQuestInteraction(interaction) {
 	await interaction.deferUpdate();
 	let nextProfile = await rpg.requireProfile(interaction.guild.id, interaction.user.id);
 	const ephemeral = Boolean(session?.state?.ephemeral);
+	let selectedRegionId = session?.state?.selectedRegionId || null;
 	const customIdBase = `rpg-quest:${session?.sessionId || sessionId}`;
 
-	if (action === 'accept') {
+	if (action === 'region-select') {
+		selectedRegionId = interaction.values?.[0] || null;
+	} else if (action === 'accept') {
 		const questId = parts.at(-2);
 		const state = await rpg.acceptQuest(interaction.guild.id, interaction.user.id, questId);
 		nextProfile = state.profile;
+		selectedRegionId = null;
 	} else if (action === 'claim') {
 		const result = await rpg.claimQuestReward(interaction.guild.id, interaction.user.id);
 		await interaction.editReply(await buildQuestRewardReply(result, customIdBase, ephemeral));
@@ -661,10 +665,10 @@ async function handleQuestInteraction(interaction) {
 		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
 		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
 		messageId: interaction.message?.id || session?.messageId || null,
-		state: { ephemeral },
+		state: { ephemeral, selectedRegionId },
 		ttlMs: 120_000
 	});
-	await interaction.editReply(await buildQuestReply(nextProfile, customIdBase, ephemeral));
+	await interaction.editReply(await buildQuestReply(nextProfile, customIdBase, ephemeral, false, selectedRegionId));
 	return true;
 }
 
@@ -763,11 +767,12 @@ async function deleteCharacter(interaction) {
 	);
 }
 
-async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephemeral = false, disabled = false) {
-	const region = regions[profile.region];
-	const state = rpg.getQuestState(profile);
+async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephemeral = false, disabled = false, selectedRegionId = null) {
+	const state = rpg.getQuestState(profile, { regionId: selectedRegionId });
 	const quest = state.quest || state.availableQuest;
 	const activeQuest = state.activeQuest;
+	const region = regions[quest?.regionId] || regions[selectedRegionId] || regions[profile.region];
+	const availableRegions = activeQuest ? [] : rpg.availableQuestRegions(profile);
 	const questText = quest
 		? questPageText(quest, activeQuest)
 		: 'No NPC quest is available in this region yet. Travel onward or check back after clearing more gates.';
@@ -809,6 +814,26 @@ async function buildQuestReply(profile, customIdBase = 'rpg-quest:static', ephem
 		);
 	} else {
 		container.spliceComponents(0, 0, header);
+	}
+
+	if (!activeQuest && availableRegions.length > 1) {
+		container.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new StringSelectMenuBuilder()
+					.setCustomId(`${customIdBase}:region-select`)
+					.setPlaceholder('Choose an unlocked quest region')
+					.setDisabled(disabled)
+					.addOptions(
+						availableRegions.slice(0, 25).map(({ region: optionRegion, quest: optionQuest }) =>
+							new StringSelectMenuOptionBuilder()
+								.setLabel(optionRegion.name)
+								.setDescription(`${optionQuest.npc.name} - ${optionQuest.title}`)
+								.setValue(optionRegion.id)
+								.setDefault(optionRegion.id === quest?.regionId)
+						)
+					)
+			)
+		);
 	}
 
 	if (quest && !activeQuest) {

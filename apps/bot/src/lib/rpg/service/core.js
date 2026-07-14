@@ -136,7 +136,7 @@ function getQuestById(questId) {
 	return quest;
 }
 
-function getQuestState(profile) {
+function getQuestState(profile, options = {}) {
 	normalizeQuestFields(profile);
 	let activeQuest = profile.activeQuest;
 	let quest = activeQuest?.questId ? npcQuests.find((entry) => entry.id === activeQuest.questId) : null;
@@ -148,14 +148,31 @@ function getQuestState(profile) {
 		profile,
 		activeQuest,
 		quest,
-		availableQuest: activeQuest ? null : nextAvailableQuest(profile),
+		availableQuest: activeQuest ? null : nextAvailableQuest(profile, options.regionId),
 		completedQuests: profile.completedQuests || []
 	};
 }
 
-function nextAvailableQuest(profile) {
+function nextAvailableQuest(profile, preferredRegionId = null) {
 	const completed = new Set(profile.completedQuests || []);
-	return npcQuests.find((quest) => !completed.has(quest.id) && canStartQuest(profile, quest).ok) || null;
+	const candidates = npcQuests.filter((quest) => !completed.has(quest.id) && canStartQuest(profile, quest).ok);
+	return (
+		(preferredRegionId ? candidates.find((quest) => quest.regionId === preferredRegionId) : null) ||
+		candidates.find((quest) => quest.regionId === profile.region) ||
+		candidates[0] ||
+		null
+	);
+}
+
+function availableQuestRegions(profile) {
+	const completed = new Set(profile.completedQuests || []);
+	return Object.values(regions)
+		.sort((left, right) => left.chapter - right.chapter)
+		.map((region) => ({
+			region,
+			quest: npcQuests.find((quest) => quest.regionId === region.id && !completed.has(quest.id) && canStartQuest(profile, quest).ok) || null
+		}))
+		.filter((entry) => entry.quest);
 }
 
 function canStartQuest(profile, quest) {
@@ -165,7 +182,6 @@ function canStartQuest(profile, quest) {
 	const region = regions[quest.regionId];
 	const gate = canTravel(profile, region);
 	if (!gate.ok) return { ok: false, reason: `This quest is in ${region?.name || 'another region'}. ${gate.reason}` };
-	if (profile.region !== quest.regionId) return { ok: false, reason: `Travel to ${region.name} before accepting this quest.` };
 	return { ok: true };
 }
 
@@ -388,6 +404,7 @@ module.exports = {
 	adjustRank,
 	advanceQuest,
 	assertDatabaseReady,
+	availableQuestRegions,
 	canStartQuest,
 	canTravel,
 	classes,

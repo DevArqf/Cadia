@@ -170,6 +170,23 @@ test('RPG profiles display the selected badge', () => {
 	assert.match(JSON.stringify(profilePanel.toJSON()), /Featured Badge: Worldbreaker/);
 });
 
+test('NPC quests can be selected from every unlocked region', () => {
+	const profile = {
+		level: 20,
+		region: 'broken-gate',
+		defeatedBosses: ['harlequin', 'mossbound-regent'],
+		completedQuests: [],
+		activeQuest: null
+	};
+
+	const availableRegions = service.availableQuestRegions(profile).map((entry) => entry.region.id);
+
+	assert.deepEqual(availableRegions, ['broken-gate', 'ashwood-outskirts', 'glassmine-depths']);
+	assert.equal(service.getQuestState(profile, { regionId: 'ashwood-outskirts' }).availableQuest.regionId, 'ashwood-outskirts');
+	assert.equal(service.getQuestState(profile, { regionId: 'glassmine-depths' }).availableQuest.regionId, 'glassmine-depths');
+	assert.equal(service.canStartQuest(profile, service.getQuestById('ellon-glass-mite-prisms')).ok, true);
+});
+
 function interactionFor(subcommand, group = null) {
 	return {
 		guild: { id: 'guild' },
