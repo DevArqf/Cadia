@@ -299,6 +299,7 @@ class UserCommand extends CadiaCommand {
 					season: playerGrowthHandlers.season,
 					refer: playerGrowthHandlers.refer,
 					bestiary,
+					items: itemGuide,
 					delete: deleteCharacter
 				},
 				rpg
@@ -574,6 +575,26 @@ async function bestiary(interaction) {
 	});
 }
 
+async function itemGuide(interaction) {
+	const customIdBase = `rpg-items:${interaction.id}`;
+	const response = await interaction.reply({
+		components: [buildItemGuidePanel(customIdBase)],
+		flags: MessageFlags.IsComponentsV2,
+		withResponse: true
+	});
+	const message = response.resource?.message ?? (await interaction.fetchReply());
+	await saveInteractionSession({
+		kind: 'rpg-items',
+		sessionId: interaction.id,
+		ownerId: interaction.user.id,
+		guildId: interaction.guildId || interaction.guild?.id || null,
+		channelId: interaction.channelId || interaction.channel?.id || null,
+		messageId: message?.id || null,
+		state: { selectedId: null },
+		ttlMs: 180_000
+	});
+}
+
 async function handleRpgComponentInteraction(interaction) {
 	const customId = interaction.customId || '';
 	if (!customId.startsWith('rpg-')) return false;
@@ -585,6 +606,7 @@ async function handleRpgComponentInteraction(interaction) {
 		if (customId.startsWith('rpg-quest:')) return handleQuestInteraction(interaction);
 		if (customId.startsWith('rpg-inventory:')) return handleInventoryInteraction(interaction);
 		if (customId.startsWith('rpg-bestiary:')) return handleBestiaryInteraction(interaction);
+		if (customId.startsWith('rpg-items:')) return handleItemGuideInteraction(interaction);
 	} catch (error) {
 		await sendRpgIssue(interaction, error);
 		return true;
@@ -735,6 +757,28 @@ async function handleBestiaryInteraction(interaction) {
 		ttlMs: 180_000
 	});
 	await interaction.update({ components: [buildBestiaryPanel(`rpg-bestiary:${session?.sessionId || sessionId}`, selectedId)] });
+	return true;
+}
+
+async function handleItemGuideInteraction(interaction) {
+	const [, sessionId] = interaction.customId.split(':');
+	const session = await getInteractionSession({ sessionId, messageId: interaction.message?.id });
+	const ownerId = session?.ownerId || sessionId;
+	if (!(await ensureRpgSessionOwner(interaction, ownerId, 'Not Your Item Guide', `Run ${commandMention('rpg items')} to open your own item guide.`))) {
+		return true;
+	}
+
+	const selectedId = interaction.values[0];
+	await updateInteractionSession(session?.sessionId || sessionId, {
+		kind: 'rpg-items',
+		ownerId,
+		guildId: interaction.guildId || interaction.guild?.id || session?.guildId || null,
+		channelId: interaction.channelId || interaction.channel?.id || session?.channelId || null,
+		messageId: interaction.message?.id || session?.messageId || null,
+		state: { selectedId },
+		ttlMs: 180_000
+	});
+	await interaction.update({ components: [buildItemGuidePanel(`rpg-items:${session?.sessionId || sessionId}`, selectedId)] });
 	return true;
 }
 
@@ -1050,6 +1094,135 @@ function regionForEncounter(encounterId) {
 
 function encounterRecordById(encounterId) {
 	return encounterRecords().find((record) => record.encounter.id === encounterId);
+}
+
+function buildItemGuidePanel(customIdBase, selectedId = null, disabled = false) {
+	const selected = selectedId ? itemRecordById(selectedId) : null;
+	const categories = itemGuideCategories().filter((category) => category.records.length);
+	const container = new ContainerBuilder()
+		.setAccentColor(Number.parseInt(color.RPG.replace('#', ''), 16))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				`${icon.equipment} **RPG Item Guide**\n-# Choose gear or consumables from the dropdowns to inspect stats, traits, rarity, and sources.`
+			)
+		);
+
+	for (const category of categories) {
+		container.addActionRowComponents(
+			new ActionRowBuilder().addComponents(
+				new StringSelectMenuBuilder()
+					.setCustomId(`${customIdBase}:${category.id}`)
+					.setPlaceholder(`Choose ${category.label.toLowerCase()}`)
+					.setDisabled(disabled)
+					.addOptions(itemGuideOptions(category.records, selectedId))
+			)
+		);
+	}
+
+	container
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(new TextDisplayBuilder().setContent(selected ? formatItemGuideInfo(selected) : formatItemGuideIntro(categories)))
+		.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			new TextDisplayBuilder().setContent(
+				disabled ? `-# This item guide expired. Run ${commandMention('rpg items')} again.` : `-# Item guide expires after 3 minutes.`
+			)
+		);
+
+	return container;
+}
+
+function itemGuideCategories() {
+	const records = itemRecords();
+	return [
+		{ id: 'weapon', label: 'Weapons', records: records.filter((record) => record.item.slot === 'weapon') },
+		{ id: 'armor', label: 'Armor', records: records.filter((record) => record.item.slot === 'armor') },
+		{ id: 'charm', label: 'Charms', records: records.filter((record) => record.item.slot === 'charm') },
+		{ id: 'consumable', label: 'Consumables', records: records.filter((record) => record.item.slot === 'consumable') }
+	];
+}
+
+function itemGuideOptions(records, selectedId) {
+	return records.slice(0, 25).map(({ item }) => {
+		const option = new StringSelectMenuOptionBuilder()
+			.setLabel(item.name)
+			.setDescription(`${titleCase(item.rarity)} ${titleCase(item.slot)} - ${formatItemStats(item.stats) || 'No stats'}`)
+			.setValue(item.id)
+			.setDefault(item.id === selectedId);
+		const emoji = itemEmojiObject(item);
+		if (emoji) option.setEmoji(emoji);
+		return option;
+	});
+}
+
+function formatItemGuideIntro(categories) {
+	const counts = Object.fromEntries(categories.map((category) => [category.id, category.records.length]));
+	return [
+		`${icon.info} **Available Records**`,
+		`${icon.damageDealt || icon.equipment} Weapons: **${counts.weapon || 0}**`,
+		`${icon.health.full} Armor: **${counts.armor || 0}**`,
+		`${icon.shards} Charms: **${counts.charm || 0}**`,
+		`${icon.loot} Consumables: **${counts.consumable || 0}**`,
+		'',
+		`${icon.arrowRight} Use this guide to compare gear before equipping with ${commandMention('rpg equip')}.`,
+		`${icon.arrowRight} Sources show whether an item comes from mobs, NPC quests, seasonal rewards, referrals, or server bosses.`
+	].join('\n');
+}
+
+function formatItemGuideInfo(record) {
+	const item = record.item;
+	const equipText =
+		item.slot === 'consumable'
+			? `Use consumables from ${commandMention('rpg inventory')} during supported RPG actions.`
+			: `Equip this with ${commandMention('rpg equip')} when it is in your inventory.`;
+
+	return [
+		`${formatItemName(item)} **${item.name}**`,
+		`-# ${titleCase(item.rarity)} ${titleCase(item.slot)}`,
+		[
+			`${icon.settings} **Stats:** ${formatItemStats(item.stats) || 'None'}`,
+			`${icon.success} **Traits:** ${formatTraits(item.traits)}`,
+			`${icon.loot} **Source:** ${record.sources.join(', ') || 'Unknown'}`
+		].join('\n'),
+		`${icon.info} **Field Notes:** ${item.description}`,
+		`${icon.arrowRight} ${equipText}`
+	].join('\n\n');
+}
+
+function itemRecords() {
+	return Object.values(items)
+		.map((item) => ({ item, sources: itemSources(item.id) }))
+		.sort((left, right) => itemSortValue(left.item) - itemSortValue(right.item) || left.item.name.localeCompare(right.item.name));
+}
+
+function itemRecordById(itemId) {
+	return itemRecords().find((record) => record.item.id === itemId);
+}
+
+function itemSources(itemId) {
+	const sources = new Set();
+	for (const record of encounterRecords()) {
+		if (record.encounter.loot?.includes(itemId)) sources.add(`${record.encounter.name} in ${record.region.name}`);
+	}
+	for (const quest of npcQuests) {
+		if (quest.rewards?.items?.includes(itemId)) sources.add(`${quest.npc.name}'s quest in ${regions[quest.regionId]?.name || quest.regionId}`);
+	}
+	if (itemId === 'stormglass_aura') sources.add('Seasonal quest reward');
+	if (itemId === 'gatebound_crest') sources.add('Referral reward');
+	if (itemId === 'worldbreaker_sigil') sources.add('Server boss reward');
+	return [...sources];
+}
+
+function itemSortValue(item) {
+	const slots = { weapon: 0, armor: 1, charm: 2, consumable: 3 };
+	const rarities = { common: 0, uncommon: 1, rare: 2, limited: 3, referral: 4, cooperative: 5 };
+	return (slots[item.slot] ?? 9) * 100 + (rarities[item.rarity] ?? 50);
+}
+
+function formatItemStats(stats = {}) {
+	return Object.entries(stats)
+		.map(([stat, amount]) => `${titleCase(stat)} ${amount > 0 ? '+' : ''}${amount}`)
+		.join(', ');
 }
 
 function getOwnedEquipableItems(profile) {

@@ -116,6 +116,7 @@ function registerRpgCommand(registry, description, { badges, classes, encounters
 					.addStringOption((option) => option.setName('code').setDescription('Referral code to redeem'))
 			)
 			.addSubcommand((subcommand) => subcommand.setName('bestiary').setDescription('Inspect RPG bosses and mobs'))
+			.addSubcommand((subcommand) => subcommand.setName('items').setDescription('Inspect RPG items, gear, stats, and sources'))
 			.addSubcommand((subcommand) => subcommand.setName('delete').setDescription('Delete your RPG character'))
 			.addSubcommandGroup((group) =>
 				group
